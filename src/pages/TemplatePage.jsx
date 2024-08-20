@@ -46,10 +46,10 @@ export default function TemplatePage({ onSelectDesign, onSelectTemplate, templat
 
     return (
         <Layout>
-            <div className='flex flex-col gap-20 justify-center items-center'>
-                <h1 className='text-5xl'>Выберите шаблон</h1>
-                <div className='flex gap-4 flex-col'>
-                    <div className='flex justify-between items-center'>
+            <div className='w-full flex flex-col gap-9 justify-center items-center'>
+                <b className='text-5xl'>ВЫБЕРИТЕ ШАБЛОН</b>
+                <div className='flex flex-col w-full px-20'>
+                    <div className='flex gap-3 items-center  justify-center'>
                         <img
                             onClick={prevSlide}
                             className='h-24 cursor-pointer transform -scale-x-100'
@@ -58,7 +58,7 @@ export default function TemplatePage({ onSelectDesign, onSelectTemplate, templat
                         />
                         <div className='relative items-center box_templ'>
                             <div className='bg_mak'></div>
-                            <div className='absolute bottom-1 left-0 w-full h-full flex gap-10 justify-center items-center text-white text-2xl z-10'>
+                            <div className='absolute bottom-1 left-0 w-full h-full flex gap-10 justify-center items-center z-10'>
                                 {templates.map((template) => (
                                     <div
                                         key={template.id}
@@ -66,7 +66,7 @@ export default function TemplatePage({ onSelectDesign, onSelectTemplate, templat
                                         onClick={() => handleTemplateSelect(template.id)}
                                         style={{ cursor: 'pointer' }}
                                     >
-                                        <img src={template.url_png} alt={template.name} style={{ width: '250px', height: '400px' }} />
+                                        <img src={template.url_png} alt={template.name} style={{ width: '300px', height: '450px' }} />
                                     </div>
                                 ))}
                             </div>
@@ -78,24 +78,24 @@ export default function TemplatePage({ onSelectDesign, onSelectTemplate, templat
                             alt="Next"
                         />
                     </div>
-                    <div className='flex gap-20 justify-center items-center'>
-                        <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white' onClick={() => navigate('/')}>
+                    <div className='flex justify-between items-center'>
+                        <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={() => navigate('/')}>
                             <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
                         </button>
                         <button
                             onClick={() => handleDesignSelect('color')}
                             className={`border-2 rounded-3xl px-16 py-12 bg-white ${selectedDesign === 'color' ? 'ring-2 ring-blue-500' : ''}`}
                         >
-                            <p className='w-44 text-black'>ЦВЕТНОЕ ФОТО</p>
+                            <p className='w-44 text-black text-2xl font-medium'>ЦВЕТНОЕ ФОТО</p>
                         </button>
                         <button
                             onClick={() => handleDesignSelect('grayscale')}
-                            className={`grayscale border-2 rounded-3xl px-16 py-12 bg-white ${selectedDesign === 'grayscale' ? 'ring-2 ring-blue-500' : ''}`}
+                            className={`grayscale border-2 rounded-3xl px-12 py-8 bg-white ${selectedDesign === 'grayscale' ? 'ring-2 ring-blue-500' : ''}`}
                         >
-                            <p className='w-44 text-black'>ЧЕРНО-БЕЛОЕ ФОТО</p>
+                            <p className='w-44 text-black text-2xl font-medium'>ЧЕРНО-БЕЛОЕ ФОТО</p>
                         </button>
-                        <button className='cursor-pointer flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white' onClick={handleNext}>
-                            ВПЕРЕД <img className='w-5' src={templateTriangle} alt="Forward" />
+                        <button className='cursor-pointer flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white text-2xl bg-red-700' onClick={handleNext}>
+                            ДАЛЕЕ <img className='w-5' src={templateTriangle} alt="Forward" />
                         </button>
                     </div>
                 </div>

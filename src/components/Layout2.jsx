@@ -2,7 +2,7 @@ import '../App.css';
 
 export default function Layouts({ children }) {
     return (
-        <div className="flex justify-center items-center">
+        <div className="flex justify-center items-center scale-50">
             <div className="container2 select-none">
                 <div className='back-img'></div>
                 <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>

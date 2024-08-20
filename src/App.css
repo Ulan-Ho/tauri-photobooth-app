@@ -122,14 +122,14 @@ button {
 
 /* .main-screen { */
 .container1 {
-  width: 1200px;
+  width: 1280px;
   height: 1024px;
   position: relative;
   background-image: url(./assets/firstMainBg.jpeg);
 }
 
 .container2 {
-  width: 1200px;
+  width: 1280px;
   height: 1024px;
   position: relative;
   background-image: url(./assets/secondMainBg.jpeg);
@@ -314,13 +314,15 @@ button {
 }
 
 .box_templ {
-  width: 800px;
-  height: 550px;
+  width: 900px;
+  height: 630px;
   padding: 30px;
+  display: flex;
+  justify-content: center;
 }
 
 .bg_mak {
-  background-color: rgb(255, 255, 255);
+  background-color: rgb(246, 251, 218);
   border-radius: 20px;
   opacity: 0.6;
   top: 0;
@@ -329,4 +331,22 @@ button {
   height: 100%;
   background-size: cover;
   object-fit: cover;
+}
+
+.bg_print {
+  background-color: rgb(246, 251, 218);
+  border-radius: 20px;
+  opacity: 0.6;
+  width: 450px;
+  height: 550px;
+  background-size: cover;
+  object-fit: cover;
+}
+
+.box_print {
+  width: 450px;
+  height: 550px;
+  padding: 30px;
+  display: flex;
+  justify-content: center;
 }

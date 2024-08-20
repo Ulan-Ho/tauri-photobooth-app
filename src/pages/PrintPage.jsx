@@ -10,12 +10,12 @@ import lev from "../components/images_for_template/левое.png";
 import pre from "../components/images_for_template/правое.png";
 import left_word from "../components/images_for_template/word_left.png";
 import right_word from "../components/images_for_template/word_right.png";
+import printer from "../assets/printer.png";
 
 export default function PrintPage({ images, design, template }) {
   const canvasRef = useRef(null);
   const navigate = useNavigate();
-
-  const [isImage, setIsImage] = useState();
+  const [isImage, setIsImage] = useState(null);
 
   const drawImage = (ctx, src, x, y) => {
     const img = new Image();
@@ -37,26 +37,20 @@ export default function PrintPage({ images, design, template }) {
     };
   };
 
-
   useEffect(() => {
     const canvas = canvasRef.current;
     if (canvas && images.length > 0) {
       const ctx = canvas.getContext('2d');
       const bg = new Image();
-      bg.src = bg_screen; // Убедитесь, что bg_screen определен
+      bg.src = bg_screen;
       bg.onload = () => {
-        // Отрисовка фона
         ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
 
-        // Отрисовка изображений
-        if ( design == 'grayscale' ) {
+        if (design === 'grayscale') {
           ctx.filter = 'grayscale(100%)';
         }
-        
 
         let loadedImages = 0;
-
-
         images.forEach((image, index) => {
           const img = new Image();
           img.src = image.url;
@@ -72,80 +66,74 @@ export default function PrintPage({ images, design, template }) {
             ctx.drawImage(img, x2, y1, width, height);
 
             loadedImages++;
-          if (loadedImages === images.length) {
-            finalizeCanvas(ctx, canvas);
-          }
+            if (loadedImages === images.length) {
+              finalizeCanvas(canvas);
+            }
           };
         });
+
         ctx.filter = 'none';
-
         drawImage(ctx, left_word, 70, 1520);
-        finalizeCanvas(ctx, canvas);
         drawImage(ctx, right_word, 1035, 1520);
-        finalizeCanvas(ctx, canvas);
         drawTransformedImage(ctx, lev, [0.684197, -0.193013, -0.193013, -0.684197, 78.5329, 1517.83]);
-        finalizeCanvas(ctx, canvas);
         drawTransformedImage(ctx, pre, [-0.684197, -0.193013, 0.193013, -0.684197, 1158.32, 1517.83]);
-        finalizeCanvas(ctx, canvas);
 
-        if(template === 2) {
-          
+        if (template === 2) {
+          // Дополнительные действия для второго шаблона
         }
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const url = URL.createObjectURL(blob);
-            setIsImage(url);
-          }
-        }, 'image/png');
+        const imageData = canvas.toDataURL('image/png');
+        setIsImage(imageData);
       };
-      
     }
   }, [images, design, template]);
 
-
-  const finalizeCanvas = (ctx, canvas) => {
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        setIsImage(url);
-      }
-    }, 'image/png');
+  const handlePrint = async () => {
+    if (isImage) {
+      toast('Printing...', { type: 'info' });
+      invoke('print_image', { imageData: isImage })
+        .then(() => {
+          toast('Printing started', { type: 'success' });
+          console.log('Printing started');
+        })
+        .catch((error) => {
+          toast('Error printing', { type: 'error' });
+          console.error('Error printing:', error);
+        });
+    } else {
+      toast('No image available for printing', { type: 'warning' });
+    }
   };
 
-  // const showImage = () => {
-  //   canvas.toBlob((blob) => {
-  //     if (blob) {
-  //       const url = URL.createObjectURL(blob);
-  //       setIsImage(url);
-  //     }
-  //   }, 'image/png');
-  // }
   return (
     <Layouts>
-      <div className="flex items-center">
-        <div className="flex flex-col justify-center items-center">
-          <h2>Template your Photo</h2>
-          <div className="flex flex-col items-center">
-            <div className="p-3 mb-5 border-black border-solid">
-              <canvas
-                ref={canvasRef}
-                width="1240"
-                height="1844"
-                style={{ width: '400px', height: '600px' }}
-              >
-              </canvas>
-              {isImage && <img style={{width: '400px', height: '600px'}} src={isImage} alt="Generated Preview" />}
-              <div>{design}</div>
-              {/* <button onClick={showImage}>Покажи фото</button> */}
+      <div className="w-full flex flex-col gap-9 justify-center items-center px-20">
+        <div className='flex flex-col gap-3'>
+          <button className='h-9 flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' style={{ visibility: 'hidden' }}>
+            <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
+          </button>
+          <div className='flex justify-end items-center'>
+            <div className='w-32'></div>
+            <div className='relative items-center box_print'>
+              <div className='bg_print' ></div>
+              <div>
+                <div  className='absolute bottom-1 left-0 w-full h-full flex gap-10 justify-center items-center z-10'>
+                  <canvas
+                    ref={canvasRef}
+                    width="1240"
+                    height="1844"
+                    style={{ width: '300px', height: '450px' }}
+                  ></canvas>
+                </div>
+              </div>
             </div>
+            <button className='h-9 flex justify-center items-center' onClick={handlePrint}><img src={printer} alt="" /></button>
           </div>
         </div>
-        {/* <button onClick={handlePrint}>Print</button> */}
-        <div className='left-10 bottom-10 absolute'>
-                        <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white' onClick={() => navigate('/')}>
-                            <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
-                        </button>
-                    </div>
+        <div className=' flex justify-start items-center w-full'>
+          <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={() => navigate('/capture')}>
+            <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
+          </button>
+        </div>
       </div>
     </Layouts>
   );

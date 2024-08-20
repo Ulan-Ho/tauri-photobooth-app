@@ -73,20 +73,20 @@ export default function CaptureScreen({ onCapture }) {
 
     return (
         <Layout>
-            <div className='flex'>
-                <div className='flex flex-col items-center'>
-                    <div className='top_word'>Чтобы сделать фото, нажмите кнопку под рамкой!</div>
-                    <div>
+            <div className='flex w-screen justify-center items-center'>
+                <div className='flex flex-col gap-12 items-center px-20 w-full'>
+                    <div className='text-5xl items-center text-center'>ЧТОБЫ СОЗДАТЬ ФОТО, <br /> НАЖМИТЕ НА КНОПКУ ПОД РАМКОЙ</div>
+                    <div className='w-full'>
             {!capturedImage ? (
-                <div className='flex flex-col items-center'>
-                    <div className='border-solid border-2 capture-container rounded-md' style={{ width: 500, height: 500, position: 'relative' }}>
+                <div className='flex flex-col items-center w-full gap-10'>
+                    <div className='border-solid border-2 capture-container rounded-md' style={{ width: 530, height: 530, position: 'relative' }}>
                         <Webcam
                             audio={false}
                             ref={webcamRef}
                             screenshotFormat="image/jpeg"
-                            width={500}
-                            height={500}
-                            videoConstraints={{ width: 500, height: 500, facingMode: 'user' }}
+                            width={530}
+                            height={530}
+                            videoConstraints={{ width: 530, height: 530, facingMode: 'user' }}
                             className='rounded-md'
                         />
                         {isShooting && (
@@ -104,34 +104,46 @@ export default function CaptureScreen({ onCapture }) {
                             </div>
                         )}
                     </div>
-                    <div className='h-20'>
-                        {!isShooting && (
+                    <div className='h-40 flex justify-between items-center w-full'>
+                        <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={() => navigate('/template')}>
+                            <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
+                        </button>
+                        <div className='flex justify-center items-center'>
+                            {!isShooting && (
                                 <button onClick={startCountdown}>
-                                    <img src={cameraCapture} alt="Capture Photo" />
+                                    <img src={cameraCapture} className='w-72' alt="Capture Photo" />
                                 </button>
-                        )}
+                            )}
+                        </div>
+                        <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' style={{ visibility: 'hidden' }}>
+                            <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
+                        </button>
                     </div>
 
                 </div>
             ) : (
-                <div>
-                    <img src={capturedImage} alt='Captured' style={{ width: 500, height: 500 }} className='border-solid border-2 capture-container rounded-md' />
-                    <div className='flex justify-around mt-4 h-20'>
-                        <div className='yes_btn'>
-                            <button onClick={savePhoto}>Да, нравится</button>
+                <div className='flex flex-col items-center w-full gap-10'>
+                    <img src={capturedImage} alt='Captured' style={{ width: 530, height: 530, position: 'relative' }} className='border-solid border-2 capture-container rounded-md' />
+                    <div className='h-40 flex justify-between items-center w-full'>
+                        <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={() => navigate('/template')}>
+                            <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
+                        </button>
+                        <div className='flex justify-around items-center gap-20'>
+                            <button className='text-red-700 border-2 rounded-3xl px-12 py-8 bg-white font-bold' onClick={reshootPhoto}><span className='text-5xl '>НЕТ</span><br />ПЕРЕСНЯТЬ ФОТО</button>
+                            <button className='text-lime-500 border-2 rounded-3xl px-12 py-8 bg-white font-bold' onClick={savePhoto}><span className='text-5xl '>ДА</span><br />НРАВИТСЯ ФОТО</button>
                         </div>
-                        <div className='no_btn'>
-                            <button onClick={reshootPhoto}>Не нравится</button>
-                        </div>
+                        <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' style={{ visibility: 'hidden' }}>
+                            <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
+                        </button>
                     </div>
                 </div>
             )}
         </div>
-                    <div className='left-10 bottom-10 absolute'>
+                    {/* <div className='left-10 bottom-10 absolute'>
                         <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white' onClick={() => navigate('/template')}>
                             <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
                         </button>
-                    </div>
+                    </div> */}
                 </div>
             </div>
         </Layout>

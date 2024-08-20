@@ -1,66 +1,39 @@
+use base64::prelude::*;
 use std::fs::File;
 use std::io::Write;
-use std::path::Path;
 use std::process::Command;
-use base64::engine::general_purpose::STANDARD;
-use base64::Engine;
-use tauri::command;
+use std::path::Path;
 
-#[command]
-fn print_image(image_data: String, format: String, _printer_name: String) -> Result<(), String> {
-    let temp_path = match format.as_str() {
-        "svg" => "temp_image.svg",
-        _ => return Err("Unsupported image format.".to_string()),
-    };
+#[tauri::command]
+fn print_image(image_data: String) -> Result<(), String> {
+    // Извлечение и декодирование строки Base64
+    let base64_str = image_data.split(',').nth(1).ok_or("Invalid base64 string")?;
+    let decoded_data = BASE64_STANDARD.decode(base64_str).map_err(|e| e.to_string())?;
 
-    // Декодируем изображение из Base64
-    let decoded_image = STANDARD.decode(&image_data).map_err(|e| e.to_string())?;
-
-    // Сохраняем данные изображения как файл
-    let mut file = File::create(temp_path).map_err(|e| e.to_string())?;
-    file.write_all(&decoded_image).map_err(|e| e.to_string())?;
+    // Сохранение данных в файл
+    let file_path = "temp_image.png";
+    let mut file = File::create(file_path).map_err(|e| e.to_string())?;
+    file.write_all(&decoded_data).map_err(|e| e.to_string())?;
     drop(file); // Закрываем файл
 
     // Проверка существования файла
-    if !Path::new(temp_path).exists() {
+    if !Path::new(file_path).exists() {
         return Err("Temporary file does not exist.".to_string());
     }
 
-    // Вызов системной команды для печати
-    let output = if cfg!(target_os = "windows") {
-        Command::new("inkscape")
-            .args(&[temp_path, "--export-type=png", "--export-filename=temp_image.png"])
-            .output()
-            .and_then(|_| {
-                if !Path::new("temp_image.png").exists() {
-                    return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Converted PNG file does not exist."));
-                }
-                Command::new("mspaint")
-                    .args(&["/pt", "temp_image.png"])
-                    .output()
-            })
-    } else if cfg!(target_os = "linux") {
-        Command::new("lp")
-            .arg(temp_path)
-            .output()
-    } else if cfg!(target_os = "macos") {
-        Command::new("lp")
-            .arg(temp_path)
-            .output()
-    } else {
-        return Err("Unsupported OS".to_string());
-    }.map_err(|e| e.to_string())?;
+    // Отправка на печать с указанием принтера через PowerShell
+    let output = Command::new("powershell")
+        .arg("-Command")
+        .arg(format!("Start-Process -FilePath '{}' -ArgumentList '/p /h /t {}' -NoNewWindow -Wait", file_path, "HiTi P525"))
+        .output()
+        .map_err(|e| e.to_string())?;
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
     }
 
     // Очистка временных файлов
-    std::fs::remove_file(temp_path).map_err(|e| e.to_string())?;
-    if cfg!(target_os = "windows") {
-        std::fs::remove_file("temp_image.png").map_err(|e| e.to_string())?;
-    }
-
+    std::fs::remove_file(file_path).map_err(|e| e.to_string())?;
     Ok(())
 }
 

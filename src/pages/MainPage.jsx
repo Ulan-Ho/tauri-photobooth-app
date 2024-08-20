@@ -8,8 +8,8 @@ export default function MainPage() {
 
     return (
         <Layout1>
-            <div>
-                <NavLink style={link} to='/template'><img src={main_icon} alt="camera icon" /></NavLink>
+            <div className="flex flex-col">
+                <NavLink to='/template'><img src={main_icon} alt="camera icon" /></NavLink>
                 <div style={word}>НАЧАТЬ ФОТОСЕССИЮ </div>
             </div>
         </Layout1>
