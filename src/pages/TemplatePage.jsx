@@ -58,7 +58,7 @@ export default function TemplatePage({ onSelectDesign, onSelectTemplate, templat
                         />
                         <div className='relative items-center box_templ'>
                             <div className='bg_mak'></div>
-                            <div className='absolute bottom-7 left-0 w-full h-full flex gap-10 justify-center items-center text-white text-2xl z-10'>
+                            <div className='absolute bottom-1 left-0 w-full h-full flex gap-10 justify-center items-center text-white text-2xl z-10'>
                                 {templates.map((template) => (
                                     <div
                                         key={template.id}
