@@ -97,8 +97,8 @@ export default function PrintPage({ images, design, template }) {
           rul.src = rulSrc;
           rul.onload = () => {
             const rulePosition = [
-              { x: 176.18, y1: 405.05, y2: 942.28, y3: 1479.51 },
-              { x: 790, y1: 405.05, y2: 942.28, y3: 1479.51 }
+              { x: 176.18, y1: 405.05, y2: 942.28, y3: 1480 },
+              { x: 790, y1: 405.05, y2: 942.28, y3: 1480 }
             ];
             if (design === 'grayscale') {
               ctx.filter = 'grayscale(100%)';
