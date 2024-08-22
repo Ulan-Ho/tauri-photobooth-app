@@ -1,4 +1,9 @@
 {
+  "plugins": {
+    "printer": {
+      "enabled": true
+    }
+  },
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
@@ -11,7 +16,7 @@
   },
   "tauri": {
     "allowlist": {
-      "all": false,
+      "all": true,
       "fs": {
         "all": true
       },

@@ -13,10 +13,12 @@ import right_word from "../components/images_for_template/word_right.png";
 import rulSrc from "../components/images_for_template/rule.png";
 import printer from "../assets/printer.png";
 
+
 export default function PrintPage({ images, design, template }) {
   const canvasRef = useRef(null);
   const navigate = useNavigate();
   const [isImage, setIsImage] = useState(null);
+
 
   const drawImage = (ctx, src, x, y) => {
     const img = new Image();
@@ -118,9 +120,12 @@ export default function PrintPage({ images, design, template }) {
   }, [images, design, template]);
 
   const handlePrint = async () => {
-    if (isImage) {
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const imageData = canvas.toDataURL('image/png');
+      // setIsImage(imageData);
       toast('Printing...', { type: 'info' });
-      invoke('print_image', { imageData: isImage })
+      invoke('print_image', { imageData: imageData })
         .then(() => {
           toast('Printing started', { type: 'success' });
           console.log('Printing started');
@@ -132,6 +137,7 @@ export default function PrintPage({ images, design, template }) {
     } else {
       toast('No image available for printing', { type: 'warning' });
     }
+    navigate('/')
   };
 
   return (
@@ -166,6 +172,7 @@ export default function PrintPage({ images, design, template }) {
           </button>
         </div>
       </div>
+      <ToastContainer/>
     </Layouts>
   );
 }
