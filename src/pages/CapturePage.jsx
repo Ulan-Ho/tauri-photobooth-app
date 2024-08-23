@@ -14,7 +14,8 @@ export default function CaptureScreen({ onCapture }) {
     const [isCameraReady, setIsCameraReady] = useState(false);
     const [capturedImage, setCapturedImage] = useState(null);
     const [countdown, setCountdown] = useState(3);
-    const [isShooting, setIsShooting] = useState(false);
+    const [isShooting, setIsShooting] = useState(true);
+    
 
     const capture = useCallback(() => {
         const imageSrc = webcamRef.current.getScreenshot();
@@ -62,21 +63,28 @@ export default function CaptureScreen({ onCapture }) {
     useEffect(() => {
         const checkCameraStatus = setInterval(() => {
             if (webcamRef.current && webcamRef.current.video.readyState === 4) {
-                setIsCameraReady(true);
                 clearInterval(checkCameraStatus);
+                setTimeout(() => {
+                    setIsShooting(false);
+                    setIsCameraReady(true);
+                }, 5000)
             }
-        }, []);
+        }, 100);
 
         return () => clearInterval(checkCameraStatus);
-    }, [webcamRef]); // Используйте webcamRef как зависимость
+    }, [webcamRef]);
 
 
     return (
         <Layout>
             <div className='flex w-screen justify-center items-center'>
                 <div className='flex flex-col gap-12 items-center px-20 w-full'>
-                    <div className='text-5xl items-center text-center'>ЧТОБЫ СОЗДАТЬ ФОТО, <br /> НАЖМИТЕ НА КНОПКУ ПОД РАМКОЙ</div>
+                    {isCameraReady  && 
+                    (<div className='text-5xl items-center text-center'>ЧТОБЫ СОЗДАТЬ ФОТО, <br /> НАЖМИТЕ НА КНОПКУ ПОД РАМКОЙ</div>)}
                     <div className='w-full'>
+                    {!isCameraReady && (
+            <ins className='bg-gray-800 p-5 rounded-md z-10'style={{position:'absolute', top:'30%', left:'32%', height:'10%', textAlign:'center'}}>ИДЕТ ПОДКЛЮЧЕНИЕ ФОТОКАМЕРЫ</ins>
+        )}
             {!capturedImage ? (
                 <div className='flex flex-col items-center w-full gap-10'>
                     <div className='border-solid border-2 capture-container rounded-md' style={{ width: 530, height: 530, position: 'relative' }}>
@@ -89,7 +97,7 @@ export default function CaptureScreen({ onCapture }) {
                             videoConstraints={{ width: 530, height: 530, facingMode: 'user' }}
                             className='rounded-md'
                         />
-                        {isShooting && (
+                        {isCameraReady && isShooting && (
                             <div style={{
                                 position: 'absolute',
                                 top: '50%',

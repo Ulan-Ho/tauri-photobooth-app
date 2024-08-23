@@ -84,13 +84,13 @@ export default function TemplatePage({ onSelectDesign, onSelectTemplate, templat
                         </button>
                         <button
                             onClick={() => handleDesignSelect('color')}
-                            className={`border-2 rounded-3xl px-16 py-12 bg-white ${selectedDesign === 'color' ? 'ring-2 ring-blue-500' : ''}`}
+                            className={`border-2 rounded-3xl px-12 py-8 bg-white ${selectedDesign === 'color' ? 'ring-4 ring-blue-500' : ''}`}
                         >
                             <p className='w-44 text-black text-2xl font-medium'>ЦВЕТНОЕ ФОТО</p>
                         </button>
                         <button
                             onClick={() => handleDesignSelect('grayscale')}
-                            className={`grayscale border-2 rounded-3xl px-12 py-8 bg-white ${selectedDesign === 'grayscale' ? 'ring-2 ring-blue-500' : ''}`}
+                            className={`border-2 rounded-3xl px-12 py-8 bg-white ${selectedDesign === 'grayscale' ? 'ring-4 ring-blue-500' : ''}`}
                         >
                             <p className='w-44 text-black text-2xl font-medium'>ЧЕРНО-БЕЛОЕ ФОТО</p>
                         </button>

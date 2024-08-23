@@ -165,14 +165,12 @@ export default function PrintPage({ images, design, template }) {
             <button className='h-9 flex justify-center items-center' onClick={handlePrint}><img src={printer} alt="" /></button>
           </div>
         </div>
-        <div>{design}</div>
         <div className=' flex justify-start items-center w-full'>
           <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={() => navigate('/capture')}>
             <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
           </button>
         </div>
       </div>
-      <ToastContainer/>
     </Layouts>
   );
 }
