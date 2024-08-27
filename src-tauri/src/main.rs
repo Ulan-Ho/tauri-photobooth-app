@@ -2,8 +2,6 @@ use base64::prelude::*;
 use std::fs::File;
 use std::io::Write;
 use std::process::Command;
-use tempfile::NamedTempFile;
-
 
 #[tauri::command]
 fn print_image(image_data: String) -> Result<(), String> {
@@ -15,7 +13,7 @@ fn print_image(image_data: String) -> Result<(), String> {
     file.write_all(&decoded_data).map_err(|e| e.to_string())?;
     drop(file);
     let command = format!(
-        "function Print-Image {} param([string]$PrinterName, [string]$FilePath, [int]$Scale, [string]$PaperSize, [string]$PrintJobName, [string]$PrintQuality); Add-Type -AssemblyName System.Drawing; $printDocument = New-Object System.Drawing.Printing.PrintDocument; $printDocument.PrinterSettings.PrinterName = $PrinterName; $printDocument.DefaultPageSettings.Landscape = $false; $printDocument.DefaultPageSettings.PaperSize = New-Object System.Drawing.Printing.PaperSize(\"Custom\", 600, 400); $printDocument.add_PrintPage({} param($sender, $e); $image = [System.Drawing.Image]::FromFile($FilePath); $e.Graphics.TranslateTransform(0, 0); $e.Graphics.RotateTransform(0); $scaledWidth = $image.Width * ($Scale / 300); $scaledHeight = $image.Height * ($Scale / 300); $e.Graphics.DrawImage($image, 0, 0, $scaledWidth, $scaledHeight); $image.Dispose() {}); $printDocument.PrinterSettings.DefaultPageSettings.PrinterResolution.Kind = [System.Drawing.Printing.PrinterResolutionKind]::High; $printDocument.PrintController = New-Object System.Drawing.Printing.StandardPrintController; $printDocument.Print() {}; $printParams = @{} Scale = 100; PaperSize = \"6x4-Split (6x2 2 prints)\"; PrinterName = \"HiTi P525\"; FilePath = \"{}\"; PrintJobName = \"ImagePrintJob\"; PrintQuality = \"High\" {}; Print-Image @printParams",
+        "function Print-Image {} param([string]$PrinterName, [string]$FilePath, [int]$Scale, [string]$PaperSize, [string]$PrintJobName, [string]$PrintQuality); Add-Type -AssemblyName System.Drawing; $printDocument = New-Object System.Drawing.Printing.PrintDocument; $printDocument.PrinterSettings.PrinterName = $PrinterName; $printDocument.DefaultPageSettings.Landscape = $false; $printDocument.DefaultPageSettings.PaperSize = New-Object System.Drawing.Printing.PaperSize(\"Custom\", 600, 400); $printDocument.add_PrintPage({} param($sender, $e); $image = [System.Drawing.Image]::FromFile($FilePath); $e.Graphics.TranslateTransform(0, 0); $e.Graphics.RotateTransform(0); $scaledWidth = $image.Width * ($Scale / 300); $scaledHeight = $image.Height * ($Scale / 300); $e.Graphics.DrawImage($image, 0, 0, $scaledWidth, $scaledHeight); $image.Dispose() {}); $printDocument.PrinterSettings.DefaultPageSettings.PrinterResolution.Kind = [System.Drawing.Printing.PrinterResolutionKind]::High; $printDocument.PrintController = New-Object System.Drawing.Printing.StandardPrintController; $printDocument.Print() {}; $printParams = @{} Scale = 100; PrinterPaperNames = \"6x4-Split (6x2 2 prints)\"; PrinterName = \"HiTi P525\"; FilePath = \"{}\"; PrintJobName = \"ImagePrintJob\"; PrintQuality = \"High\" {}; Print-Image @printParams",
         '{',
         '{',
         '}',
@@ -29,8 +27,6 @@ fn print_image(image_data: String) -> Result<(), String> {
         .args(&["-Command", &command])
         .output()
         .map_err(|e| e.to_string())?;
-
-        return Err(command);
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());

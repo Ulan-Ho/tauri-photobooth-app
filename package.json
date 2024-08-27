@@ -10,11 +10,17 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@emotion/react": "^11.13.3",
+    "@emotion/styled": "^11.13.0",
+    "@mui/material": "^5.16.7",
     "@tauri-apps/api": "^1",
     "autoprefixer": "^10.4.20",
+    "fabric": "^6.3.0",
     "js-base64": "^3.7.7",
+    "lucide-react": "^0.436.0",
     "postcss": "^8.4.41",
     "react": "^18.2.0",
+    "react-advanced-cropper": "^0.20.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.26.0",
     "react-toastify": "^10.0.5",

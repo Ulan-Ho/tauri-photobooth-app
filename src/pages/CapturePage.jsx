@@ -25,7 +25,7 @@ export default function CaptureScreen({ onCapture }) {
 
     const startCountdown = useCallback(() => {
         setIsShooting(true);
-        let timer = 2;
+        let timer = 5;
         setCountdown(timer);
 
         const intervalId = setInterval(() => {
@@ -79,8 +79,7 @@ export default function CaptureScreen({ onCapture }) {
         <Layout>
             <div className='flex w-screen justify-center items-center'>
                 <div className='flex flex-col gap-12 items-center px-20 w-full'>
-                    {isCameraReady  && 
-                    (<div className='text-5xl items-center text-center'>ЧТОБЫ СОЗДАТЬ ФОТО, <br /> НАЖМИТЕ НА КНОПКУ ПОД РАМКОЙ</div>)}
+                    <div className='text-5xl items-center text-center'>ЧТОБЫ СОЗДАТЬ ФОТО, <br /> НАЖМИТЕ НА КНОПКУ ПОД РАМКОЙ</div>
                     <div className='w-full'>
                     {!isCameraReady && (
             <ins className='bg-gray-800 p-5 rounded-md z-10'style={{position:'absolute', top:'30%', left:'32%', height:'10%', textAlign:'center'}}>ИДЕТ ПОДКЛЮЧЕНИЕ ФОТОКАМЕРЫ</ins>

@@ -59,6 +59,10 @@ import TemplatePage from './pages/TemplatePage.jsx';
 import CapturePage from './pages/CapturePage.jsx';
 import PrintPage from './pages/PrintPage.jsx';
 
+import Settings from './admin/Settings.jsx';
+import Touchscreen from './admin/TouchScreen.jsx';
+import PrinterInfo from './admin/Printer.jsx';
+import TemplateEditor from './admin/TemplateEditor.jsx';
 import templateSimple from './assets/templateSimple.png';
 import templateRul from './assets/templateRul.png';
 
@@ -68,6 +72,8 @@ export default function App(){
   const [design, setDesign] = useState('');
   const [images, setImages] = useState([]);
   const [template, setTemplate] = useState('');
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
   const templates = [
         { id: 1, name: 'template1', url_png: templateSimple },
         { id: 2, name: 'template2', url_png: templateRul }
@@ -81,14 +87,14 @@ export default function App(){
             <Route path="/capture" element={<CapturePage onCapture={setImages} />} />
             <Route path="/print" element={<PrintPage design={design} template={template} images={images} onPrint={() => {}} />} />
 
-            {/* <Route path="/settings" element={<MainSetting />} />
-            <Route path="/settings/touchscreen" element={<Touchscreen />} />
-            <Route path="/settings/printer" element={<Printer />} />
-            <Route path="/settings/power-management" element={<PowerManagement />} />
-            <Route path="/settings/chromakey" element={<ChromaKey />} />
-            <Route path="/settings/home-screen-editor" element={<HomeScreenEditor />} />
-            <Route path="/settings/template-editor" element={<TemplateEditor images={images} />} />
-            <Route path="/settings/statistic" element={<Statistic />} /> */}
+            <Route path="/settings" element={<Settings isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />} />
+            <Route path="/settings/touchscreen" element={<Touchscreen isDarkMode={isDarkMode} />} />
+            <Route path="/settings/printer" element={<PrinterInfo isDarkMode={isDarkMode}/>} />
+            {/* <Route path="/settings/power-management" element={<PowerManagement />} /> */}
+            {/* <Route path="/settings/chromakey" element={<ChromaKey />} /> */}
+            {/* <Route path="/settings/home-screen-editor" element={<HomeScreenEditor />} /> */}
+            <Route path="/settings/template-editor" element={<TemplateEditor isDarkMode={isDarkMode} />} />
+            {/* <Route path="/settings/statistic" element={<Statistic />} /> */}
           </Routes>
         </Router>
       )
