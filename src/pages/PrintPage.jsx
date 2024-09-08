@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from "@tauri-apps/api/tauri"
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Layouts from '../components/Layout1.jsx';
@@ -18,6 +18,22 @@ export default function PrintPage({ images, design, template }) {
   const canvasRef = useRef(null);
   const navigate = useNavigate();
   const [isImage, setIsImage] = useState(null);
+  const [backgroundImage, setBackgroundImage] = useState(null);
+
+    useEffect(() => {
+        async function fetchImage() {
+            let imageName = '4_bg.jpeg'
+            try {
+                const base64Image = await invoke('get_image', { imageName });
+                const imageUrl = `data:image/jpeg;base64,${base64Image}`;
+                setBackgroundImage(imageUrl);
+            } catch (error) {
+                console.error('Error fetching image:', error);
+            }
+        }
+
+        fetchImage();
+    }, []);
 
 
   const drawImage = (ctx, src, x, y) => {
@@ -66,9 +82,9 @@ export default function PrintPage({ images, design, template }) {
           img.src = image.url;
           img.onload = () => {
             const positions_1 = [
-              { x1: 48, x2: 662, y1: 48, width: 530, height: 490 },
-              { x1: 48, x2: 662, y1: 585, width: 530, height: 490 },
-              { x1: 48, x2: 662, y1: 1124, width: 530, height: 490 },
+              { x1: 48, x2: 663, y1: 48, width: 530, height: 490 },
+              { x1: 48, x2: 663, y1: 585, width: 530, height: 490 },
+              { x1: 48, x2: 663, y1: 1124, width: 530, height: 490 },
             ];
 
             const { x1, x2, y1, width, height } = positions_1[index];
@@ -99,8 +115,8 @@ export default function PrintPage({ images, design, template }) {
           rul.src = rulSrc;
           rul.onload = () => {
             const rulePosition = [
-              { x: 176.18, y1: 405.05, y2: 942.28, y3: 1480 },
-              { x: 790, y1: 405.05, y2: 942.28, y3: 1480 }
+              { x: 176.18, y1: 405.05, y2: 942.28, y3: 1481 },
+              { x: 790, y1: 405.05, y2: 942.28, y3: 1481 }
             ];
             if (design === 'grayscale') {
               ctx.filter = 'grayscale(100%)';
@@ -123,7 +139,7 @@ export default function PrintPage({ images, design, template }) {
     const canvas = canvasRef.current;
     if (canvas) {
       const imageData = canvas.toDataURL('image/png');
-      // setIsImage(imageData);
+      setIsImage(imageData);
       toast('Printing...', { type: 'info' });
       invoke('print_image', { imageData: imageData })
         .then(() => {
@@ -134,10 +150,11 @@ export default function PrintPage({ images, design, template }) {
           toast('Error printing', { type: 'error' });
           console.error('Error printing:', error);
         });
+        navigate('/')
     } else {
       toast('No image available for printing', { type: 'warning' });
     }
-    navigate('/')
+    
   };
 
   return (

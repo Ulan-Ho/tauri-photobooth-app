@@ -23,6 +23,9 @@
       "shell": {
         "all": true,
         "open": true
+      },
+      "http": {
+        "all": true
       }
     },
     "windows": [

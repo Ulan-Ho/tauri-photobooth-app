@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Moon, Sun, Image, Layout, Fingerprint, Printer, Power, BarChart2 } from "lucide-react"
 
+
 export default function Settings({ isDarkMode, setIsDarkMode }) {
 
     useEffect(() => {
@@ -17,12 +18,14 @@ export default function Settings({ isDarkMode, setIsDarkMode }) {
         setIsDarkMode(!isDarkMode)
     }
 
+
     const settingsSections = [
+        { title: "Начало", description: "Начало", link: '/', icon: Image },
         { title: "Редактор главного фона", description: "Изменение фона всего приложения", link: '/settings/editor', icon: Image },
         { title: "Редактор шаблонов", description: "Управление шаблонами", link: '/settings/template-editor', icon: Layout },
         { title: "Проверка экарана", description: "Настройка сенсорного экрана", link: '/settings/touchscreen', icon: Fingerprint },
         { title: "Проверка принтера", description: "Управление подключенным принтером", link: '/settings/printer', icon: Printer },
-        { title: "Управление питанием", description: "Настройка энергосбережения", link: '/settings/power-management', icon: Power },
+        { title: "Управление питанием", description: "Настройка энергосбережения", link: '/settings/timer', icon: Power },
         { title: "Статистика", description: "Журнал действий и созданных фото", link: '/settings/statistic', icon: BarChart2 },
     ]
 
@@ -32,7 +35,7 @@ export default function Settings({ isDarkMode, setIsDarkMode }) {
                 <main className="p-8">
                     <header className="flex justify-between items-center mb-8">
                         <h1 className="text-4xl font-bold">Настройки</h1>
-                        <button 
+                        <button
                             onClick={toggleTheme}
                             className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 transition-colors duration-200"
                             aria-label={isDarkMode ? "Включить светлую тему" : "Включить темную тему"}
@@ -61,6 +64,7 @@ export default function Settings({ isDarkMode, setIsDarkMode }) {
                         ))}
                     </div>
                 </main>
+                {/* <button onClick={listen}>Listen</button> */}
             </div>
         </div>
     )

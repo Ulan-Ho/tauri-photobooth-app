@@ -1,70 +1,21 @@
-// import { useState } from "react";
-// import reactLogo from "./assets/react.svg";
-// import { invoke } from "@tauri-apps/api/tauri";
-// import "./App.css";
-
-// function App() {
-//   const [greetMsg, setGreetMsg] = useState("");
-//   const [name, setName] = useState("");
-
-//   async function greet() {
-//     // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-//     setGreetMsg(await invoke("greet", { name }));
-//   }
-
-//   return (
-//     <div className="container">
-//       <h1>Welcome to Tauri!</h1>
-
-//       <div className="row">
-//         <a href="https://vitejs.dev" target="_blank">
-//           <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-//         </a>
-//         <a href="https://tauri.app" target="_blank">
-//           <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-//         </a>
-//         <a href="https://reactjs.org" target="_blank">
-//           <img src={reactLogo} className="logo react" alt="React logo" />
-//         </a>
-//       </div>
-
-//       <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-//       <form
-//         className="row"
-//         onSubmit={(e) => {
-//           e.preventDefault();
-//           greet();
-//         }}
-//       >
-//         <input
-//           id="greet-input"
-//           onChange={(e) => setName(e.currentTarget.value)}
-//           placeholder="Enter a name..."
-//         />
-//         <button type="submit">Greet</button>
-//       </form>
-
-//       <p>{greetMsg}</p>
-//     </div>
-//   );
-// }
-
-// export default App;
-
-import React, { useState } from 'react';
+  import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import MainPage from './pages/MainPage.jsx';
 import TemplatePage from './pages/TemplatePage.jsx';
 import CapturePage from './pages/CapturePage.jsx';
 import PrintPage from './pages/PrintPage.jsx';
 
-import Settings from './admin/Settings.jsx';
-import Touchscreen from './admin/TouchScreen.jsx';
-import PrinterInfo from './admin/Printer.jsx';
-import TemplateEditor from './admin/TemplateEditor.jsx';
+// import Settings from './admin/Settings.jsx';
+// import Touchscreen from './admin/TouchScreen.jsx';
+// import PrinterInfo from './admin/Printer.jsx';
+// import TemplateEditor from './admin/TemplateEditor.jsx';
+// import Timer from './admin/Timer.jsx';
+// import Editor from './admin/Editor.jsx';
+
 import templateSimple from './assets/templateSimple.png';
 import templateRul from './assets/templateRul.png';
+
+
 
 
 export default function App(){
@@ -79,6 +30,8 @@ export default function App(){
         { id: 2, name: 'template2', url_png: templateRul }
     ];
 
+
+
   return (
         <Router>
           <Routes>
@@ -87,13 +40,12 @@ export default function App(){
             <Route path="/capture" element={<CapturePage onCapture={setImages} />} />
             <Route path="/print" element={<PrintPage design={design} template={template} images={images} onPrint={() => {}} />} />
 
-            <Route path="/settings" element={<Settings isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />} />
+            {/* <Route path="/settings" element={<Settings isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />} />
             <Route path="/settings/touchscreen" element={<Touchscreen isDarkMode={isDarkMode} />} />
             <Route path="/settings/printer" element={<PrinterInfo isDarkMode={isDarkMode}/>} />
-            {/* <Route path="/settings/power-management" element={<PowerManagement />} /> */}
-            {/* <Route path="/settings/chromakey" element={<ChromaKey />} /> */}
-            {/* <Route path="/settings/home-screen-editor" element={<HomeScreenEditor />} /> */}
-            <Route path="/settings/template-editor" element={<TemplateEditor isDarkMode={isDarkMode} />} />
+            <Route path="/settings/timer" element={<Timer />} />
+            <Route path="/settings/editor" element={<Editor isDarkMode={isDarkMode}/>} />
+            <Route path="/settings/template-editor" element={<TemplateEditor isDarkMode={isDarkMode} initialTemplates={templates} />} /> */}
             {/* <Route path="/settings/statistic" element={<Statistic />} /> */}
           </Routes>
         </Router>

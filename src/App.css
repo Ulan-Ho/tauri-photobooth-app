@@ -350,3 +350,10 @@ button {
   display: flex;
   justify-content: center;
 }
+
+
+/*---------------------------Timer-------------------------------------------------------------*/
+.react-switch {
+  display: inline-flex;
+  align-items: center;
+}
