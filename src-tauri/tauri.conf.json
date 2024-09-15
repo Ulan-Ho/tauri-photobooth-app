@@ -18,6 +18,10 @@
     "allowlist": {
       "all": true,
       "fs": {
+        "all": true,
+        "scope": ["$EDSDK/*"]
+      },
+      "globalShortcut": {
         "all": true
       },
       "shell": {
