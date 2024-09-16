@@ -16,6 +16,7 @@
     "@mui/material": "^5.16.7",
     "@radix-ui/react-tabs": "^1.1.0",
     "@tauri-apps/api": "^1",
+    "@tauri-apps/plugin-fs": "^2.0.0-rc.2",
     "autoprefixer": "^10.4.20",
     "fabric": "^6.3.0",
     "js-base64": "^3.7.7",

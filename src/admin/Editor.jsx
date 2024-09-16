@@ -19,6 +19,7 @@ import {
 import { Link } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/tauri";
 import { toast, ToastContainer } from "react-toastify";
+import { usePageNavigation } from "../App";
 
 const filterElements = [
     { name: "brightness", maxValue: 200, icon: Sun },
@@ -36,6 +37,9 @@ const cropPresets = [
 ];
 
 export default function Editor({ isDarkMode }) {
+
+    usePageNavigation();
+
     const [property, setProperty] = useState(filterElements[0]);
     const [details, setDetails] = useState(null);
     const [crop, setCrop] = useState({

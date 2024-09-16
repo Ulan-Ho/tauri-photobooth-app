@@ -5,8 +5,12 @@ import Switch from 'react-switch';
 import '../App.css'
 import { invoke } from "@tauri-apps/api/tauri";
 import { toast, ToastContainer } from "react-toastify";
+import { usePageNavigation } from "../App";
 
 export default function Timer() {
+
+    usePageNavigation();
+
     const [isAlwaysOn, setIsAlwaysOn] = useState(false);
     const [workhours, setWorkhours] = useState({ start: '09:00', end: '21:00' });
 

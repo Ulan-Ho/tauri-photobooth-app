@@ -6,9 +6,13 @@ import '../App.css';
 import templateTriangle from '../assets/templateTriangle.png';
 import cameraCapture from '../assets/cameraCapture.png';
 import { invoke } from '@tauri-apps/api/tauri';
+import { usePageNavigation } from '../App.jsx';
 
 
 export default function CaptureScreen({ onCapture }) {
+
+    usePageNavigation();
+
     const webcamRef = useRef(null);
     const [images, setImages] = useState([]);
     const navigate = useNavigate();

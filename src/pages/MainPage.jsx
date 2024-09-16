@@ -1,4 +1,4 @@
-import { NavLink, resolvePath } from "react-router-dom";
+import { NavLink, resolvePath, useNavigate } from "react-router-dom";
 import { useEffect, useState } from 'react';
 import '../App.css';
 import main_icon from '../assets/main_icon.png';
@@ -6,9 +6,11 @@ import back_img from '../assets/firstMainBg.jpeg';
 import { invoke } from '@tauri-apps/api/tauri';
 import { toast,ToastContainer } from "react-toastify";
 import * as path from '@tauri-apps/api/path';
+import { listen } from '@tauri-apps/api/event';
+import { usePageNavigation } from "../App";
 
 export default function MainPage() {
-
+    usePageNavigation();
     // (async () => {
     //     try {
     //         let imageName = '1_bg.jpeg';

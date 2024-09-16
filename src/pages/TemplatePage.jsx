@@ -4,9 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import '../App.css';
 import templateTriangle from '../assets/templateTriangle.png';
 import { invoke } from '@tauri-apps/api/tauri';
+import { usePageNavigation } from '../App.jsx';
 
 export default function TemplatePage({ onSelectDesign, onSelectTemplate, templates }) {
-    const navigate = useNavigate();
+    
+    usePageNavigation();
+
     const [selectedDesign, setSelectedDesign] = useState('');
     const [selectedTemplate, setSelectedTemplate] = useState('');
     // const [backgroundImage, setBackgroundImage] = useState(null);

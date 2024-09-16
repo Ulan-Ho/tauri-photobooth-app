@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Moon, Sun, Image, Layout, Fingerprint, Printer, Power, BarChart2 } from "lucide-react"
+import { usePageNavigation } from '../App';
 
 
 export default function Settings({ isDarkMode, setIsDarkMode }) {
+
+    usePageNavigation();
 
     useEffect(() => {
         const root = window.document.documentElement;
@@ -20,7 +23,7 @@ export default function Settings({ isDarkMode, setIsDarkMode }) {
 
 
     const settingsSections = [
-        { title: "Начало", description: "Начало", link: '/', icon: Image },
+        // { title: "Начало", description: "Начало", link: '/', icon: Image },
         { title: "Редактор главного фона", description: "Изменение фона всего приложения", link: '/settings/editor', icon: Image },
         { title: "Редактор шаблонов", description: "Управление шаблонами", link: '/settings/template-editor', icon: Layout },
         { title: "Проверка экарана", description: "Настройка сенсорного экрана", link: '/settings/touchscreen', icon: Fingerprint },

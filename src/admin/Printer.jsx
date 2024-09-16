@@ -1,8 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Printer, ArrowLeft } from "lucide-react"
+import { usePageNavigation } from '../App';
 
 export default function PrinterInfo({ isDarkMode }) {
+
+    usePageNavigation();
+
   // Mock printer data - replace with actual data fetching logic
     const printerData = {
         mediaSize: "6x8",

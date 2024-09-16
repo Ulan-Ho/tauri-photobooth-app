@@ -3,8 +3,12 @@ import { Link } from 'react-router-dom';
 import { Layout, ArrowLeft, Type, Minus, Circle, Square, Triangle, Trash2, Save, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { Rect, Canvas, Shadow, Triangle as FabricTriangle, Circle as FabricCircle, Line, Text } from 'fabric';
 import * as Tabs from '@radix-ui/react-tabs';
+import { usePageNavigation } from '../App';
 
 export default function TemplateEditor({ initialTemplates = [], isDarkMode }) {
+
+    usePageNavigation();
+
     const [templates, setTemplates] = useState(initialTemplates);
     const [currentTemplateIndex, setCurrentTemplateIndex] = useState(0);
     const canvasRef = useRef(null);

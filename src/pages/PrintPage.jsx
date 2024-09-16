@@ -12,9 +12,13 @@ import left_word from "../components/images_for_template/word_left.png";
 import right_word from "../components/images_for_template/word_right.png";
 import rulSrc from "../components/images_for_template/rule.png";
 import printer from "../assets/printer.png";
+import { usePageNavigation } from '../App.jsx';
 
 
 export default function PrintPage({ images, design, template }) {
+
+  usePageNavigation();
+
   const canvasRef = useRef(null);
   const navigate = useNavigate();
   const [isImage, setIsImage] = useState(null);
