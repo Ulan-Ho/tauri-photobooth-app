@@ -14,19 +14,22 @@ export default function CaptureScreen({ onCapture }) {
     usePageNavigation();
 
     const webcamRef = useRef(null);
+    const webcamID = useRef(null);
     const [images, setImages] = useState([]);
     const navigate = useNavigate();
     const [isCameraReady, setIsCameraReady] = useState(false);
     const [capturedImage, setCapturedImage] = useState(null);
     const [countdown, setCountdown] = useState(3);
     const [isShooting, setIsShooting] = useState(true);
+    const [deviceIds, setDeviceIds] = useState([]);
+
     // const [backgroundImage, setBackgroundImage] = useState(null);
 
     // useEffect(() => {
     //     async function fetchImage(imageName) {
     //         try {
     //             const base64Image = await invoke('get_image', { imageName });
-    //             const imageUrl = `data:image/jpeg;base64,${base64Image}`;
+    //             const imageUrl = data:image/jpeg;base64,${base64Image};
     //             setBackgroundImage(imageUrl);
     //         } catch (error) {
     //             console.error('Error fetching image:', error);
@@ -46,7 +49,7 @@ export default function CaptureScreen({ onCapture }) {
         setIsShooting(true);
         let timer = 1;
         setCountdown(timer);
-        await invoke('take_photo');
+        await invoke('take_picture_command');
 
         const intervalId = setInterval(() => {
             timer -= 1;
@@ -80,9 +83,21 @@ export default function CaptureScreen({ onCapture }) {
         startCountdown();
     }, [startCountdown]);
 
+    const findDeviceIdByName = (deviceName) => {
+        const device = deviceIds.find(device => device.label.includes(deviceName));
+        return device ? device.deviceId : null;
+      };
+
     useEffect(() => {
         const checkCameraStatus = setInterval(() => {
             if (webcamRef.current && webcamRef.current.video.readyState === 4) {
+                navigator.mediaDevices.enumerateDevices()
+                    .then(devices => {
+                        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                        console.log("Список видеоустройств:", videoDevices);
+                        setDeviceIds(videoDevices); // Сохраняем устройства в состоянии
+                    })
+                .catch(error => console.log(error));
                 clearInterval(checkCameraStatus);
                 setTimeout(() => {
                     setIsShooting(false);
@@ -94,10 +109,13 @@ export default function CaptureScreen({ onCapture }) {
         return () => clearInterval(checkCameraStatus);
     }, [webcamRef]);
 
+    const cameraName = "EOS Webcam Utility";
+    const deviceId = findDeviceIdByName(cameraName);
+
 
     return (
         <div className="flex justify-center items-center">
-            <div className="select-none relative" style={{width: '1280px', height: '1024px', backgroundImage: `url(src/assets/secondMainBg.jpeg)`}}>
+            <div className="select-none relative" style={{width: '1280px', height: '1024px', backgroundImage: url(src/assets/secondMainBg.jpeg)}}>
                 <div className='back-img'></div>
                 <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
 
@@ -117,7 +135,7 @@ export default function CaptureScreen({ onCapture }) {
                                 screenshotFormat="image/jpeg"
                                 width={530}
                                 height={530}
-                                videoConstraints={{ width: 530, height: 530, facingMode: 'user' }}
+                                videoConstraints={{ width: 530, height: 530, facingMode: 'user', deviceId: deviceId }}
                                 className='rounded-md'
                             />
                             {isCameraReady && isShooting && (
@@ -240,7 +258,7 @@ export default function CaptureScreen({ onCapture }) {
 {/* <div className='flex flex-col mt-3 w-60 gap-5'>
     {images.map((image, index) => (
         <div key={index} className='mr-3'>
-            <img src={image.url} alt={`screenshot=${index}`} style={{ width: 200, height: 200 }} className='rounded-md' />
+            <img src={image.url} alt={screenshot=${index}} style={{ width: 200, height: 200 }} className='rounded-md' />
         </div>
-    ))}
-</div> */}
+    ))}
+</div> */}

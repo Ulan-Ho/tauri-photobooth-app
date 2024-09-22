@@ -38,7 +38,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src blob: data: filesystem: ws: http: https: 'self'"
     },
     "bundle": {
       "active": true,

@@ -19,6 +19,8 @@ base64 = "0.22.1"
 winapi = { version = "0.3", features = ["winuser", "commdlg", "wingdi", "winspool"] }
 rdev = "0.5.3"
 device_query = "2.1.0"
+tokio = { version = "1", features = ["full"] }
+async-std = "1.10"  # или последняя версия
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

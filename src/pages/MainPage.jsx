@@ -22,20 +22,18 @@ export default function MainPage() {
     //     }
     // })();
     // useEffect(() => {
-    //     async function fetchImage(imageName) {
+    //     function fetchImage() {
     //         try {
-    //             const base64Image = await invoke('get_image', { imageName });
-    //             const imageUrl = `data:image/jpeg;base64,${base64Image}`;
-    //             setBackgroundImage(imageUrl);
-    //             toast(imageUrl);
+    //             invoke('all_c_command')
+    //                 .then((message) => toast(message))
+    //                 .catch((error) => toast(error));;
+
     //         } catch (error) {
-    //             console.error('Error fetching image:', error);
+    //             toast('Error fetching image:', error);
     //         }
     //     }
+    //     fetchImage();
 
-    //     if (backgroundImage === null) {
-    //         fetchImage('1_bg.jpeg');
-    //     }
     // }, []);
 
     
