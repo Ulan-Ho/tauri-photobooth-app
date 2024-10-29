@@ -2,44 +2,37 @@ import { NavLink, resolvePath, useNavigate } from "react-router-dom";
 import { useEffect, useState } from 'react';
 import '../App.css';
 import main_icon from '../assets/main_icon.png';
-import back_img from '../assets/firstMainBg.jpeg';
-import { invoke } from '@tauri-apps/api/tauri';
+import back_img from '../assets/defaultImage.jpeg';
 import { toast,ToastContainer } from "react-toastify";
-import * as path from '@tauri-apps/api/path';
-import { listen } from '@tauri-apps/api/event';
 import { usePageNavigation } from "../App";
+import { invoke } from "@tauri-apps/api";
+import { listen } from "@tauri-apps/api/event";
 
 export default function MainPage() {
+    const [bgImage, setBgImage] = useState(localStorage.getItem("back_1") || `url(${back_img})`);
     usePageNavigation();
-    // (async () => {
-    //     try {
-    //         let imageName = '1_bg.jpeg';
-    //         const base64Image = await invoke('get_image', { imageName });
-    //         const imageUrl = `data:image/jpeg;base64,${base64Image}`;
-    //         setBackgroundImage(imageUrl);
-    //     } catch (error) {
-    //         console.error('Error fetching image:', error);
-    //     }
-    // })();
-    // useEffect(() => {
-    //     function fetchImage() {
-    //         try {
-    //             invoke('all_c_command')
-    //                 .then((message) => toast(message))
-    //                 .catch((error) => toast(error));;
 
-    //         } catch (error) {
-    //             toast('Error fetching image:', error);
-    //         }
-    //     }
-    //     fetchImage();
+    useEffect(() => {
+        const fetchImage = async () => {
+            try {
+                const image = await invoke('get_image', { imageName: '1_bg.jpeg' });
+                const url_image = `url(data:image/jpeg;base64,${image})`;
+                setBgImage(url_image);
+                localStorage.setItem("back_1", url_image);
+            } catch (err) {
+                console.log(err);
+            }
+        };
+        if(!localStorage.getItem("back_1")) {
+            fetchImage();
+        } else {
+            setBgImage(localStorage.getItem("back_1"))
+        }
+    },[]);
 
-    // }, []);
-
-    
     return (
-        <div className="flex justify-center items-center scale-0.5">
-            <div className="select-none relative  bg-cover bg-center bg-no-repeat" style={{width: '1280px', height: '1024px', backgroundImage: `url(src/assets/firstMainBg.jpeg)`}}>
+        <div className="flex justify-center items-center">
+            <div className="select-none relative  bg-cover bg-center bg-no-repeat" style={{width: '1280px', height: '1024px', backgroundImage: bgImage}}>
                 <div className='back-img'></div>
                 <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
                     <div className="flex flex-col">

@@ -20,6 +20,8 @@ import { Link } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/tauri";
 import { toast, ToastContainer } from "react-toastify";
 import { usePageNavigation } from "../App";
+import { emit } from '@tauri-apps/api/event';
+import AdminShell from "../components/AdminShell";
 
 const filterElements = [
     { name: "brightness", maxValue: 200, icon: Sun },
@@ -35,6 +37,11 @@ const cropPresets = [
     { label: "4:3", aspect: '4/3' },
     { label: "1:1", aspect: '1/1' }
 ];
+
+const props = {
+    page: 'Редактор изображений',
+    type: 'editor'
+}
 
 export default function Editor({ isDarkMode }) {
 
@@ -179,8 +186,9 @@ export default function Editor({ isDarkMode }) {
     const saveImage = () => {
         if (!details) return;
         const canvas = document.createElement("canvas");
-        canvas.width = details.naturalWidth;
-        canvas.height = details.naturalHeight;
+        const scaleFactor = 0.9; // Измените этот фактор для изменения разрешения (например, 0.5 уменьшит размер в два раза)
+        canvas.width = details.naturalWidth * scaleFactor;
+        canvas.height = details.naturalHeight * scaleFactor;
         const ctx = canvas.getContext("2d");
 
         if (ctx) {
@@ -198,17 +206,16 @@ export default function Editor({ isDarkMode }) {
             canvas.height
         );
 
-        const dataURL = canvas.toDataURL();
+        const dataURL = canvas.toDataURL('image/webp', 0.8);
         const imageData = dataURL.split(',')[1];
         const fileName = `${whyBg}_bg.jpeg`;
-
+        localStorage.removeItem(`back_${whyBg}`);
         invoke('save_image', { imageData, fileName })
         .then(() => {
             toast('Image saved successfully');
         })
         .catch((error) => {
             toast.error('Error saving image:', error);
-            console.error('Error saving image:', error);
         });;
         }
     };
@@ -227,20 +234,7 @@ export default function Editor({ isDarkMode }) {
     };
 
     return (
-        <div className="min-h-screen flex justify-center items-center bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
-        <div
-            className="rounded-3xl border-8 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 transition-colors duration-300"
-            style={{ width: "1200px", height: "800px" }}
-        >
-            <main className="p-8">
-            <header className="flex justify-between items-center mb-8">
-                <div className="flex items-center">
-                <Link to="/settings" className="mr-4 hover:text-blue-500 transition-colors duration-300">
-                    <ArrowLeft className="w-6 h-6" />
-                </Link>
-                <h1 className="text-4xl font-bold">Редактор изображений</h1>
-                </div>
-            </header>
+        <AdminShell props={props} >
             <div className="flex gap-8">
                 <div className="w-2/3">
                 <div className="aspect-[4/3] bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden shadow-lg">
@@ -398,9 +392,6 @@ export default function Editor({ isDarkMode }) {
                 <div>{whyBg}</div>
                 </div>
             </div>
-            </main>
-            <ToastContainer/>
-        </div>
-        </div>
+            </AdminShell>
     );
 }

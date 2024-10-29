@@ -23,18 +23,18 @@ export default function Settings({ isDarkMode, setIsDarkMode }) {
 
 
     const settingsSections = [
-        // { title: "Начало", description: "Начало", link: '/', icon: Image },
+        { title: "Начало", description: "Начало", link: '/', icon: Image },
         { title: "Редактор главного фона", description: "Изменение фона всего приложения", link: '/settings/editor', icon: Image },
         { title: "Редактор шаблонов", description: "Управление шаблонами", link: '/settings/template-editor', icon: Layout },
         { title: "Проверка экарана", description: "Настройка сенсорного экрана", link: '/settings/touchscreen', icon: Fingerprint },
         { title: "Проверка принтера", description: "Управление подключенным принтером", link: '/settings/printer', icon: Printer },
         { title: "Управление питанием", description: "Настройка энергосбережения", link: '/settings/timer', icon: Power },
-        { title: "Статистика", description: "Журнал действий и созданных фото", link: '/settings/statistic', icon: BarChart2 },
+        // { title: "Статистика", description: "Журнал действий и созданных фото", link: '/settings/statistic', icon: BarChart2 },
     ]
 
     return (
         <div className="min-h-screen flex justify-center items-center bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
-            <div className="rounded-3xl border-8 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 transition-colors duration-300" style={{width: '1000px', height: '800px'}}>
+            <div className="rounded-3xl border-8 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 transition-colors duration-300" style={{width: '1000px', height: '850px'}}>
                 <main className="p-8">
                     <header className="flex justify-between items-center mb-8">
                         <h1 className="text-4xl font-bold">Настройки</h1>

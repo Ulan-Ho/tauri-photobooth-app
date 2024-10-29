@@ -1,32 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import Layout from '../components/Layout2.jsx';
 import { useNavigate } from 'react-router-dom';
 import '../App.css';
 import templateTriangle from '../assets/templateTriangle.png';
-import { invoke } from '@tauri-apps/api/tauri';
 import { usePageNavigation } from '../App.jsx';
+import back_img from '../assets/defaultImage.jpeg';
+import { invoke } from "@tauri-apps/api/tauri"
 
 export default function TemplatePage({ onSelectDesign, onSelectTemplate, templates }) {
+    const [bgImage, setBgImage] = useState(localStorage.getItem("back_2") || `url(${back_img})`);
     const navigate = useNavigate();
     usePageNavigation();
 
     const [selectedDesign, setSelectedDesign] = useState('');
     const [selectedTemplate, setSelectedTemplate] = useState('');
-    // const [backgroundImage, setBackgroundImage] = useState(null);
 
-    // useEffect(() => {
-    //     async function fetchImage(imageName) {
-    //         try {
-    //             const base64Image = await invoke('get_image', { imageName });
-    //             const imageUrl = `data:image/jpeg;base64,${base64Image}`;
-    //             setBackgroundImage(imageUrl);
-    //         } catch (error) {
-    //             console.error('Error fetching image:', error);
-    //         }
-    //     }
-
-    //     fetchImage('2_bg.jpeg');
-    // }, []);
+    useEffect(() => {
+        const fetchImage = async () => {
+            try {
+                const image = await invoke('get_image', { imageName: '2_bg.jpeg' });
+                const url_image = `url(data:image/jpeg;base64,${image})`;
+                setBgImage(url_image);
+                localStorage.setItem("back_2", url_image);
+            } catch (err) {
+                console.log(err);
+            }
+        };
+        if(!localStorage.getItem("back_2")) {
+            fetchImage();
+        } else {
+            setBgImage(localStorage.getItem("back_2"))
+        }
+    },[]);
 
     const handleDesignSelect = (design) => {
         setSelectedDesign(design);
@@ -64,8 +68,8 @@ export default function TemplatePage({ onSelectDesign, onSelectTemplate, templat
     };
 
     return (
-        <div className="flex justify-center items-center scale-0.5">
-            <div className="select-none relative" style={{width: '1280px', height: '1024px', backgroundImage: `url(src/assets/secondMainBg.jpeg)`}}>
+        <div className="flex justify-center items-center">
+            <div className="select-none relative bg-cover bg-center bg-no-repeat" style={{width: '1280px', height: '1024px', backgroundImage: bgImage}}>
                 <div className='back-img'></div>
                 <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
                     <div className='w-full flex flex-col gap-9 justify-center items-center'>

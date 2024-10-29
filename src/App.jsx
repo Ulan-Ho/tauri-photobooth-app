@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Route, Routes, useNavigate } from 'react-router-dom';
+// import MainPage from './admin/TemplateEditor.jsx';
 import MainPage from './pages/MainPage.jsx';
+// import MainPage from './ChromaKeyTest.jsx';
 import TemplatePage from './pages/TemplatePage.jsx';
 import CapturePage from './pages/CapturePage.jsx';
 import PrintPage from './pages/PrintPage.jsx';
@@ -23,45 +25,10 @@ export default function App(){
   const [template, setTemplate] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
 
-  // listen('navigate-to-page', (event) => {
-  //   const targetPage = event.payload;
-
-  //   if (targetPage === 'main_page') {
-  //     navigate('/');  // Используем React Router для перехода
-  //   } else if (targetPage === 'setting_page') {
-  //     navigate('/settings');
-  //   }
-  // });
-
   const templates = [
     { id: 1, name: 'template1', url_png: templateSimple },
     { id: 2, name: 'template2', url_png: templateRul }
   ];
-
-  // const backgrounds = [{ id: '1_', url: '' }, { id: '2_', url: '' }, { id: '3_', url: '' }];
-
-  // const [backgroundImages, setBackgroundImages] = useState(backgrounds);
-
-  // useEffect(() => {
-  //   async function fetchBackgroundPaths() {
-  //     try {
-  //       const dir = await appDataDir();
-  //       const normalizedDir = dir.replace(/\\/g, '/').replace(/\/$/, '');
-  //       const updatedBackgrounds = backgroundImages.map((bg) => ({
-  //         ...bg,
-  //         url: `${normalizedDir}/database/background/${bg.id}.jpeg`
-  //       }));
-  //       updatedBackgrounds.map( (bg) => bg.url = bg.url.replace(/\\/g, '/'))
-  //       setBackgroundImages(updatedBackgrounds);
-  //       updatedBackgrounds.map(bg => toast(bg.url));
-  //     } catch (err) {
-  //       toast.error(`Error fetching app data directory: ${err}`);
-  //     }
-  //   }
-
-  //   fetchBackgroundPaths();
-  // }, []);
-
 
   return (
         <Router>
@@ -82,9 +49,6 @@ export default function App(){
         </Router>
       )
 };
-
-
-
 
 export function usePageNavigation() {
   const navigate = useNavigate();

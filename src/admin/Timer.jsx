@@ -6,6 +6,12 @@ import '../App.css'
 import { invoke } from "@tauri-apps/api/tauri";
 import { toast, ToastContainer } from "react-toastify";
 import { usePageNavigation } from "../App";
+import AdminShell from "../components/AdminShell";
+
+const props = {
+    page: 'Время работы фотобудки',
+    type: 'clock'
+}
 
 export default function Timer() {
 
@@ -40,18 +46,7 @@ export default function Timer() {
 
 
     return (
-        <div className="min-h-screen flex justify-center items-center bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
-            <div className="rounded-3xl border-8 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 transition-colors duration-300" style={{width: '1000px', height: '800px'}}>
-                <main className="p-8">
-                    <header className="flex justify-between items-center mb-8">
-                        <div className="flex items-center">
-                            <Link to='/settings' className="mr-4">
-                                <ArrowLeft className="w-6 h-6" />
-                            </Link>
-                            <h1 className="text-4xl font-bold">Время работы фотобудки</h1>
-                        </div>
-                        <Clock className="w-12 h-12 text-blue-600 dark:text-blue-400" />
-                    </header>
+        <AdminShell props={props}>
 
                     <div className="space-y-8">
                         <div className="flex items-center justify-between">
@@ -116,9 +111,6 @@ export default function Timer() {
                         <button onClick={saveSchedule}>Сохранить расписание</button>
                     </div>
                     <button onClick={loadWorkHours}>Update</button>
-                </main>
-            </div>
-            <ToastContainer />
-        </div>
+                </AdminShell>
     )
 }

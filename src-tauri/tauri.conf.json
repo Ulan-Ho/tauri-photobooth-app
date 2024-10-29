@@ -1,9 +1,5 @@
 {
-  "plugins": {
-    "printer": {
-      "enabled": true
-    }
-  },
+  "plugins": {},
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
@@ -18,7 +14,9 @@
     "allowlist": {
       "all": true,
       "fs": {
-        "scope": ["$APPDATA/*"],
+        "scope": [
+          "**"
+      ],
         "all": true
       },
       "shell": {
@@ -27,6 +25,9 @@
       },
       "http": {
         "all": true
+      },
+      "path": {
+        "all": true
       }
     },
     "windows": [
@@ -34,11 +35,11 @@
         "title": "tauri-photobooth-app",
         "width": 800,
         "height": 600,
-        "fullscreen": true
+        "fullscreen": false
       }
     ],
     "security": {
-      "csp": "default-src blob: data: filesystem: ws: http: https: 'self'"
+      "csp": null
     },
     "bundle": {
       "active": true,

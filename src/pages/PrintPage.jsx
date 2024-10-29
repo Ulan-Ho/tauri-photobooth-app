@@ -2,7 +2,6 @@ import React, { useRef, useEffect, useState } from 'react';
 import { invoke } from "@tauri-apps/api/tauri"
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import Layouts from '../components/Layout1.jsx';
 import bg_screen from "../components/images_for_template/Макет.png";
 import templateTriangle from '../assets/templateTriangle.png';
 import { useNavigate  } from 'react-router-dom';
@@ -13,10 +12,11 @@ import right_word from "../components/images_for_template/word_right.png";
 import rulSrc from "../components/images_for_template/rule.png";
 import printer from "../assets/printer.png";
 import { usePageNavigation } from '../App.jsx';
+import back_img from '../assets/defaultImage.jpeg';
 
 
 export default function PrintPage({ images, design, template }) {
-
+  const [bgImage, setBgImage] = useState(localStorage.getItem("back_4") || `url(${back_img})`);
   usePageNavigation();
 
   const canvasRef = useRef(null);
@@ -24,20 +24,23 @@ export default function PrintPage({ images, design, template }) {
   const [isImage, setIsImage] = useState(null);
   const [backgroundImage, setBackgroundImage] = useState(null);
 
-    useEffect(() => {
-        async function fetchImage() {
-            let imageName = '4_bg.jpeg'
-            try {
-                const base64Image = await invoke('get_image', { imageName });
-                const imageUrl = `data:image/jpeg;base64,${base64Image}`;
-                setBackgroundImage(imageUrl);
-            } catch (error) {
-                console.error('Error fetching image:', error);
-            }
+  useEffect(() => {
+    const fetchImage = async () => {
+        try {
+            const image = await invoke('get_image', { imageName: '4_bg.jpeg' });
+            const url_image = `url(data:image/jpeg;base64,${image})`;
+            setBgImage(url_image);
+            localStorage.setItem("back_4", url_image);
+        } catch (err) {
+            console.log(err);
         }
-
+    };
+    if(!localStorage.getItem("back_4")) {
         fetchImage();
-    }, []);
+    } else {
+      setBgImage(localStorage.getItem("back_4"))
+    }
+  },[]);
 
 
   const drawImage = (ctx, src, x, y) => {
@@ -70,7 +73,8 @@ export default function PrintPage({ images, design, template }) {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (canvas && images.length > 0) {
+    // if (canvas && images.length > 0) {
+    if (canvas) {
       const ctx = canvas.getContext('2d');
       const bg = new Image();
       bg.src = bg_screen;
@@ -158,40 +162,46 @@ export default function PrintPage({ images, design, template }) {
     } else {
       toast('No image available for printing', { type: 'warning' });
     }
-    
+
   };
 
   return (
-    <Layouts>
-      <div className="w-full flex flex-col gap-9 justify-center items-center px-20">
-        <div className='flex flex-col gap-3'>
-          <button className='h-9 flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' style={{ visibility: 'hidden' }}>
-            <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
-          </button>
-          <div className='flex justify-end items-center'>
-            <div className='w-32'></div>
-            <div className='relative items-center box_print'>
-              <div className='bg_print' ></div>
-              <div>
-                <div  className='absolute bottom-1 left-0 w-full h-full flex gap-10 justify-center items-center z-10'>
-                  <canvas
-                    ref={canvasRef}
-                    width="1240"
-                    height="1844"
-                    style={{ width: '300px', height: '450px' }}
-                  ></canvas>
+    <div className="flex justify-center items-center">
+      <div className="select-none relative bg-cover bg-center bg-no-repeat" style={{width: '1280px', height: '1024px', backgroundImage: bgImage}}>
+        <div className='back-img'></div>
+        <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
+
+          <div className="w-full flex flex-col gap-9 justify-center items-center px-20">
+            <div className='flex flex-col gap-3'>
+              <button className='h-9 flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' style={{ visibility: 'hidden' }}>
+                <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
+              </button>
+              <div className='flex justify-end items-center'>
+                <div className='w-32'></div>
+                <div className='relative items-center box_print'>
+                  <div className='bg_print' ></div>
+                  <div>
+                    <div  className='absolute bottom-1 left-0 w-full h-full flex gap-10 justify-center items-center z-10'>
+                      <canvas
+                        ref={canvasRef}
+                        width="1240"
+                        height="1844"
+                        style={{ width: '300px', height: '450px' }}
+                      ></canvas>
+                    </div>
+                  </div>
                 </div>
+                <button className='h-9 flex justify-center items-center' onClick={handlePrint}><img src={printer} alt="" /></button>
               </div>
             </div>
-            <button className='h-9 flex justify-center items-center' onClick={handlePrint}><img src={printer} alt="" /></button>
+            <div className=' flex justify-start items-center w-full'>
+              <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={() => navigate('/capture')}>
+                <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
+              </button>
+            </div>
           </div>
         </div>
-        <div className=' flex justify-start items-center w-full'>
-          <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={() => navigate('/capture')}>
-            <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
-          </button>
-        </div>
       </div>
-    </Layouts>
+    </div>
   );
 }

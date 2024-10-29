@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:dev-32bit": "tauri dev --target i686-pc-windows-gnu"
   },
   "dependencies": {
     "@chakra-ui/react": "^2.8.2",
@@ -17,21 +18,28 @@
     "@radix-ui/react-tabs": "^1.1.0",
     "@tauri-apps/api": "^1",
     "@tauri-apps/plugin-fs": "^2.0.0-rc.2",
+    "@tensorflow-models/body-pix": "^2.2.1",
+    "@tensorflow/tfjs": "^4.22.0",
     "autoprefixer": "^10.4.20",
     "fabric": "^6.3.0",
     "js-base64": "^3.7.7",
     "jspdf": "^2.5.1",
+    "konva": "^9.3.15",
+    "lodash": "^4.17.21",
+    "lodash.throttle": "^4.1.1",
     "lucide-react": "^0.436.0",
     "postcss": "^8.4.41",
     "react": "^18.2.0",
     "react-advanced-cropper": "^0.20.0",
     "react-dom": "^18.2.0",
     "react-image-crop": "^11.0.6",
+    "react-konva": "^18.2.10",
     "react-router-dom": "^6.26.0",
     "react-switch": "^7.0.0",
     "react-toastify": "^10.0.5",
     "react-webcam": "^7.2.0",
-    "tauri-plugin-printer": "^1.0.12"
+    "tauri-plugin-printer": "^1.0.12",
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^1",
