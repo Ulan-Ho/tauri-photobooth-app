@@ -33,6 +33,13 @@ use std::env;
 use serde_json::Value;
 use std::ffi::c_void;
 use tauri::{State};
+//------------------------------------------------------------------------------------
+use base64::prelude::BASE64_STANDARD;
+use std::ptr;
+use base64::encode;
+use tauri::command;
+use std::ffi::{CString, CStr};
+use std::os::raw::c_char;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct WorkHours {
@@ -40,29 +47,6 @@ pub struct WorkHours {
     pub end: String,
 }
 
-#[link(name = "EDSDK")]
-extern "C" {
-    fn EdsInitializeSDK() -> u32;
-    fn EdsTerminateSDK() -> u32;
-    fn EdsGetCameraList(camera_list: *mut *mut c_void) -> u32;
-    fn EdsGetChildCount(inRef: *mut c_void, outCount: *mut u32) -> u32;
-    fn EdsGetChildAtIndex(inRef: *mut c_void, index: u32, outRef: *mut *mut c_void) -> u32;
-    fn EdsOpenSession(camera: *mut c_void) -> u32;
-    fn EdsCloseSession(camera: *mut c_void) -> u32;
-    fn EdsSendCommand(camera: *mut c_void, command: u32, param: u32) -> u32;
-    // fn EdsGetDirectoryItemInfo(dir_item: *mut c_void, dir_item_info: *mut EdsDirectoryItemInfo) -> u32;
-    fn EdsCreateMemoryStream(size: u64, stream: *mut *mut c_void) -> u32;
-    fn EdsDownload(dir_item: *mut c_void, size: u64, stream: *mut c_void) -> u32;
-    fn EdsDownloadComplete(dir_item: *mut c_void) -> u32;
-    fn EdsGetPointer(stream: *mut c_void, pointer: *mut *mut u8) -> u32;
-    fn EdsGetLength(stream: *mut c_void, length: *mut u64) -> u32;
-    fn EdsRelease(ref_: *mut c_void) -> u32;
-    // fn EdsDeleteDirectoryItem(dir_item: *mut c_void) -> u32;
-    fn EdsCreateEvfImageRef(stream: *mut c_void, evfImage: *mut *mut c_void) -> u32;
-    fn EdsDownloadEvfImage(camera: *mut c_void, evfImage: *mut c_void) -> u32;
-    fn EdsGetPropertyData(ref_: *mut c_void, prop_id: u32, param: u32, size: u32, out_data: *mut c_void) -> u32;
-    fn EdsSetPropertyData(ref_: *mut c_void, prop_id: u32, param: u32, size: u32, in_data: *const c_void) -> u32;
-}
 #[repr(C)]
 pub struct EdsDirectoryItemInfo {
     pub size: u64,
@@ -74,288 +58,89 @@ pub struct EdsDirectoryItemInfo {
     // pub date_time: u32,
 }
 
-struct Camera {
-    camera_ref: *mut std::ffi::c_void,
-    is_live_view_started: bool,
+extern "C" {
+    fn startLiveView();
+    fn downloadEvfImage(out_data: *mut *mut u8, out_length: *mut usize) -> i32;
+    fn capturePhoto();
+    fn stopLiveView();
+}
+
+#[command]
+fn get_image_base64() -> Result<String, String> {
+    unsafe {
+        let mut image_ptr: *mut u8 = ptr::null_mut();
+        let mut length: usize = 0;
+
+        let err = downloadEvfImage(&mut image_ptr, &mut length);
+        if err != 0 || image_ptr.is_null() {
+            return Err("Failed to download image.".into());
+        }
+        let image_data = Vec::from_raw_parts(image_ptr, length, length);
+        // Кодируем изображение в base64
+        let base64_data = encode(&image_data);
+;
+
+        Ok(base64_data)
+    }
 }
 
 
-unsafe impl Send for Camera {}
-unsafe impl Sync for Camera {}
+// Запуск live view
+#[tauri::command]
+fn start_live_view() {
+    unsafe { startLiveView() };
+}
 
-impl Camera {
-    fn new() -> Result<Arc<Mutex<Self>>, u32> {
-        unsafe {
-            let err = EdsInitializeSDK();
-            if err != 0 {
-                return Err(err);
-            }
+#[tauri::command]
+fn take_photo() {
+    unsafe { capturePhoto() };
+}
 
-            let mut camera_list: *mut std::ffi::c_void = std::ptr::null_mut();
-            let err = EdsGetCameraList(&mut camera_list);
-            if err != 0 {
-                return Err(err);
-            }
+#[tauri::command]
+fn stop_camera() {
+    unsafe { stopLiveView() };
+}
 
-            let mut camera_count: u32 = 0;
-            let err = EdsGetChildCount(camera_list, &mut camera_count);
-            if err != 0 || camera_count == 0 {
-                return Err(err);
-            }
+// Удаление изображения 
+#[tauri::command]
+fn delete_image(image_name: String) -> Result<(), String> {
+    // Укажите директорию, где хранятся изображения 
+    // let image_path = PathBuf::from(env::current_dir().map_err(|err| err.to_string())?)
+    //     .join("image_alltime_usable.jpg");
+    // Формируем полный путь к файлу
+    let current_dir = env::current_dir().map_err(|err| err.to_string())?;
+    let image_path = current_dir.join(image_name);
 
-            let mut camera_ref: *mut std::ffi::c_void = std::ptr::null_mut();
-            let err = EdsGetChildAtIndex(camera_list, 0, &mut camera_ref);
-            if err != 0 {
-                return Err(err);
-            }
+    // Удаляем файл, если он существует
+    println!("Attempting to delete image at path: {:?}", image_path);
 
-            let err = EdsOpenSession(camera_ref);
-            if err != 0 {
-                return Err(err);
-            }
-
-            EdsRelease(camera_list);
-
-            Ok(Arc::new(Mutex::new(Camera { camera_ref, is_live_view_started: false, })))
-        }
+    if image_path.exists() {
+        fs::remove_file(&image_path).map_err(|err| err.to_string())?;
+        Ok(())
+    } else {
+        println!("Image not found, skipping deletion.");
+        Ok(())
     }
+}
 
-    // fn close_session(&self) -> u32 {
-    //     unsafe { EdsCloseSession(self.camera_ref) }
-    // }
-
-    fn capture_photo(&self) -> Result<String, u32> {
-        // unsafe {
-        //     let mut dir_item_info = EdsDirectoryItemInfo {
-        //         size: 0,
-        //         is_folder: 0,
-        //         group_id: 0,
-        //         option: 0,
-        //         file_name: [0; 256],
-        //     };
-
-            
-        //     let save_target = 1; // kEdsSaveTo_Host
-        //     if EdsSetPropertyData(camera_ref, 0x00000300, 0, 4, &save_target as *const i32 as *const std::ffi::c_void) != 0 {
-        //         EdsCloseSession(camera_ref);
-        //         EdsRelease(camera_ref);
-        //         EdsTerminateSDK();
-        //         return Err(err);
-        //     }
-
-        //     if EdsSendCommand(self.camera_ref, 0x00000000, 0) != 0 {
-        //         EdsCloseSession(self.camera_ref);
-        //         EdsRelease(self.camera_ref);
-        //         EdsTerminateSDK();
-        //         return Err(1);
-        //     }
-
-        //     // Download image after capture
-        //     if self.download_image(&mut dir_item_info).is_err() {
-        //         EdsCloseSession(self.camera_ref);
-        //         EdsRelease(self.camera_ref);
-        //         EdsTerminateSDK();
-        //         return Err(2);
-        //     }
-            
-        //     // Convert file name to a String
-        //     let file_name = std::ffi::CString::new(
-        //         dir_item_info.file_name
-        //             .iter()
-        //             .take_while(|&&c| c != 0)
-        //             .map(|&c| c as u8)
-        //             .collect::<Vec<_>>()
-        //     ).unwrap();
-
-        //     // Read the file and encode in base64
-        //     let image_data = match std::fs::read(file_name.to_str().unwrap()) {
-        //         Ok(data) => data,
-        //         Err(_) => return Err(3), // Return a u32 error code for read failure
-        //     };
-        //     let encoded_image = BASE64_STANDARD.encode(&image_data);
-
-
-        //     Ok(encoded_image)
-            Ok(("grhh".to_string()))
-        // }
-    }
-
-    // fn download_image(&self, dir_item_info: *mut EdsDirectoryItemInfo) -> Result<(), String> {
-    //     unsafe {
-    //         let dir_item: *mut std::ffi::c_void = std::ptr::null_mut();
-    //         let mut stream: *mut std::ffi::c_void = std::ptr::null_mut();
-        
-    //         // Create a memory stream to store the image
-    //         if EdsCreateMemoryStream(0, &mut stream) != 0 {
-    //             return Err("Failed to create memory stream".to_string());
-    //         }
-        
-    //         // Download the image
-    //         if EdsDownload(dir_item, (*dir_item_info).size, stream) != 0 {
-    //             return Err("Failed to download image".to_string());
-    //         }
-        
-    //         // Complete the download
-    //         if EdsDownloadComplete(dir_item) != 0 {
-    //             return Err("Failed to complete download".to_string());
-    //         }
-        
-    //         // Release the memory
-    //         if stream != std::ptr::null_mut() {
-    //             EdsRelease(stream);
-    //         }
-        
-    //         Ok(())
-    //     }
-    // }
+#[tauri::command]
+fn get_saved_image() -> Result<String, String> {
+    // Путь к изображению (замените на ваш путь)
+    // let image_path = PathBuf::from(env::current_dir().map_err(|err| err.to_string())?)
+    //     .join("image_alltime_usable.jpg");
+    // Формируем полный путь к файлу
     
-
-    fn start_live_view(&mut self) -> Result<(), u32> {
-        if !self.is_live_view_started {
-            self.is_live_view_started = true;
-            unsafe {
-                let mut device: u32 = 0; // Измените на u32 для соответствия типу
-                let err = EdsGetPropertyData(self.camera_ref, 0x00000500, 0, size_of::<u32>() as u32, &mut device as *mut _ as *mut c_void);
-                println!("Current output device: {}", device);
-
-                if device & 2 != 0 {
-                    println!("Live view is already active.");
-                } else {
-                    device |= 2;  // Включить вывод живого просмотра на ПК
-
-                    let err = EdsSetPropertyData(self.camera_ref, 0x00000500, 0, size_of::<u32>() as u32, &device as *const _ as *mut c_void);
-                    println!("Setting output device to: {}", device);
-                    if err != 0 {
-                        println!("Failed to set live view output device: {}", err);
-                        return Err(err);
-                    }
-                }
-            }
-
-            println!("Live view started");
-            Ok(())
-        } else {
-            Ok(())
-        }
-    }
-
-    fn download_evf_image(&self) -> Result<String, String> {
-        unsafe {
-            let mut stream: *mut c_void = std::ptr::null_mut();
-            let mut evf_image: *mut c_void = std::ptr::null_mut();
-            // thread::sleep(Duratiosn::from_millis(200));
-            // Создаем поток памяти для хранения изображения
-            let err = EdsCreateMemoryStream(0, &mut stream);
-            if err != 0 {
-                return Err(format!("Error creating memory stream: {}", err));
-            }
-            // Создаем ссылку на изображение live view (evf)
-            let err = EdsCreateEvfImageRef(stream, &mut evf_image);
-            if err != 0 {
-                EdsRelease(stream);
-                return Err(format!("Error creating EVF image reference: {}", err));
-            }
-            // Скачиваем изображение
-            let err = EdsDownloadEvfImage(self.camera_ref, evf_image);
-            println!("err: {}", err);
-            if err != 0 {
-                EdsRelease(evf_image);
-                EdsRelease(stream);
-                println!("Error downloading EVF image: {}", err);
-                return Err(format!("Error downloading EVF image: {}", err));
-            }
-            // Получаем длину данных в потоке
-            let mut length: u64 = 0;
-            let err = EdsGetLength(stream, &mut length);
-            if err != 0 || length == 0 {
-                EdsRelease(evf_image);
-                EdsRelease(stream);
-                return Err(format!("Error getting stream length: {}", err));
-            }
-            // Получаем указатель на данные
-            let mut data_ptr: *mut u8 = std::ptr::null_mut();
-            let err = EdsGetPointer(stream, &mut data_ptr);
-            if err != 0 || data_ptr.is_null() {
-                EdsRelease(evf_image);
-                EdsRelease(stream);
-                return Err(format!("Error getting pointer from stream: {}", err));
-            }
-            // Копируем данные в вектор
-            let image_data = std::slice::from_raw_parts(data_ptr, length as usize).to_vec();
-            // let image_data = Vec::from_raw_parts(data_ptr, length as usize, length as usize);
-            println!("image_data: {:?}", image_data.len());
-            let base64_data = BASE64_STANDARD.encode(&image_data);
-            let result = format!("data:image/jpeg;base64,{}", base64_data);
-            EdsRelease(evf_image);
-            EdsRelease(stream);
-            Ok(result)
-        }
-    }
-
-}
-
-impl Drop for Camera {
-    fn drop(&mut self) {
-        unsafe {
-            EdsCloseSession(self.camera_ref);
-            EdsRelease(self.camera_ref);
-            EdsTerminateSDK();
-        }
+    let current_dir = env::current_dir().map_err(|err| err.to_string())?;
+    let image_path = current_dir.join("image_alltime_usable.jpg");
+    
+    // Чтение изображения и преобразование в base64
+    match fs::read(&image_path) {
+        Ok(image_data) => Ok(format!("data:image/jpeg;base64,{}", encode(&image_data))),
+        Err(_) => Err("Failed to read image file.".to_string()),
     }
 }
 
-#[tauri::command]
-fn download_ev_image_command(state: tauri::State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -> Result<String, String> {
-    let camera_lock = state.lock().unwrap();
-    if let Some(camera) = &*camera_lock {
-        camera.lock().unwrap().download_evf_image()
-    } else {
-        Err("Camera not initialized.".to_string())
-    }
-}
-
-
-// Tauri command for initializing the camera
-#[tauri::command]
-fn initialize_camera(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -> Result<String, String> {
-    let camera = match Camera::new() {
-        Ok(camera) => camera,
-        Err(err) => return Err(format!("Failed to initialize camera: Error code {}", err)),
-    };
-
-    let mut state_lock = state.lock().unwrap();
-    *state_lock = Some(camera);
-
-    Ok("Camera initialized successfully".into())
-}
-
-// Tauri command for capturing a photo
-#[tauri::command]
-fn capture_photo(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -> Result<String, String> {
-    let state_lock = state.lock().unwrap();
-    if let Some(camera) = &*state_lock {
-        let camera_lock = camera.lock().unwrap();
-        match camera_lock.capture_photo() {
-            Ok(_) => Ok("Photo captured successfully".into()),
-            Err(err) => Err(format!("Failed to capture photo: Error code {}", err)),
-        }
-    } else {
-        Err("Camera is not initialized".into())
-    }
-}
-
-#[tauri::command]
-fn start_live_view(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -> Result<String, String> {
-    let camera = state.lock().unwrap();
-    if let Some(camera) = camera.as_ref() {
-        camera.lock().unwrap().start_live_view()
-            .map_err(|e| format!("Failed to start live view: Error code {}", e))?;
-        Ok("Live view started successfully".into())
-    } else {
-        Err("Camera is not initialized".into())
-    }
-}
-
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #[tokio::main]
 async fn main() {
     // Создаем элементы меню
@@ -436,11 +221,12 @@ async fn main() {
             Ok(())
         }})
         .invoke_handler(tauri::generate_handler![print_image, get_work_hours, set_work_hours, save_image, get_printer_list, get_printer_driver, get_image, save_canvas_data, save_canvas_image, load_all_canvas_data, 
-            initialize_camera,
-            capture_photo,
-            start_live_view,
-            download_ev_image_command])
-        .manage(Arc::new(Mutex::new(None::<Arc<Mutex<Camera>>>)))
+            start_live_view, 
+            get_image_base64, 
+            take_photo, 
+            stop_camera, 
+            delete_image, 
+            get_saved_image])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -654,24 +440,6 @@ fn load_all_canvas_data(app_handle: tauri::AppHandle) -> Result<Vec<Value>, Stri
 
     Ok(canvas_data)
 }
-
-// #[tauri::command]
-// fn load_canvas_data(canvas_id: String, app_handle: tauri::AppHandle) -> Result<String, String> {
-//     let base_path = app_handle
-//         .path_resolver()
-//         .app_data_dir()
-//         .ok_or("Failed to resolve app data directory")?;
-
-//     let template_dir = base_path.join("database/template");
-
-//     // Путь к файлу с использованием canvas_id
-//     let file_path = template_dir.join(format!("canvas_{}.json", canvas_id));
-
-//     // Читаем файл и возвращаем его содержимое
-//     let data = fs::read_to_string(&file_path).map_err(|e| e.to_string())?;
-
-//     Ok(data)
-// }
 
 #[tauri::command]
 fn save_canvas_image(canvas_id: String, base64_image: String, app_handle: tauri::AppHandle) -> Result<(), String> {
