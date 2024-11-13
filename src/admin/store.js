@@ -502,6 +502,19 @@ const limitPositionWithinCanvas = (obj, canvasWidth, canvasHeight) => {
   return obj;
 };
 
+const getPlaceholderColor = (numberImage) => {
+  switch (numberImage) {
+    case 1:
+      return '#FFD700'; // Золотистый
+    case 2:
+      return '#87CEEB'; // Голубой
+    case 3:
+      return '#90EE90'; // Светло-зелёный
+    default:
+      return '#D3D3D3'; // Серый по умолчанию
+  }
+};
+
 const updateCanvasProperty = (canvasId, propertyUpdates) => set((state) => ({
   canvases: state.canvases.map((canvas) =>
       canvas.id === canvasId
@@ -515,6 +528,8 @@ export const useStore = create(devtools((set) => ({
     {
       id: 1,
       canvasProps: {
+        name: 'Canvas 1',
+        available: false,
         backgroundColor: '#ffffff',
         width: 1240,
         height: 1844,
@@ -528,11 +543,11 @@ export const useStore = create(devtools((set) => ({
           top: 48,
           width: 530,
           height: 490,
-          fill: 'transparent', // Прозрачный фон для фото-заглушки
+          fill: '', // Прозрачный фон для фото-заглушки
           src: '', // Здесь будет ссылка на фото, которая появится после съемки
-          zIndex: 1,
+          zIndex: 3,
           stroke: '#000000',
-          strokeWidth: 1,
+          strokeWidth: 0,
           rotate: 0,
           opacity: 1,
           shadowColor: '#000000',
@@ -548,11 +563,11 @@ export const useStore = create(devtools((set) => ({
           top: 48,
           width: 530,
           height: 490,
-          fill: 'transparent', // Прозрачный фон для фото-заглушки
+          fill: '', // Прозрачный фон для фото-заглушки
           src: '', // Здесь будет ссылка на фото, которая появится после съемки
-          zIndex: 1,
+          zIndex: 3,
           stroke: '#000000',
-          strokeWidth: 1,
+          strokeWidth: 0,
           rotate: 0,
           opacity: 1,
           shadowColor: '#000000',
@@ -568,11 +583,11 @@ export const useStore = create(devtools((set) => ({
           top: 585,
           width: 530,
           height: 490,
-          fill: 'transparent', // Прозрачный фон для фото-заглушки
+          fill: '', // Прозрачный фон для фото-заглушки
           src: '', // Здесь будет ссылка на фото, которая появится после съемки
-          zIndex: 1,
+          zIndex: 3,
           stroke: '#000000',
-          strokeWidth: 1,
+          strokeWidth: 0,
           rotate: 0,
           opacity: 1,
           shadowColor: '#000000',
@@ -588,11 +603,11 @@ export const useStore = create(devtools((set) => ({
           top: 585,
           width: 530,
           height: 490,
-          fill: 'transparent', // Прозрачный фон для фото-заглушки
+          fill: '', // Прозрачный фон для фото-заглушки
           src: '', // Здесь будет ссылка на фото, которая появится после съемки
-          zIndex: 1,
+          zIndex: 3,
           stroke: '#000000',
-          strokeWidth: 1,
+          strokeWidth: 0,
           rotate: 0,
           opacity: 1,
           shadowColor: '#000000',
@@ -608,11 +623,11 @@ export const useStore = create(devtools((set) => ({
           top: 1124,
           width: 530,
           height: 490,
-          fill: 'transparent', // Прозрачный фон для фото-заглушки
+          fill: '', // Прозрачный фон для фото-заглушки
           src: '', // Здесь будет ссылка на фото, которая появится после съемки
-          zIndex: 1,
+          zIndex: 3,
           stroke: '#000000',
-          strokeWidth: 1,
+          strokeWidth: 0,
           rotate: 0,
           opacity: 1,
           shadowColor: '#000000',
@@ -628,11 +643,11 @@ export const useStore = create(devtools((set) => ({
           top: 1124,
           width: 530,
           height: 490,
-          fill: 'transparent', // Прозрачный фон для фото-заглушки
+          fill: '', // Прозрачный фон для фото-заглушки
           src: '', // Здесь будет ссылка на фото, которая появится после съемки
-          zIndex: 1,
+          zIndex: 3,
           stroke: '#000000',
-          strokeWidth: 1,
+          strokeWidth: 0,
           rotate: 0,
           opacity: 1,
           shadowColor: '#000000',
@@ -645,6 +660,8 @@ export const useStore = create(devtools((set) => ({
     {
       id: 2,
       canvasProps: {
+        name: 'Canvas 2',
+        available: false,
         backgroundColor: '#ffffff',
         width: 1240,
         height: 1844,
@@ -658,11 +675,11 @@ export const useStore = create(devtools((set) => ({
           top: 48,
           width: 530,
           height: 490,
-          fill: 'transparent', // Прозрачный фон для фото-заглушки
+          fill: '', // Прозрачный фон для фото-заглушки
           src: '', // Здесь будет ссылка на фото, которая появится после съемки
-          zIndex: 1,
+          zIndex: 3,
           stroke: '#000000',
-          strokeWidth: 1,
+          strokeWidth: 0,
           rotate: 0,
           opacity: 1,
           shadowColor: '#000000',
@@ -678,11 +695,11 @@ export const useStore = create(devtools((set) => ({
           top: 48,
           width: 530,
           height: 490,
-          fill: 'transparent', // Прозрачный фон для фото-заглушки
+          fill: '', // Прозрачный фон для фото-заглушки
           src: '', // Здесь будет ссылка на фото, которая появится после съемки
-          zIndex: 1,
+          zIndex: 3,
           stroke: '#000000',
-          strokeWidth: 1,
+          strokeWidth: 0,
           rotate: 0,
           opacity: 1,
           shadowColor: '#000000',
@@ -698,11 +715,11 @@ export const useStore = create(devtools((set) => ({
           top: 585,
           width: 530,
           height: 490,
-          fill: 'transparent', // Прозрачный фон для фото-заглушки
+          fill: '', // Прозрачный фон для фото-заглушки
           src: '', // Здесь будет ссылка на фото, которая появится после съемки
-          zIndex: 1,
+          zIndex: 3,
           stroke: '#000000',
-          strokeWidth: 1,
+          strokeWidth: 0,
           rotate: 0,
           opacity: 1,
           shadowColor: '#000000',
@@ -718,11 +735,11 @@ export const useStore = create(devtools((set) => ({
           top: 585,
           width: 530,
           height: 490,
-          fill: 'transparent', // Прозрачный фон для фото-заглушки
+          fill: '', // Прозрачный фон для фото-заглушки
           src: '', // Здесь будет ссылка на фото, которая появится после съемки
-          zIndex: 1,
+          zIndex: 3,
           stroke: '#000000',
-          strokeWidth: 1,
+          strokeWidth: 0,
           rotate: 0,
           opacity: 1,
           shadowColor: '#000000',
@@ -738,11 +755,11 @@ export const useStore = create(devtools((set) => ({
           top: 1124,
           width: 530,
           height: 490,
-          fill: 'transparent', // Прозрачный фон для фото-заглушки
+          fill: '', // Прозрачный фон для фото-заглушки
           src: '', // Здесь будет ссылка на фото, которая появится после съемки
-          zIndex: 1,
+          zIndex: 3,
           stroke: '#000000',
-          strokeWidth: 1,
+          strokeWidth: 0,
           rotate: 0,
           opacity: 1,
           shadowColor: '#000000',
@@ -758,11 +775,11 @@ export const useStore = create(devtools((set) => ({
           top: 1124,
           width: 530,
           height: 490,
-          fill: 'transparent', // Прозрачный фон для фото-заглушки
+          fill: '', // Прозрачный фон для фото-заглушки
           src: '', // Здесь будет ссылка на фото, которая появится после съемки
-          zIndex: 1,
+          zIndex: 3,
           stroke: '#000000',
-          strokeWidth: 1,
+          strokeWidth: 0,
           rotate: 0,
           opacity: 1,
           shadowColor: '#000000',
@@ -775,6 +792,8 @@ export const useStore = create(devtools((set) => ({
     {
       id: 3,
       canvasProps: {
+        name: 'Canvas 3',
+        available: false,
         backgroundColor: '#ffffff',
         width: 1240,
         height: 1844,
@@ -788,11 +807,11 @@ export const useStore = create(devtools((set) => ({
           top: 48,
           width: 530,
           height: 490,
-          fill: 'transparent', // Прозрачный фон для фото-заглушки
+          fill: '', // Прозрачный фон для фото-заглушки
           src: '', // Здесь будет ссылка на фото, которая появится после съемки
-          zIndex: 1,
+          zIndex: 3,
           stroke: '#000000',
-          strokeWidth: 1,
+          strokeWidth: 0,
           rotate: 0,
           opacity: 1,
           shadowColor: '#000000',
@@ -808,11 +827,11 @@ export const useStore = create(devtools((set) => ({
           top: 48,
           width: 530,
           height: 490,
-          fill: 'transparent', // Прозрачный фон для фото-заглушки
+          fill: '', // Прозрачный фон для фото-заглушки
           src: '', // Здесь будет ссылка на фото, которая появится после съемки
-          zIndex: 1,
+          zIndex: 3,
           stroke: '#000000',
-          strokeWidth: 1,
+          strokeWidth: 0,
           rotate: 0,
           opacity: 1,
           shadowColor: '#000000',
@@ -828,11 +847,11 @@ export const useStore = create(devtools((set) => ({
           top: 585,
           width: 530,
           height: 490,
-          fill: 'transparent', // Прозрачный фон для фото-заглушки
+          fill: '', // Прозрачный фон для фото-заглушки
           src: '', // Здесь будет ссылка на фото, которая появится после съемки
-          zIndex: 1,
+          zIndex: 3,
           stroke: '#000000',
-          strokeWidth: 1,
+          strokeWidth: 0,
           rotate: 0,
           opacity: 1,
           shadowColor: '#000000',
@@ -848,11 +867,11 @@ export const useStore = create(devtools((set) => ({
           top: 585,
           width: 530,
           height: 490,
-          fill: 'transparent', // Прозрачный фон для фото-заглушки
+          fill: '', // Прозрачный фон для фото-заглушки
           src: '', // Здесь будет ссылка на фото, которая появится после съемки
-          zIndex: 1,
+          zIndex: 3,
           stroke: '#000000',
-          strokeWidth: 1,
+          strokeWidth: 0,
           rotate: 0,
           opacity: 1,
           shadowColor: '#000000',
@@ -868,11 +887,11 @@ export const useStore = create(devtools((set) => ({
           top: 1124,
           width: 530,
           height: 490,
-          fill: 'transparent', // Прозрачный фон для фото-заглушки
+          fill: '', // Прозрачный фон для фото-заглушки
           src: '', // Здесь будет ссылка на фото, которая появится после съемки
-          zIndex: 1,
+          zIndex: 3,
           stroke: '#000000',
-          strokeWidth: 1,
+          strokeWidth: 0,
           rotate: 0,
           opacity: 1,
           shadowColor: '#000000',
@@ -888,11 +907,11 @@ export const useStore = create(devtools((set) => ({
           top: 1124,
           width: 530,
           height: 490,
-          fill: 'transparent', // Прозрачный фон для фото-заглушки
+          fill: '', // Прозрачный фон для фото-заглушки
           src: '', // Здесь будет ссылка на фото, которая появится после съемки
-          zIndex: 1,
+          zIndex: 3,
           stroke: '#000000',
-          strokeWidth: 1,
+          strokeWidth: 0,
           rotate: 0,
           opacity: 1,
           shadowColor: '#000000',
@@ -903,6 +922,11 @@ export const useStore = create(devtools((set) => ({
       ],
     },
   ],
+
+  error: null,  // Новое состояние для ошибок
+
+  setError: (message) => set({ error: message }),  // Функция для обновления ошибки
+
   currentCanvasId: 1,
 
   // Switch between different canvases
@@ -933,6 +957,8 @@ export const useStore = create(devtools((set) => ({
       {
         id: Date.now(),
         canvasProps: {
+          name: 'New Canvas',
+          available: false,
           backgroundColor: '#ffffff',
           width: 1240,
           height: 1844,
@@ -946,7 +972,7 @@ export const useStore = create(devtools((set) => ({
             top: 48,
             width: 530,
             height: 490,
-            fill: 'transparent', // Прозрачный фон для фото-заглушки
+            fill: '', // Прозрачный фон для фото-заглушки
             src: '', // Здесь будет ссылка на фото, которая появится после съемки
             zIndex: 1,
             stroke: '#000000',
@@ -966,7 +992,7 @@ export const useStore = create(devtools((set) => ({
             top: 48,
             width: 530,
             height: 490,
-            fill: 'transparent', // Прозрачный фон для фото-заглушки
+            fill: '', // Прозрачный фон для фото-заглушки
             src: '', // Здесь будет ссылка на фото, которая появится после съемки
             zIndex: 1,
             stroke: '#000000',
@@ -986,7 +1012,7 @@ export const useStore = create(devtools((set) => ({
             top: 585,
             width: 530,
             height: 490,
-            fill: 'transparent', // Прозрачный фон для фото-заглушки
+            fill: '', // Прозрачный фон для фото-заглушки
             src: '', // Здесь будет ссылка на фото, которая появится после съемки
             zIndex: 1,
             stroke: '#000000',
@@ -1006,7 +1032,7 @@ export const useStore = create(devtools((set) => ({
             top: 585,
             width: 530,
             height: 490,
-            fill: 'transparent', // Прозрачный фон для фото-заглушки
+            fill: '', // Прозрачный фон для фото-заглушки
             src: '', // Здесь будет ссылка на фото, которая появится после съемки
             zIndex: 1,
             stroke: '#000000',
@@ -1026,7 +1052,7 @@ export const useStore = create(devtools((set) => ({
             top: 1124,
             width: 530,
             height: 490,
-            fill: 'transparent', // Прозрачный фон для фото-заглушки
+            fill: '', // Прозрачный фон для фото-заглушки
             src: '', // Здесь будет ссылка на фото, которая появится после съемки
             zIndex: 1,
             stroke: '#000000',
@@ -1046,7 +1072,7 @@ export const useStore = create(devtools((set) => ({
             top: 1124,
             width: 530,
             height: 490,
-            fill: 'transparent', // Прозрачный фон для фото-заглушки
+            fill: '', // Прозрачный фон для фото-заглушки
             src: '', // Здесь будет ссылка на фото, которая появится после съемки
             zIndex: 1,
             stroke: '#000000',

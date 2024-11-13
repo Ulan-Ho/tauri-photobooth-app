@@ -8,7 +8,7 @@ import { usePageNavigation } from "../App";
 import { invoke } from "@tauri-apps/api";
 import { listen } from "@tauri-apps/api/event";
 
-export default function MainPage() {
+export default function MainPage( {setTemplates} ) {
     const [bgImage, setBgImage] = useState(localStorage.getItem("back_1") || `url(${back_img})`);
     usePageNavigation();
 
@@ -30,13 +30,24 @@ export default function MainPage() {
         }
     },[]);
 
+    const templates = [];
+    const fetchTemplate = async() => {
+        const response = await invoke('load_all_canvas_images');
+        let id = 1;
+        response.map((template) => {
+            templates.push({id: id, image: template});
+            id+=1;
+        })
+        setTemplates(templates);
+    }
+
     return (
         <div className="flex justify-center items-center">
             <div className="select-none relative  bg-cover bg-center bg-no-repeat" style={{width: '1280px', height: '1024px', backgroundImage: bgImage}}>
                 <div className='back-img'></div>
                 <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
                     <div className="flex flex-col">
-                        <NavLink to='/template'><img src={main_icon} alt="camera icon" /></NavLink>
+                        <NavLink to='/template' onClick={() => fetchTemplate()}><img src={main_icon} alt="camera icon" /></NavLink>
                         <div style={word}>НАЧАТЬ ФОТОСЕССИЮ </div>
                         {/* <NavLink to='/settings' className="text-black">Settings</NavLink> */}
                         {/* <div className="text-black">{appPath}</div> */}

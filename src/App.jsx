@@ -24,19 +24,17 @@ export default function App(){
   const [images, setImages] = useState([]);
   const [template, setTemplate] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [canvas, setCanvas] = useState(null);
 
-  const templates = [
-    { id: 1, name: 'template1', url_png: templateSimple },
-    { id: 2, name: 'template2', url_png: templateRul }
-  ];
+  const [templates, setTemplates] = useState([]);
 
   return (
         <Router>
           <Routes>
-            <Route path="/" element={<MainPage />}/>
+            <Route path="/" element={<MainPage setTemplates={setTemplates} />}/>
             <Route path="/template" element={<TemplatePage templates={templates} onSelectDesign={setDesign} onSelectTemplate={setTemplate} />} />
-            <Route path="/capture" element={<CapturePage onCapture={setImages} />} />
-            <Route path="/print" element={<PrintPage design={design} template={template} images={images} onPrint={() => {}} />} />
+            <Route path="/capture" element={<CapturePage onCapture={setImages} template={template} setCanvas={setCanvas}/>} />
+            <Route path="/print" element={<PrintPage design={design} template={canvas} images={images} onPrint={() => {}} />} />
 
             <Route path="/settings" element={<Settings isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />} />
             <Route path="/settings/touchscreen" element={<Touchscreen isDarkMode={isDarkMode} />} />

@@ -16,6 +16,7 @@ use winapi::um::winspool::EnumPrinterDriversW;
 use std::os::windows::ffi::OsStrExt;
 //-------------------------------------------------------------------------------------------------
 // use tauri::AppHandle;
+use std::slice;
 use device_query::{DeviceQuery, DeviceState, Keycode};
 use std::result::Result;
 use std::sync::{Arc, Mutex};
@@ -31,14 +32,27 @@ use serde_json::json;
 use serde::{Deserialize, Serialize};
 use std::env;
 use serde_json::Value;
-use std::ffi::c_void;
-use tauri::{State};
+// use std::ffi::{ c_void, c_uint, c_int};
+use libc::{c_void, c_uint, c_int};
+use tauri::State;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct WorkHours {
     pub start: String,
     pub end: String,
 }
+
+type EdsError = c_int;
+type EdsCameraRef = *mut c_void;
+type EdsDirectoryItemRef = *mut c_void;
+type EdsUInt32 = c_uint;
+type EdsPropertyID = c_uint;
+type EdsStateEvent = c_uint;
+type EdsObjectEvent = c_uint;
+type EdsPropertyEvent = c_uint;
+type EdsBaseRef = *mut c_void;
+type EdsVoid = c_void;
+
 
 #[link(name = "EDSDK")]
 extern "C" {
@@ -50,7 +64,7 @@ extern "C" {
     fn EdsOpenSession(camera: *mut c_void) -> u32;
     fn EdsCloseSession(camera: *mut c_void) -> u32;
     fn EdsSendCommand(camera: *mut c_void, command: u32, param: u32) -> u32;
-    // fn EdsGetDirectoryItemInfo(dir_item: *mut c_void, dir_item_info: *mut EdsDirectoryItemInfo) -> u32;
+    fn EdsGetDirectoryItemInfo(dir_item: *mut c_void, dir_item_info: *mut EdsDirectoryItemInfo) -> u32;
     fn EdsCreateMemoryStream(size: u64, stream: *mut *mut c_void) -> u32;
     fn EdsDownload(dir_item: *mut c_void, size: u64, stream: *mut c_void) -> u32;
     fn EdsDownloadComplete(dir_item: *mut c_void) -> u32;
@@ -61,7 +75,20 @@ extern "C" {
     fn EdsCreateEvfImageRef(stream: *mut c_void, evfImage: *mut *mut c_void) -> u32;
     fn EdsDownloadEvfImage(camera: *mut c_void, evfImage: *mut c_void) -> u32;
     fn EdsGetPropertyData(ref_: *mut c_void, prop_id: u32, param: u32, size: u32, out_data: *mut c_void) -> u32;
-    fn EdsSetPropertyData(ref_: *mut c_void, prop_id: u32, param: u32, size: u32, in_data: *const c_void) -> u32;
+    // fn EdsSetPropertyData(camera: *mut c_void, prop_id: u32, param: u32, size: u32, in_data: *const i64) -> u32;
+    fn EdsSetPropertyData(camera: *mut c_void, prop_id: u32, param: u32, size: u32, in_data: *const c_void) -> u32;
+    
+    // fn EdsSetPropertyEventHandler(camera: *mut c_void, event: c_uint, event_handler: extern "C" fn(c_uint, *mut c_void, *mut c_void) -> c_int, context: *mut c_void) -> c_int;
+    // fn EdsSetObjectEventHandler(camera: *mut c_void, event: c_uint, event_handler: extern "C" fn(c_uint, c_uint, c_uint, *mut c_void) -> c_int, context: *mut c_void) -> c_int;
+    // fn EdsSetCameraStateEventHandler(camera: *mut c_void, event: c_uint, event_handler: extern "C" fn(c_uint, c_uint, *mut c_void) -> c_int, context: *mut c_void) -> c_int;
+    
+    fn EdsSetObjectEventHandler(camera: EdsCameraRef, event: EdsObjectEvent, handler: extern "C" fn(EdsObjectEvent, EdsBaseRef, *mut EdsVoid) -> EdsError, context: *mut EdsVoid) -> EdsError;
+    fn EdsSetPropertyEventHandler(camera: EdsCameraRef, event: EdsPropertyEvent, handler: extern "C" fn(EdsPropertyEvent, EdsPropertyID, EdsUInt32, *mut EdsVoid) -> EdsError, context: *mut EdsVoid) -> EdsError;
+    fn EdsSetCameraStateEventHandler(camera: EdsCameraRef, event: EdsStateEvent, handler: extern "C" fn(EdsStateEvent, EdsUInt32, *mut EdsVoid) -> EdsError, context: *mut EdsVoid) -> EdsError;
+    
+
+    fn EdsGetEvent() -> u32;
+    fn EdsSetCapacity(camera: *mut c_void, capacity: EdsCapacity) -> u32;
 }
 #[repr(C)]
 pub struct EdsDirectoryItemInfo {
@@ -69,14 +96,20 @@ pub struct EdsDirectoryItemInfo {
     pub is_folder: i32,
     pub group_id: u32,
     pub option: u32,
-    pub file_name: [i8; 256],
-    // pub format: u32,
-    // pub date_time: u32,
+    pub szFileName: [i8; 256],
+}
+#[repr(C)]
+pub struct EdsCapacity {
+    number_of_free_clusters: i32,
+    bytes_per_sector: i32,
+    reset: bool,
 }
 
+#[derive(Debug)]
 struct Camera {
-    camera_ref: *mut std::ffi::c_void,
+    camera_ref: *mut c_void,
     is_live_view_started: bool,
+    // app_handle: Option<tauri::AppHandle>,  // Добавляем это поле
 }
 
 
@@ -84,6 +117,7 @@ unsafe impl Send for Camera {}
 unsafe impl Sync for Camera {}
 
 impl Camera {
+    // fn new(app_handle: tauri::AppHandle) -> Result<Arc<Mutex<Self>>, u32> {
     fn new() -> Result<Arc<Mutex<Self>>, u32> {
         unsafe {
             let err = EdsInitializeSDK();
@@ -91,7 +125,7 @@ impl Camera {
                 return Err(err);
             }
 
-            let mut camera_list: *mut std::ffi::c_void = std::ptr::null_mut();
+            let mut camera_list: *mut c_void = std::ptr::null_mut();
             let err = EdsGetCameraList(&mut camera_list);
             if err != 0 {
                 return Err(err);
@@ -103,112 +137,166 @@ impl Camera {
                 return Err(err);
             }
 
-            let mut camera_ref: *mut std::ffi::c_void = std::ptr::null_mut();
-            let err = EdsGetChildAtIndex(camera_list, 0, &mut camera_ref);
+            let mut camera_ref_in: *mut c_void = std::ptr::null_mut();
+            let err = EdsGetChildAtIndex(camera_list, 0, &mut camera_ref_in);
             if err != 0 {
                 return Err(err);
             }
 
-            let err = EdsOpenSession(camera_ref);
+            let err = EdsOpenSession(camera_ref_in);
             if err != 0 {
                 return Err(err);
             }
 
             EdsRelease(camera_list);
 
-            Ok(Arc::new(Mutex::new(Camera { camera_ref, is_live_view_started: false, })))
+            let camera = Arc::new(Mutex::new(Camera {
+                camera_ref: camera_ref_in,
+                is_live_view_started: false,
+                // app_handle: Some(app_handle),
+            }));
+
+            Ok(camera)
         }
     }
 
-    // fn close_session(&self) -> u32 {
-    //     unsafe { EdsCloseSession(self.camera_ref) }
-    // }
-
-    fn capture_photo(&self) -> Result<String, u32> {
-        // unsafe {
-        //     let mut dir_item_info = EdsDirectoryItemInfo {
-        //         size: 0,
-        //         is_folder: 0,
-        //         group_id: 0,
-        //         option: 0,
-        //         file_name: [0; 256],
-        //     };
-
-            
-        //     let save_target = 1; // kEdsSaveTo_Host
-        //     if EdsSetPropertyData(camera_ref, 0x00000300, 0, 4, &save_target as *const i32 as *const std::ffi::c_void) != 0 {
-        //         EdsCloseSession(camera_ref);
-        //         EdsRelease(camera_ref);
-        //         EdsTerminateSDK();
-        //         return Err(err);
-        //     }
-
-        //     if EdsSendCommand(self.camera_ref, 0x00000000, 0) != 0 {
-        //         EdsCloseSession(self.camera_ref);
-        //         EdsRelease(self.camera_ref);
-        //         EdsTerminateSDK();
-        //         return Err(1);
-        //     }
-
-        //     // Download image after capture
-        //     if self.download_image(&mut dir_item_info).is_err() {
-        //         EdsCloseSession(self.camera_ref);
-        //         EdsRelease(self.camera_ref);
-        //         EdsTerminateSDK();
-        //         return Err(2);
-        //     }
-            
-        //     // Convert file name to a String
-        //     let file_name = std::ffi::CString::new(
-        //         dir_item_info.file_name
-        //             .iter()
-        //             .take_while(|&&c| c != 0)
-        //             .map(|&c| c as u8)
-        //             .collect::<Vec<_>>()
-        //     ).unwrap();
-
-        //     // Read the file and encode in base64
-        //     let image_data = match std::fs::read(file_name.to_str().unwrap()) {
-        //         Ok(data) => data,
-        //         Err(_) => return Err(3), // Return a u32 error code for read failure
-        //     };
-        //     let encoded_image = BASE64_STANDARD.encode(&image_data);
-
-
-        //     Ok(encoded_image)
-            Ok(("grhh".to_string()))
-        // }
+    fn close_session(&self) -> u32 {
+        unsafe { EdsCloseSession(self.camera_ref) }
     }
 
-    // fn download_image(&self, dir_item_info: *mut EdsDirectoryItemInfo) -> Result<(), String> {
-    //     unsafe {
-    //         let dir_item: *mut std::ffi::c_void = std::ptr::null_mut();
-    //         let mut stream: *mut std::ffi::c_void = std::ptr::null_mut();
-        
-    //         // Create a memory stream to store the image
-    //         if EdsCreateMemoryStream(0, &mut stream) != 0 {
-    //             return Err("Failed to create memory stream".to_string());
-    //         }
-        
-    //         // Download the image
-    //         if EdsDownload(dir_item, (*dir_item_info).size, stream) != 0 {
-    //             return Err("Failed to download image".to_string());
-    //         }
-        
-    //         // Complete the download
-    //         if EdsDownloadComplete(dir_item) != 0 {
-    //             return Err("Failed to complete download".to_string());
-    //         }
-        
-    //         // Release the memory
-    //         if stream != std::ptr::null_mut() {
-    //             EdsRelease(stream);
-    //         }
-        
-    //         Ok(())
-    //     }
-    // }
+    extern "C" fn handle_object_event( event: EdsObjectEvent, object: EdsBaseRef, context: *mut EdsVoid) -> EdsError {
+        println!("[LOG] Object event triggered: 0x{:X}", event);
+        // let camera = unsafe { &mut *(context as *mut Camera) };
+        println!("Camera ref: {:?}", context);
+        if event == 0x00000208 {
+            println!("Image captured");
+            // let app_handle = Self::get_struct_camera_app_handle();
+            let err = Self::download_image( object);
+            if object != std::ptr::null_mut() {
+                unsafe { EdsRelease(object); }
+            }
+            // println!("Image: {}", err.unwrap());
+        }
+        0
+    }
     
+    extern "C" fn handle_property_event(event: EdsPropertyEvent, property_id: EdsPropertyID, param: EdsUInt32, context: *mut EdsVoid) -> EdsError {
+        println!("[LOG] Property event triggered: 0x{:X}", property_id);
+        // Обработка события свойства
+        0
+    }
+    
+    extern "C" fn handle_state_event(event: EdsStateEvent, param: EdsUInt32, context: *mut EdsVoid) -> EdsError {
+        println!("[LOG] State event triggered: 0x{:X}", event);
+        // println!("Camera ref: {:?}", context);
+        // println!("Param: {}", param);
+        // Обработка события состояния
+        0
+    }
+
+    fn capture_photo(&self) -> Result<String, u32> {
+        unsafe {
+            let mut save_target: u32 = 2;
+            let capacity = EdsCapacity {
+                number_of_free_clusters: 0x7FFFFFFF,
+                bytes_per_sector: 0x1000,
+                reset: true,
+            };
+    
+            // Set event handlers
+            // EdsSetCameraStateEventHandler(self.camera_ref, 0x00000300, Self::handle_state_event, std::ptr::null_mut());
+            // EdsSetObjectEventHandler(self.camera_ref, 0x00000200, Self::handle_object_event, std::ptr::null_mut());
+            // EdsSetPropertyEventHandler(self.camera_ref, 0x00000100, Self::handle_property_event, std::ptr::null_mut());
+            EdsSetObjectEventHandler(self.camera_ref, 0x00000200, Self::handle_object_event, std::ptr::null_mut());
+            EdsSetPropertyEventHandler(self.camera_ref, 0x00000100, Self::handle_property_event, std::ptr::null_mut());
+            EdsSetCameraStateEventHandler(self.camera_ref, 0x00000300, Self::handle_state_event, std::ptr::null_mut());
+
+            // Trigger event
+            EdsGetEvent();
+    
+            // Set save target and capture image
+            EdsSetPropertyData(self.camera_ref, 0x0000000b, 0, 4, &save_target as *const _ as *mut c_void);
+            EdsSetCapacity(self.camera_ref, capacity);
+            EdsSendCommand(self.camera_ref, 0x00000004, 0x00000003);
+            EdsSendCommand(self.camera_ref, 0x00000004, 0x00000000);
+            thread::sleep(Duration::from_millis(200));
+            self.close_session();
+            Ok("Photo captured".to_string())
+        }
+    }
+
+    fn download_image(directory_item: *mut c_void) -> Result<String, u32> {
+        println!("[LOG] Downloading image...");
+        let mut err: u32;
+        let mut stream: *mut c_void = std::ptr::null_mut();
+        let mut dir_item_info = EdsDirectoryItemInfo {
+            size: 0,
+            is_folder: 0,
+            group_id: 0,
+            option: 0,
+            szFileName: [0; 256],
+        };
+
+        // Получаем информацию о элементе директории
+        err = unsafe { EdsGetDirectoryItemInfo(directory_item, &mut dir_item_info) };
+        if err != 0 {
+            println!("[ERROR] Failed to get directory item info: 0x{:X}", err);
+            return Err(err);
+        }
+
+        // Создаем поток в памяти для сохранения изображения
+        err = unsafe { EdsCreateMemoryStream(dir_item_info.size, &mut stream) };
+        if err != 0 {
+            println!("[ERROR] Failed to create memory stream: 0x{:X}", err);
+            return Err(err);
+        }
+
+        // Скачиваем изображение в поток
+        err = unsafe { EdsDownload(directory_item, dir_item_info.size, stream) };
+        if err != 0 {
+            println!("[ERROR] Failed to download image: 0x{:X}", err);
+            unsafe { EdsRelease(stream); }
+            return Err(err);
+        }
+        println!("[LOG] Image downloaded successfully.");
+
+        // Завершаем скачивание
+        err = unsafe { EdsDownloadComplete(directory_item) };
+        if err != 0 {
+            eprintln!("[ERROR] Failed to complete download: 0x{:X}", err);
+            unsafe { EdsRelease(stream); }
+            return Err(err);
+        }
+
+        // Получаем указатель на данные изображения
+        let mut data_ptr: *mut u8 = std::ptr::null_mut();
+        err = unsafe { EdsGetPointer(stream, &mut data_ptr) };
+        if err != 0 || data_ptr.is_null() {
+            eprintln!("[ERROR] Failed to get image data pointer: 0x{:X}", err);
+            unsafe { EdsRelease(stream); }
+            return Err(err);
+        }
+
+        // Читаем данные изображения в буфер
+        let image_data = unsafe { slice::from_raw_parts(data_ptr, dir_item_info.size as usize) };
+
+        // Кодируем данные изображения в base64
+        let base64_encoded_image = BASE64_STANDARD.encode(image_data);
+        println!("Size of base64 encoded image: {} bytes", base64_encoded_image.len());
+        // let _ = app_handle.emit_all("capture_image_from_base64", base64_encoded_image);
+        // println!("Image data sent to frontend.");
+        // Освобождаем поток
+        if !stream.is_null() {
+            unsafe { EdsRelease(stream); }
+        }
+
+        println!("[LOG] Image downloaded and encoded to base64 successfully.");
+        Ok(base64_encoded_image)
+    }
+
+    // fn get_struct_camera_app_handle(&self) -> () {
+    //     self.app_handle.clone();
+    // }
 
     fn start_live_view(&mut self) -> Result<(), u32> {
         if !self.is_live_view_started {
@@ -239,6 +327,54 @@ impl Camera {
         }
     }
 
+    fn stop_live_view(&mut self) -> Result<(), u32> {
+        if self.is_live_view_started {
+            unsafe {
+                let mut device: u32 = 0;
+                // Получаем текущее устройство вывода
+                let err = EdsGetPropertyData(
+                    self.camera_ref,
+                    0x00000500, // kEdsPropID_Evf_OutputDevice
+                    0,
+                    std::mem::size_of::<u32>() as u32,
+                    &mut device as *mut _ as *mut c_void,
+                );
+                
+                if err != 0 {
+                    println!("Failed to get current output device: {}", err);
+                    return Err(err);
+                }
+    
+                // Проверка, активно ли устройство вывода для живого просмотра
+                if device & 2 != 0 {
+                    // Отключаем вывод на компьютер (удаляем бит)
+                    device &= !2;
+    
+                    // Устанавливаем новое значение для устройства вывода
+                    let err = EdsSetPropertyData(
+                        self.camera_ref,
+                        0x00000500, // kEdsPropID_Evf_OutputDevice
+                        0,
+                        std::mem::size_of::<u32>() as u32,
+                        &device as *const _ as *const c_void,
+                    );
+    
+                    if err != 0 {
+                        println!("Failed to disable live view output device: {}", err);
+                        return Err(err);
+                    }
+                }
+            }
+            // Обновляем флаг состояния живого просмотра
+            self.is_live_view_started = false;
+            println!("Live view stopped.");
+            Ok(())
+        } else {
+            println!("Live view is not active.");
+            Ok(())
+        }
+    }
+
     fn download_evf_image(&self) -> Result<String, String> {
         unsafe {
             let mut stream: *mut c_void = std::ptr::null_mut();
@@ -257,11 +393,11 @@ impl Camera {
             }
             // Скачиваем изображение
             let err = EdsDownloadEvfImage(self.camera_ref, evf_image);
-            println!("err: {}", err);
+            // println!("err: {}", err);
             if err != 0 {
                 EdsRelease(evf_image);
                 EdsRelease(stream);
-                println!("Error downloading EVF image: {}", err);
+                // println!("Error downloading EVF image: {}", err);
                 return Err(format!("Error downloading EVF image: {}", err));
             }
             // Получаем длину данных в потоке
@@ -283,7 +419,7 @@ impl Camera {
             // Копируем данные в вектор
             let image_data = std::slice::from_raw_parts(data_ptr, length as usize).to_vec();
             // let image_data = Vec::from_raw_parts(data_ptr, length as usize, length as usize);
-            println!("image_data: {:?}", image_data.len());
+            // println!("image_data: {:?}", image_data.len());
             let base64_data = BASE64_STANDARD.encode(&image_data);
             let result = format!("data:image/jpeg;base64,{}", base64_data);
             EdsRelease(evf_image);
@@ -314,6 +450,14 @@ fn download_ev_image_command(state: tauri::State<'_, Arc<Mutex<Option<Arc<Mutex<
     }
 }
 
+// fn get_struct_camera_app_handle(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -> tauri::AppHandle {
+//     let camera = state.lock().unwrap();
+//     if let Some(camera) = camera.as_ref() {
+//         camera.lock().unwrap().app_handle.clone().unwrap()
+//     } else {
+//         panic!("Camera is not initialized");
+//     }
+// }
 
 // Tauri command for initializing the camera
 #[tauri::command]
@@ -330,6 +474,20 @@ fn initialize_camera(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -
 }
 
 // Tauri command for capturing a photo
+#[tauri::command]
+fn capture_photo_as(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -> Result<String, String> {
+    let state_lock = state.lock().unwrap();
+    if let Some(camera) = &*state_lock {
+        let camera_lock = camera.lock().unwrap();
+        match camera_lock.capture_photo() {
+            Ok(_) => Ok("Photo captured successfully".into()),
+            Err(err) => Err(format!("Failed to capture photo: Error code {}", err)),
+        }
+    } else {
+        Err("Camera is not initialized".into())
+    }
+}
+
 #[tauri::command]
 fn capture_photo(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -> Result<String, String> {
     let state_lock = state.lock().unwrap();
@@ -349,6 +507,19 @@ fn start_live_view(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -> 
     let camera = state.lock().unwrap();
     if let Some(camera) = camera.as_ref() {
         camera.lock().unwrap().start_live_view()
+            .map_err(|e| format!("Failed to start live view: Error code {}", e))?;
+        Ok("Live view started successfully".into())
+    } else {
+        Err("Camera is not initialized".into())
+    }
+}
+
+
+#[tauri::command]
+fn stop_live_view(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -> Result<String, String> {
+    let camera = state.lock().unwrap();
+    if let Some(camera) = camera.as_ref() {
+        camera.lock().unwrap().stop_live_view()
             .map_err(|e| format!("Failed to start live view: Error code {}", e))?;
         Ok("Live view started successfully".into())
     } else {
@@ -435,11 +606,13 @@ async fn main() {
 
             Ok(())
         }})
-        .invoke_handler(tauri::generate_handler![print_image, get_work_hours, set_work_hours, save_image, get_printer_list, get_printer_driver, get_image, save_canvas_data, save_canvas_image, load_all_canvas_data, 
+        .invoke_handler(tauri::generate_handler![print_image, get_work_hours, set_work_hours, save_image, get_printer_list, get_printer_driver, get_image, save_canvas_data, save_canvas_image, load_all_canvas_data, delete_canvas_image_and_data, load_all_canvas_images,
+            load_available_canvas_data,
             initialize_camera,
-            capture_photo,
+            capture_photo_as,
             start_live_view,
-            download_ev_image_command])
+            download_ev_image_command,
+            stop_live_view])
         .manage(Arc::new(Mutex::new(None::<Arc<Mutex<Camera>>>)))
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -599,7 +772,7 @@ fn create_time_json_if_not_exist(base_path: &PathBuf) {
 
 //-------------------------------------------------Template Editor-------------------------------------------------------------------------------------
 #[tauri::command]
-fn save_canvas_data(canvas_id: String, data: String, app_handle: tauri::AppHandle) -> Result<(), String> {
+fn save_canvas_data(canvas_id: String, data: String, available: bool, app_handle: tauri::AppHandle) -> Result<(), String> {
     // Получаем путь к папке приложения для хранения данных
     let base_path = app_handle
         .path_resolver()
@@ -607,11 +780,26 @@ fn save_canvas_data(canvas_id: String, data: String, app_handle: tauri::AppHandl
         .ok_or("Не удалось разрешить папку данных приложения.")?;
 
     // Создаем путь для сохранения данных шаблона в папке 'database/template'
-    let template_dir = base_path.join("database/template");
+    let template_dir;
+    let other_template_dir;
+
+    if available {
+        template_dir = base_path.join("database/template/available");
+        other_template_dir = base_path.join("database/template/not_available");
+    } else {
+        template_dir = base_path.join("database/template/not_available");
+        other_template_dir = base_path.join("database/template/available");
+    }
 
     // Убедимся, что директория существует, и создадим её при необходимости
     if !template_dir.exists() {
         fs::create_dir_all(&template_dir).map_err(|e| e.to_string())?;
+    }
+
+    // Проверка наличия файла с таким же именем в другой папке и удаление его
+    let other_file_path = other_template_dir.join(format!("canvas_{}.json", canvas_id));
+    if other_file_path.exists() {
+        fs::remove_file(&other_file_path).map_err(|e| format!("Ошибка при удалении файла: {}", e))?;
     }
 
     // Создаем полный путь для файла JSON с использованием canvas_id
@@ -624,19 +812,116 @@ fn save_canvas_data(canvas_id: String, data: String, app_handle: tauri::AppHandl
 }
 
 #[tauri::command]
+fn save_canvas_image(canvas_id: String, base64_image: String, available: bool, app_handle: tauri::AppHandle) -> Result<(), String> {
+    // Получаем путь к папке приложения для хранения данных
+    let base_path = app_handle
+        .path_resolver()
+        .app_data_dir()
+        .ok_or("Не удалось разрешить папку данных приложения.")?;
+
+    // Создаем путь для сохранения изображений холста в папке 'database/images'
+    let image_dir;
+    let other_image_dir;
+
+    if available {
+        image_dir = base_path.join("database/template/available");
+        other_image_dir = base_path.join("database/template/not_available");
+    } else {
+        image_dir = base_path.join("database/template/not_available");
+        other_image_dir = base_path.join("database/template/available");
+    }
+
+    // Убедимся, что директория существует, и создадим её при необходимости
+    if !image_dir.exists() {
+        fs::create_dir_all(&image_dir).map_err(|e| e.to_string())?;
+    }
+
+    // Проверка наличия файла с таким же именем в другой папке и удаление его
+    let other_image_path = other_image_dir.join(format!("canvas_{}.png", canvas_id));
+    if other_image_path.exists() {
+        fs::remove_file(&other_image_path).map_err(|e| format!("Ошибка при удалении файла: {}", e))?;
+    }
+
+    // Создаем полный путь для файла изображения с использованием canvas_id
+    let image_path = image_dir.join(format!("canvas_{}.png", canvas_id));
+
+    // Декодируем base64 строку изображения в байты
+    let image_data = BASE64_STANDARD.decode(&base64_image).map_err(|e| format!("Ошибка декодирования изображения: {}", e))?;
+
+    // Сохраняем изображение в файл
+    fs::write(&image_path, image_data).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn delete_canvas_image_and_data(canvas_id: String, available: bool, app_handle: tauri::AppHandle) -> Result<(), String> {
+    // Получаем путь к папке приложения для хранения данных
+    let base_path = app_handle
+        .path_resolver()
+        .app_data_dir()
+        .ok_or("Не удалось разрешить папку данных приложения.")?;
+
+    // Создаем путь для сохранения данных шаблона в папке 'database/template'
+    let template_dir;
+    let image_dir;
+
+    if available {
+        template_dir = base_path.join("database/template/available");
+        image_dir = base_path.join("database/template/available");
+    } else {
+        template_dir = base_path.join("database/template/not_available");
+        image_dir = base_path.join("database/template/not_available");
+    }
+
+    // Создаем полный путь для файла JSON с использованием canvas_id
+    let file_path = template_dir.join(format!("canvas_{}.json", canvas_id));
+    let image_path = image_dir.join(format!("canvas_{}.png", canvas_id));
+
+    // Удаляем файлы
+    if file_path.exists() {
+        fs::remove_file(&file_path).map_err(|e| e.to_string())?;
+    }
+
+    if image_path.exists() {
+        fs::remove_file(&image_path).map_err(|e| format!("Ошибка при удалении файла: {}", e))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 fn load_all_canvas_data(app_handle: tauri::AppHandle) -> Result<Vec<Value>, String> {
     let base_path = app_handle
         .path_resolver()
         .app_data_dir()
         .ok_or("Failed to resolve app data directory")?;
 
-    let template_dir = base_path.join("database/template");
+    let template_dir_not_available = base_path.join("database/template/not_available");
+    let template_dir_available = base_path.join("database/template/available");
 
     // Получаем все JSON файлы в директории
     let mut canvas_data = Vec::new();
 
-    if template_dir.exists() {
-        if let Ok(entries) = fs::read_dir(&template_dir) {
+    if template_dir_not_available.exists() {
+        if let Ok(entries) = fs::read_dir(&template_dir_not_available) {
+            for entry in entries.filter_map(Result::ok) {
+                if let Some(extension) = entry.path().extension() {
+                    if extension == "json" {
+                        // Читаем файл и добавляем его содержимое в массив
+                        let data = fs::read_to_string(entry.path())
+                            .map_err(|e| e.to_string())?;
+                        let json_value: Value = serde_json::from_str(&data)
+                            .map_err(|e| e.to_string())?;
+                        canvas_data.push(json_value);
+                    }
+                }
+            }
+        }
+    }
+
+    if template_dir_available.exists() {
+        if let Ok(entries) = fs::read_dir(&template_dir_available) {
             for entry in entries.filter_map(Result::ok) {
                 if let Some(extension) = entry.path().extension() {
                     if extension == "json" {
@@ -655,55 +940,70 @@ fn load_all_canvas_data(app_handle: tauri::AppHandle) -> Result<Vec<Value>, Stri
     Ok(canvas_data)
 }
 
-// #[tauri::command]
-// fn load_canvas_data(canvas_id: String, app_handle: tauri::AppHandle) -> Result<String, String> {
-//     let base_path = app_handle
-//         .path_resolver()
-//         .app_data_dir()
-//         .ok_or("Failed to resolve app data directory")?;
-
-//     let template_dir = base_path.join("database/template");
-
-//     // Путь к файлу с использованием canvas_id
-//     let file_path = template_dir.join(format!("canvas_{}.json", canvas_id));
-
-//     // Читаем файл и возвращаем его содержимое
-//     let data = fs::read_to_string(&file_path).map_err(|e| e.to_string())?;
-
-//     Ok(data)
-// }
-
 #[tauri::command]
-fn save_canvas_image(canvas_id: String, base64_image: String, app_handle: tauri::AppHandle) -> Result<(), String> {
-    // Получаем путь к папке приложения для хранения данных
+fn load_all_canvas_images(app_handle: tauri::AppHandle) -> Result<Vec<String>, String> {
     let base_path = app_handle
         .path_resolver()
         .app_data_dir()
-        .ok_or("Не удалось разрешить папку данных приложения.")?;
+        .ok_or("Failed to resolve app data directory")?;
 
-    // Создаем путь для сохранения изображений холста в папке 'database/images'
-    let image_dir = base_path.join("database/template");
+    let image_dir_available = base_path.join("database/template/available");
 
-    // Убедимся, что директория существует, и создадим её при необходимости
-    if !image_dir.exists() {
-        fs::create_dir_all(&image_dir).map_err(|e| e.to_string())?;
+    // Вектор для хранения изображений в формате Base64
+    let mut canvas_images = Vec::new();
+
+    // Обрабатываем папку "available"
+    if image_dir_available.exists() {
+        if let Ok(entries) = fs::read_dir(&image_dir_available) {
+            for entry in entries.filter_map(Result::ok) {
+                if let Some(extension) = entry.path().extension() {
+                    if extension == "png" || extension == "jpg" || extension == "jpeg" {
+                        // Читаем изображение как бинарные данные
+                        let image_data = fs::read(entry.path())
+                            .map_err(|e| e.to_string())?;
+                        // Кодируем в base64
+                        let base64_image = BASE64_STANDARD.encode(&image_data);
+                        canvas_images.push(base64_image);
+                    }
+                }
+            }
+        }
     }
 
-    // Создаем полный путь для файла изображения с использованием canvas_id
-    let image_path = image_dir.join(format!("canvas_{}.png", canvas_id));
-
-    // Декодируем base64 строку изображения в байты
-    let image_data = BASE64_STANDARD.decode(&base64_image).map_err(|e| format!("Ошибка декодирования изображения: {}", e))?;
-
-    // Сохраняем изображение в файл
-    fs::write(&image_path, image_data).map_err(|e| e.to_string())?;
-
-    Ok(())
+    Ok(canvas_images)
 }
 
+#[tauri::command]
+fn load_available_canvas_data(app_handle: tauri::AppHandle) -> Result<Vec<Value>, String> {
+    let base_path = app_handle
+        .path_resolver()
+        .app_data_dir()
+        .ok_or("Failed to resolve app data directory")?;
 
+    let template_dir_available = base_path.join("database/template/available");
 
+    // Получаем все JSON файлы в директории
+    let mut canvas_data = Vec::new();
 
+    if template_dir_available.exists() {
+        if let Ok(entries) = fs::read_dir(&template_dir_available) {
+            for entry in entries.filter_map(Result::ok) {
+                if let Some(extension) = entry.path().extension() {
+                    if extension == "json" {
+                        // Читаем файл и добавляем его содержимое в массив
+                        let data = fs::read_to_string(entry.path())
+                            .map_err(|e| e.to_string())?;
+                        let json_value: Value = serde_json::from_str(&data)
+                            .map_err(|e| e.to_string())?;
+                        canvas_data.push(json_value);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(canvas_data)
+}
 //-------------------------------------------------Printer Information-------------------------------------------------------------------------------------
 #[tauri::command]
 fn get_printer_list() -> Result<Vec<String>, String> {

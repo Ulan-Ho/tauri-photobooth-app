@@ -76,6 +76,7 @@ export default function ObjectProperties({ setSelectedObjectId, selectedObjectId
                         type="color"
                         value={selectedObject.fill}
                         onChange={(e) => updateObject(selectedObjectId, { fill: e.target.value })}
+                        disabled={selectedObject.numberImage || selectedObject.type === 'image'}
                     />
                 </div>
                 <div className='flex gap-4 items-center'>
@@ -167,7 +168,7 @@ export default function ObjectProperties({ setSelectedObjectId, selectedObjectId
                     className='h-8 ml-5 border border-gray-300 dark:border-gray-600 rounded-md col-span-2'
                 />
             </div>
-            {selectedObject.type === 'image' && selectedObject.src === '' && (
+            {selectedObject.numberImage && (
                 <div className='flex justify-between px-2 gap-x-2 gap-y-4'>
                     <p>Номер изображения</p>
                     <input

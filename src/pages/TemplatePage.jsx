@@ -92,7 +92,7 @@ export default function TemplatePage({ onSelectDesign, onSelectTemplate, templat
                                                 onClick={() => handleTemplateSelect(template.id)}
                                                 style={{ cursor: 'pointer' }}
                                             >
-                                                <img src={template.url_png} alt={template.name} style={{ width: '300px', height: '450px' }} />
+                                                <img src={`data:image/jpeg;base64,${template.image}`} alt={template.id} style={{ width: '300px', height: '450px' }} />
                                             </div>
                                         ))}
                                     </div>

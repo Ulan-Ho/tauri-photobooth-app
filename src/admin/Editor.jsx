@@ -212,7 +212,7 @@ export default function Editor({ isDarkMode }) {
         localStorage.removeItem(`back_${whyBg}`);
         invoke('save_image', { imageData, fileName })
         .then(() => {
-            toast('Image saved successfully');
+            toast.success('Image saved successfully');
         })
         .catch((error) => {
             toast.error('Error saving image:', error);
@@ -392,6 +392,7 @@ export default function Editor({ isDarkMode }) {
                 <div>{whyBg}</div>
                 </div>
             </div>
-            </AdminShell>
+            <ToastContainer />
+        </AdminShell>
     );
 }

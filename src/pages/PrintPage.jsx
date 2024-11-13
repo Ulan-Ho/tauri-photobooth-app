@@ -13,12 +13,12 @@ import rulSrc from "../components/images_for_template/rule.png";
 import printer from "../assets/printer.png";
 import { usePageNavigation } from '../App.jsx';
 import back_img from '../assets/defaultImage.jpeg';
-
+import { drawMyCanvas } from '../components/CanvasDrawer';
 
 export default function PrintPage({ images, design, template }) {
   const [bgImage, setBgImage] = useState(localStorage.getItem("back_4") || `url(${back_img})`);
   usePageNavigation();
-
+  console.log('PrintPage', images, design, template);
   const canvasRef = useRef(null);
   const navigate = useNavigate();
   const [isImage, setIsImage] = useState(null);
@@ -43,103 +43,104 @@ export default function PrintPage({ images, design, template }) {
   },[]);
 
 
-  const drawImage = (ctx, src, x, y) => {
-    const img = new Image();
-    img.src = src;
-    img.onload = () => {
-      if (design === 'grayscale') {
-        ctx.filter = 'grayscale(100%)';
-      }
-      ctx.drawImage(img, x, y);
-      ctx.filter = 'none';
-    };
-  };
+  // const drawImage = (ctx, src, x, y) => {
+  //   const img = new Image();
+  //   img.src = src;
+  //   img.onload = () => {
+  //     if (design === 'grayscale') {
+  //       ctx.filter = 'grayscale(100%)';
+  //     }
+  //     ctx.drawImage(img, x, y);
+  //     ctx.filter = 'none';
+  //   };
+  // };
 
-  const drawTransformedImage = (ctx, src, matrix) => {
-    const img = new Image();
-    img.src = src;
+  // const drawTransformedImage = (ctx, src, matrix) => {
+  //   const img = new Image();
+  //   img.src = src;
   
-    img.onload = () => {
-      const [a, b, c, d, e, f] = matrix;
-      if (design === 'grayscale') {
-        ctx.filter = 'grayscale(100%)';
-      }
-      ctx.setTransform(a, b, c, d, e, f); // Применение матрицы трансформации
-      ctx.drawImage(img, 0, 0, 93.47, 89.62); // Отрисовка изображения
-      ctx.setTransform(1, 0, 0, 1, 0, 0); // Сброс трансформации
-      ctx.filter = 'none';
-    };
-  };
+  //   img.onload = () => {
+  //     const [a, b, c, d, e, f] = matrix;
+  //     if (design === 'grayscale') {
+  //       ctx.filter = 'grayscale(100%)';
+  //     }
+  //     ctx.setTransform(a, b, c, d, e, f); // Применение матрицы трансформации
+  //     ctx.drawImage(img, 0, 0, 93.47, 89.62); // Отрисовка изображения
+  //     ctx.setTransform(1, 0, 0, 1, 0, 0); // Сброс трансформации
+  //     ctx.filter = 'none';
+  //   };
+  // };
 
   useEffect(() => {
     const canvas = canvasRef.current;
     // if (canvas && images.length > 0) {
     if (canvas) {
       const ctx = canvas.getContext('2d');
-      const bg = new Image();
-      bg.src = bg_screen;
-      bg.onload = () => {
-        if (design === 'grayscale') {
-          ctx.filter = 'grayscale(100%)';
-        }
-        ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
-        ctx.filter = 'none';
-        let loadedImages = 0;
-        images.forEach((image, index) => {
-          const img = new Image();
-          img.src = image.url;
-          img.onload = () => {
-            const positions_1 = [
-              { x1: 48, x2: 663, y1: 48, width: 530, height: 490 },
-              { x1: 48, x2: 663, y1: 585, width: 530, height: 490 },
-              { x1: 48, x2: 663, y1: 1124, width: 530, height: 490 },
-            ];
+      drawMyCanvas(ctx, canvas, template)
+      // const bg = new Image();
+      // bg.src = bg_screen;
+      // bg.onload = () => {
+      //   if (design === 'grayscale') {
+      //     ctx.filter = 'grayscale(100%)';
+      //   }
+      //   ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+      //   ctx.filter = 'none';
+      //   let loadedImages = 0;
+      //   images.forEach((image, index) => {
+      //     const img = new Image();
+      //     img.src = image.url;
+      //     img.onload = () => {
+      //       const positions_1 = [
+      //         { x1: 48, x2: 663, y1: 48, width: 530, height: 490 },
+      //         { x1: 48, x2: 663, y1: 585, width: 530, height: 490 },
+      //         { x1: 48, x2: 663, y1: 1124, width: 530, height: 490 },
+      //       ];
 
-            const { x1, x2, y1, width, height } = positions_1[index];
+      //       const { x1, x2, y1, width, height } = positions_1[index];
 
-            if (design === 'grayscale') {
-              ctx.filter = 'grayscale(100%)';
-            }
+      //       if (design === 'grayscale') {
+      //         ctx.filter = 'grayscale(100%)';
+      //       }
 
-            ctx.drawImage(img, x1, y1, width, height);
-            ctx.drawImage(img, x2, y1, width, height);
+      //       ctx.drawImage(img, x1, y1, width, height);
+      //       ctx.drawImage(img, x2, y1, width, height);
 
-            ctx.filter = 'none';
+      //       ctx.filter = 'none';
 
-            loadedImages++;
-            if (loadedImages === images.length) {
-              finalizeCanvas(canvas);
-            }
-          };
-        });
+      //       loadedImages++;
+      //       if (loadedImages === images.length) {
+      //         finalizeCanvas(canvas);
+      //       }
+      //     };
+      //   });
 
-        drawImage(ctx, left_word, 70, 1520);
-        drawImage(ctx, right_word, 1035, 1520);
-        drawTransformedImage(ctx, lev, [0.684197, -0.193013, -0.193013, -0.684197, 78.5329, 1517.83]);
-        drawTransformedImage(ctx, pre, [-0.684197, -0.193013, 0.193013, -0.684197, 1158.32, 1517.83]);
+      //   drawImage(ctx, left_word, 70, 1520);
+      //   drawImage(ctx, right_word, 1035, 1520);
+      //   drawTransformedImage(ctx, lev, [0.684197, -0.193013, -0.193013, -0.684197, 78.5329, 1517.83]);
+      //   drawTransformedImage(ctx, pre, [-0.684197, -0.193013, 0.193013, -0.684197, 1158.32, 1517.83]);
 
-        if (template === 2) {
-          const rul = new Image();
-          rul.src = rulSrc;
-          rul.onload = () => {
-            const rulePosition = [
-              { x: 176.18, y1: 405.05, y2: 942.28, y3: 1481 },
-              { x: 790, y1: 405.05, y2: 942.28, y3: 1481 }
-            ];
-            if (design === 'grayscale') {
-              ctx.filter = 'grayscale(100%)';
-            }
-            for(let position of rulePosition) {
-              ctx.drawImage(rul, position.x, position.y1, 266.25, 132.75);
-              ctx.drawImage(rul, position.x, position.y2, 266.25, 132.75);
-              ctx.drawImage(rul, position.x, position.y3, 266.25, 132.75);
-            }
-            ctx.filter = 'none';
-          }
-        }
-        const imageData = canvas.toDataURL('image/png');
-        setIsImage(imageData);
-      };
+      //   if (template === 2) {
+      //     const rul = new Image();
+      //     rul.src = rulSrc;
+      //     rul.onload = () => {
+      //       const rulePosition = [
+      //         { x: 176.18, y1: 405.05, y2: 942.28, y3: 1481 },
+      //         { x: 790, y1: 405.05, y2: 942.28, y3: 1481 }
+      //       ];
+      //       if (design === 'grayscale') {
+      //         ctx.filter = 'grayscale(100%)';
+      //       }
+      //       for(let position of rulePosition) {
+      //         ctx.drawImage(rul, position.x, position.y1, 266.25, 132.75);
+      //         ctx.drawImage(rul, position.x, position.y2, 266.25, 132.75);
+      //         ctx.drawImage(rul, position.x, position.y3, 266.25, 132.75);
+      //       }
+      //       ctx.filter = 'none';
+      //     }
+      //   }
+      //   const imageData = canvas.toDataURL('image/png');
+      //   setIsImage(imageData);
+      // };
     }
   }, [images, design, template]);
 

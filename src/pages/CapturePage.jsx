@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { invoke } from '@tauri-apps/api/tauri';
+import { listen } from '@tauri-apps/api/event';
 import '../App.css';
 import templateTriangle from '../assets/templateTriangle.png';
 import cameraCapture from '../assets/cameraCapture.png';
 import { usePageNavigation } from '../App.jsx';
 import back_img from '../assets/defaultImage.jpeg';  // ПОМЕНЯТЬ НА СВОЙ ФОН
 
-export default function CaptureScreen({ onCapture }) {
+export default function CaptureScreen({ onCapture, template, setCanvas }) {
     const [bgImage, setBgImage] = useState(localStorage.getItem("back_3") || `url(${back_img})`);
     usePageNavigation();
 
@@ -38,6 +39,35 @@ export default function CaptureScreen({ onCapture }) {
         }
     }, []);
 
+    const templateCanvas = async() => {
+        const response = await invoke('load_available_canvas_data');
+        const id = 1;
+        const templates = [];
+        response.map((item) => {
+            templates.push({
+                id: id,
+                canvas: item
+            });
+        })
+
+        templates.map((item) => {
+            if (item.id === template) {
+                setCanvas(item.canvas);
+            }
+        })
+    }
+
+    const startLiveView = async () => {
+        try {
+            const response = await invoke('start_live_view');
+            // console.log(response);
+            // setCaptureStatus(response);
+            setIsLiveView(true);
+        } catch (error) {
+            console.error('Failed to initialize camera:', error);
+            // setCaptureStatus(`Error: ${error.toString()}`);
+        }
+    };
 
     useEffect(() => {
         const initializeCamera = async () => {
@@ -77,13 +107,13 @@ export default function CaptureScreen({ onCapture }) {
               // setImage(`data:image/jpeg;base64,${base64Image}`);
                 setImageData(base64Image);
             } catch (err) {
-                console.error('Failed to fetch image:', err);
+                // console.error('Failed to fetch image:', err);
                 setError('Ошибка получения изображения');
             }
         };
         let interval;
         if (isLiveView) {
-            interval = setInterval(updateLiveView, 50); // Обновляем изображение каждые 50 мс
+            interval = setInterval(updateLiveView, 80); // Обновляем изображение каждые 50 мс
         }
         return () => clearInterval(interval);
     }, [isLiveView])
@@ -91,8 +121,14 @@ export default function CaptureScreen({ onCapture }) {
     // Функция для захвата фото через Tauri
     const capture = useCallback(async () => {
         try {
-            const base64Image = await invoke('capture_photo'); // Вызов команды на съемку фото
-            setCapturedImage(`data:image/jpeg;base64,${base64Image}`);
+            await invoke('stop_live_view'); // Остановка live view
+            setIsLiveView(!isLiveView);
+            const base64Image = await invoke('capture_photo_as'); // Вызов команды на съемку фото
+            listen("capture_image_from_base64", (event) => {
+                setCapturedImage(`data:image/jpeg;base64,${event.payload}`);
+            });
+            console.log("Захвачено фото:", base64Image);
+            // setCapturedImage(base64Image);
             setIsShooting(false);
         } catch (err) {
             console.log("Ошибка захвата фото:", err);
@@ -101,7 +137,12 @@ export default function CaptureScreen({ onCapture }) {
 
     // Обработка обратного отсчета перед съемкой
     const startCountdown = useCallback(() => {
+        // templateCanvas();
         // navigate('/print');
+        if(!isLiveView) {
+            setIsCameraReady(true)
+            startLiveView();
+        }
         setIsShooting(true);
         let timer = 3;
         setCountdown(timer);
@@ -111,6 +152,7 @@ export default function CaptureScreen({ onCapture }) {
             setCountdown(timer);
 
             if (timer === 0) {
+                stop
                 clearInterval(intervalId);
                 capture();
             }
@@ -196,7 +238,7 @@ export default function CaptureScreen({ onCapture }) {
                                     </div>
                                 ) : (
                                     <div className='flex flex-col items-center w-full gap-10'>
-                                        <img src={capturedImage} alt='Captured' style={{ width: 530, height: 530, position: 'relative' }} className='border-solid border-2 capture-container rounded-md' />
+                                        <img src={capturedImage} alt='Captured' style={{ width: 530, height: 530, position: 'relative' }} className='border-solid border-2 capture-container rounded-md object-cover' />
                                         <div className='h-40 flex justify-between items-center w-full'>
                                             <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={() => navigate('/template')}>
                                                 <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
