@@ -7,9 +7,17 @@ import templateTriangle from '../assets/templateTriangle.png';
 import cameraCapture from '../assets/cameraCapture.png';
 import { usePageNavigation } from '../App.jsx';
 import back_img from '../assets/defaultImage.jpeg';  // ПОМЕНЯТЬ НА СВОЙ ФОН
+import { useStore } from '../admin/store.js';
 
-export default function CaptureScreen({ onCapture, template, setCanvas }) {
+import test_image_1 from '../image_beta/IMG_6700.JPG';
+import test_image_2 from '../image_beta/IMG_7107.JPG';
+import test_image_3 from '../image_beta/IMG_7111.JPG';
+
+export default function CaptureScreen({ onCapture }) {
     const [bgImage, setBgImage] = useState(localStorage.getItem("back_3") || `url(${back_img})`);
+    const { canvases, currentCanvasId } = useStore();
+    const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
+    const imagesLenght = currentCanvas.objects.filter(object => object.type === 'image' && object.src === '').reduce((max, obj) => Math.max(max, obj.numberImage), 0);
     usePageNavigation();
 
     const [isCameraReady, setIsCameraReady] = useState(false);
@@ -20,7 +28,7 @@ export default function CaptureScreen({ onCapture, template, setCanvas }) {
     const navigate = useNavigate();
     const [imageData, setImageData] = useState(null);
     const [isLiveView, setIsLiveView] = useState(false);
-
+    const [cer, setCer] = useState(1);
     useEffect(() => {
         const fetchImage = async () => {
             try {
@@ -39,24 +47,6 @@ export default function CaptureScreen({ onCapture, template, setCanvas }) {
         }
     }, []);
 
-    const templateCanvas = async() => {
-        const response = await invoke('load_available_canvas_data');
-        const id = 1;
-        const templates = [];
-        response.map((item) => {
-            templates.push({
-                id: id,
-                canvas: item
-            });
-        })
-
-        templates.map((item) => {
-            if (item.id === template) {
-                setCanvas(item.canvas);
-            }
-        })
-    }
-
     const startLiveView = async () => {
         try {
             const response = await invoke('start_live_view');
@@ -73,7 +63,7 @@ export default function CaptureScreen({ onCapture, template, setCanvas }) {
         const initializeCamera = async () => {
             try {
                 const response = await invoke('initialize_camera');
-                console.log(response);
+                // console.log(response);
                 // setCameraStatus(response);
             } catch (error) {
                 console.error('Failed to initialize camera:', error);
@@ -81,17 +71,17 @@ export default function CaptureScreen({ onCapture, template, setCanvas }) {
             }
         };
 
-        const startLiveView = async () => {
-            try {
-                const response = await invoke('start_live_view');
-                console.log(response);
-                // setCaptureStatus(response);
-                setIsLiveView(true);
-            } catch (error) {
-                console.error('Failed to initialize camera:', error);
-                // setCaptureStatus(`Error: ${error.toString()}`);
-            }
-        };
+        // const startLiveView = async () => {
+        //     try {
+        //         const response = await invoke('start_live_view');
+        //         // console.log(response);
+        //         // setCaptureStatus(response);
+        //         setIsLiveView(true);
+        //     } catch (error) {
+        //         console.error('Failed to initialize camera:', error);
+        //         // setCaptureStatus(`Error: ${error.toString()}`);
+        //     }
+        // };
 
         initializeCamera();
         if(!isLiveView) {
@@ -117,32 +107,35 @@ export default function CaptureScreen({ onCapture, template, setCanvas }) {
         }
         return () => clearInterval(interval);
     }, [isLiveView])
-
     // Функция для захвата фото через Tauri
     const capture = useCallback(async () => {
         try {
+            setCer(cer + 1);
             await invoke('stop_live_view'); // Остановка live view
-            setIsLiveView(!isLiveView);
-            const base64Image = await invoke('capture_photo_as'); // Вызов команды на съемку фото
-            listen("capture_image_from_base64", (event) => {
-                setCapturedImage(`data:image/jpeg;base64,${event.payload}`);
-            });
-            console.log("Захвачено фото:", base64Image);
-            // setCapturedImage(base64Image);
+            // setIsLiveView(!isLiveView);
+            const capture = await invoke('capture_photo_as'); // Вызов команды на съемку фото
+            console.log(capture);
+            const base64Image = await invoke('get_captured_image'); // Вызываем backend для получения нового кадра
+            // if (cer === 1) setCapturedImage(test_image_1);
+            // if (cer === 2) setCapturedImage(test_image_2);
+            // if (cer === 3) setCapturedImage(test_image_3);
+            // console.log(cer);
+            setCapturedImage(`data:image/jpeg;base64,${base64Image}`);
+            startLiveView();
             setIsShooting(false);
         } catch (err) {
             console.log("Ошибка захвата фото:", err);
         }
     }, []);
 
+    
     // Обработка обратного отсчета перед съемкой
     const startCountdown = useCallback(() => {
-        // templateCanvas();
         // navigate('/print');
         if(!isLiveView) {
             setIsCameraReady(true)
-            startLiveView();
         }
+        startLiveView();
         setIsShooting(true);
         let timer = 3;
         setCountdown(timer);
@@ -151,8 +144,8 @@ export default function CaptureScreen({ onCapture, template, setCanvas }) {
             timer -= 1;
             setCountdown(timer);
 
-            if (timer === 0) {
-                stop
+            if (timer <= 1) {
+                // stop
                 clearInterval(intervalId);
                 capture();
             }
@@ -166,16 +159,17 @@ export default function CaptureScreen({ onCapture, template, setCanvas }) {
             name: `photo-${new Date().getTime()}`,
             url: capturedImage
         };
+        console.log(cer);
         setImages(prevImages => [...prevImages, newImage]);
         setCapturedImage(null);
 
-        if (images.length < 2) {
+        if (images.length + 1 < imagesLenght) {
             startCountdown();
         } else {
             onCapture([...images, newImage]);
             navigate('/print');
         }
-    }, [capturedImage, images, navigate, onCapture, startCountdown]);
+    }, [capturedImage, images, navigate, onCapture, startCountdown, imagesLenght, cer]);
 
     // Пересъемка фото
     const reshootPhoto = useCallback(() => {

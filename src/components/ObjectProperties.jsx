@@ -69,16 +69,22 @@ export default function ObjectProperties({ setSelectedObjectId, selectedObjectId
                         onChange={(e) => updateObject(selectedObjectId, { height: parseInt(e.target.value, 10) })}
                         className='h-8 px-2 border border-gray-300 dark:border-gray-600 rounded-md w-16'/>
                 </div>
-                <div className='flex gap-6 items-center  col-span-2'>
-                    <p>Цвет заливки</p>
-                    <input
-                        className='h-8 border border-gray-300 dark:border-gray-600 rounded-md w-16'
-                        type="color"
-                        value={selectedObject.fill}
-                        onChange={(e) => updateObject(selectedObjectId, { fill: e.target.value })}
-                        disabled={selectedObject.numberImage || selectedObject.type === 'image'}
-                    />
-                </div>
+                {((selectedObject.numberImage && selectedObject.type !== 'image') || selectedObject.type !== 'image') ? (
+                    <div className='flex gap-6 items-center col-span-2'>
+                        <p>Цвет заливки</p>
+                        <input
+                            className='h-8 border border-gray-300 dark:border-gray-600 rounded-md w-16'
+                            type="color"
+                            value={selectedObject.fill}
+                            onChange={(e) => updateObject(selectedObjectId, { fill: e.target.value })}
+                            disabled={selectedObject.numberImage || selectedObject.type === 'image'}
+                        />
+                    </div>
+                ) : (
+                    <div className='flex gap-6 items-center col-span-2 text-center text-xs justify-center p-2 border border-gray-300 dark:border-gray-600 rounded-md'>
+                        Фотографии не имеют заливку
+                    </div>
+                )}
                 <div className='flex gap-4 items-center'>
                     <p>Z</p>
                     <input

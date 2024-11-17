@@ -1,7 +1,7 @@
-#![cfg_attr(
-    all(not(debug_assertions), target_os = "windows"),
-    windows_subsystem = "windows"
-)]
+// #![cfg_attr(
+//     all(not(debug_assertions), target_os = "windows"),
+//     windows_subsystem = "windows"
+// )]
 
 //--------------------------------Windows API-------------------------------------------------
 extern crate winapi;
@@ -9,6 +9,7 @@ use winapi::um::winspool::EnumPrintersW;
 use winapi::um::winspool::DRIVER_INFO_3W;
 use winapi::um::winspool::PRINTER_ENUM_LOCAL;
 use winapi::um::winspool::PRINTER_INFO_2W;
+use std::ffi::CString;
 use std::ffi::OsString;
 use std::os::windows::ffi::OsStringExt;
 use std::ptr::null_mut;
@@ -16,7 +17,7 @@ use winapi::um::winspool::EnumPrinterDriversW;
 use std::os::windows::ffi::OsStrExt;
 //-------------------------------------------------------------------------------------------------
 // use tauri::AppHandle;
-use std::slice;
+// use std::slice;
 use device_query::{DeviceQuery, DeviceState, Keycode};
 use std::result::Result;
 use std::sync::{Arc, Mutex};
@@ -33,7 +34,7 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use serde_json::Value;
 // use std::ffi::{ c_void, c_uint, c_int};
-use libc::{c_void, c_uint, c_int};
+use libc::{c_void, c_uint, c_int, c_char};
 use tauri::State;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -44,7 +45,7 @@ pub struct WorkHours {
 
 type EdsError = c_int;
 type EdsCameraRef = *mut c_void;
-type EdsDirectoryItemRef = *mut c_void;
+// type EdsDirectoryItemRef = *mut c_void;
 type EdsUInt32 = c_uint;
 type EdsPropertyID = c_uint;
 type EdsStateEvent = c_uint;
@@ -85,7 +86,13 @@ extern "C" {
     fn EdsSetObjectEventHandler(camera: EdsCameraRef, event: EdsObjectEvent, handler: extern "C" fn(EdsObjectEvent, EdsBaseRef, *mut EdsVoid) -> EdsError, context: *mut EdsVoid) -> EdsError;
     fn EdsSetPropertyEventHandler(camera: EdsCameraRef, event: EdsPropertyEvent, handler: extern "C" fn(EdsPropertyEvent, EdsPropertyID, EdsUInt32, *mut EdsVoid) -> EdsError, context: *mut EdsVoid) -> EdsError;
     fn EdsSetCameraStateEventHandler(camera: EdsCameraRef, event: EdsStateEvent, handler: extern "C" fn(EdsStateEvent, EdsUInt32, *mut EdsVoid) -> EdsError, context: *mut EdsVoid) -> EdsError;
-    
+
+    fn EdsCreateFileStream(
+        in_file_name: *const c_char,
+        in_create_disposition: c_int,
+        in_desired_access: c_uint,
+        out_stream: *mut *mut c_void,
+    ) -> c_uint;
 
     fn EdsGetEvent() -> u32;
     fn EdsSetCapacity(camera: *mut c_void, capacity: EdsCapacity) -> u32;
@@ -96,7 +103,7 @@ pub struct EdsDirectoryItemInfo {
     pub is_folder: i32,
     pub group_id: u32,
     pub option: u32,
-    pub szFileName: [i8; 256],
+    pub sz_file_name: [i8; 256],
 }
 #[repr(C)]
 pub struct EdsCapacity {
@@ -109,7 +116,7 @@ pub struct EdsCapacity {
 struct Camera {
     camera_ref: *mut c_void,
     is_live_view_started: bool,
-    // app_handle: Option<tauri::AppHandle>,  // Добавляем это поле
+    photo_created: Arc<Mutex<bool>>,
 }
 
 
@@ -117,7 +124,6 @@ unsafe impl Send for Camera {}
 unsafe impl Sync for Camera {}
 
 impl Camera {
-    // fn new(app_handle: tauri::AppHandle) -> Result<Arc<Mutex<Self>>, u32> {
     fn new() -> Result<Arc<Mutex<Self>>, u32> {
         unsafe {
             let err = EdsInitializeSDK();
@@ -128,65 +134,69 @@ impl Camera {
             let mut camera_list: *mut c_void = std::ptr::null_mut();
             let err = EdsGetCameraList(&mut camera_list);
             if err != 0 {
+                EdsTerminateSDK();
                 return Err(err);
             }
 
             let mut camera_count: u32 = 0;
             let err = EdsGetChildCount(camera_list, &mut camera_count);
             if err != 0 || camera_count == 0 {
+                EdsRelease(camera_list);
+                EdsTerminateSDK();
                 return Err(err);
             }
 
             let mut camera_ref_in: *mut c_void = std::ptr::null_mut();
             let err = EdsGetChildAtIndex(camera_list, 0, &mut camera_ref_in);
+            EdsRelease(camera_list);
             if err != 0 {
+                EdsTerminateSDK();
                 return Err(err);
             }
 
             let err = EdsOpenSession(camera_ref_in);
             if err != 0 {
+                EdsRelease(camera_ref_in);
+                EdsTerminateSDK();
                 return Err(err);
             }
 
             EdsRelease(camera_list);
-
             let camera = Arc::new(Mutex::new(Camera {
                 camera_ref: camera_ref_in,
                 is_live_view_started: false,
-                // app_handle: Some(app_handle),
+                photo_created: Arc::new(Mutex::new(false)),
             }));
 
+            println!("[INFO] Camera initialized successfully.");
             Ok(camera)
         }
     }
 
-    fn close_session(&self) -> u32 {
-        unsafe { EdsCloseSession(self.camera_ref) }
-    }
-
     extern "C" fn handle_object_event( event: EdsObjectEvent, object: EdsBaseRef, context: *mut EdsVoid) -> EdsError {
         println!("[LOG] Object event triggered: 0x{:X}", event);
-        // let camera = unsafe { &mut *(context as *mut Camera) };
-        println!("Camera ref: {:?}", context);
         if event == 0x00000208 {
-            println!("Image captured");
-            // let app_handle = Self::get_struct_camera_app_handle();
-            let err = Self::download_image( object);
-            if object != std::ptr::null_mut() {
+            let camera = unsafe { &*(context as *mut Camera) };
+            let err = Self::download_image( object, "captured_image.jpg");
+            if err != 0 {
+                println!("[ERROR] Failed to download image: 0x{:?}", err);
+            }
+            if !object.is_null() {
                 unsafe { EdsRelease(object); }
             }
-            // println!("Image: {}", err.unwrap());
+            let mut photo_created = camera.photo_created.lock().unwrap();
+            *photo_created = true;
         }
         0
     }
-    
-    extern "C" fn handle_property_event(event: EdsPropertyEvent, property_id: EdsPropertyID, param: EdsUInt32, context: *mut EdsVoid) -> EdsError {
+
+    extern "C" fn handle_property_event(_event: EdsPropertyEvent, property_id: EdsPropertyID, _param: EdsUInt32, _context: *mut EdsVoid) -> EdsError {
         println!("[LOG] Property event triggered: 0x{:X}", property_id);
         // Обработка события свойства
         0
     }
-    
-    extern "C" fn handle_state_event(event: EdsStateEvent, param: EdsUInt32, context: *mut EdsVoid) -> EdsError {
+
+    extern "C" fn handle_state_event(event: EdsStateEvent, _param: EdsUInt32, _context: *mut EdsVoid) -> EdsError {
         println!("[LOG] State event triggered: 0x{:X}", event);
         // println!("Camera ref: {:?}", context);
         // println!("Param: {}", param);
@@ -194,127 +204,150 @@ impl Camera {
         0
     }
 
-    fn capture_photo(&self) -> Result<String, u32> {
+    fn capture_photo(&self) -> Result<(), u32> {
         unsafe {
-            let mut save_target: u32 = 2;
+            let save_target: u32 = 2;
             let capacity = EdsCapacity {
                 number_of_free_clusters: 0x7FFFFFFF,
                 bytes_per_sector: 0x1000,
                 reset: true,
             };
     
-            // Set event handlers
-            // EdsSetCameraStateEventHandler(self.camera_ref, 0x00000300, Self::handle_state_event, std::ptr::null_mut());
-            // EdsSetObjectEventHandler(self.camera_ref, 0x00000200, Self::handle_object_event, std::ptr::null_mut());
-            // EdsSetPropertyEventHandler(self.camera_ref, 0x00000100, Self::handle_property_event, std::ptr::null_mut());
-            EdsSetObjectEventHandler(self.camera_ref, 0x00000200, Self::handle_object_event, std::ptr::null_mut());
-            EdsSetPropertyEventHandler(self.camera_ref, 0x00000100, Self::handle_property_event, std::ptr::null_mut());
-            EdsSetCameraStateEventHandler(self.camera_ref, 0x00000300, Self::handle_state_event, std::ptr::null_mut());
+            // Установка обработчиков событий
+            if EdsSetObjectEventHandler(self.camera_ref, 0x00000200, Self::handle_object_event, self as *const _ as *mut EdsVoid) != 0 {
+                eprintln!("[ERROR] Failed to set object event handler.");
+                // return Err(1);
+            }
+            if EdsSetPropertyEventHandler(self.camera_ref, 0x00000100, Self::handle_property_event, std::ptr::null_mut()) != 0 {
+                eprintln!("[ERROR] Failed to set property event handler.");
+                // return Err(2);
+            }
+            if EdsSetCameraStateEventHandler(self.camera_ref, 0x00000300, Self::handle_state_event, std::ptr::null_mut()) != 0 {
+                eprintln!("[ERROR] Failed to set camera state event handler.");
+                // return Err(3);
+            }
+            println!("[LOG] Event handlers set successfully.");
 
-            // Trigger event
-            EdsGetEvent();
+            // Установка цели сохранения
+            let result = EdsSetPropertyData(
+                self.camera_ref,
+                0x0000000b,
+                0,
+                4,
+                &save_target as *const _ as *mut c_void,
+            );
+            if result != 0 {
+                eprintln!("[ERROR] Failed to set save target. Error code: 0x{:X}", result);
+            }
+            println!("[LOG] Save target set successfully.");
     
-            // Set save target and capture image
-            EdsSetPropertyData(self.camera_ref, 0x0000000b, 0, 4, &save_target as *const _ as *mut c_void);
-            EdsSetCapacity(self.camera_ref, capacity);
-            EdsSendCommand(self.camera_ref, 0x00000004, 0x00000003);
-            EdsSendCommand(self.camera_ref, 0x00000004, 0x00000000);
-            thread::sleep(Duration::from_millis(200));
-            self.close_session();
-            Ok("Photo captured".to_string())
+            // Установка емкости
+            let result = EdsSetCapacity(self.camera_ref, capacity);
+            if result != 0 {
+                eprintln!("[ERROR] Failed to set capacity. Error code: 0x{:X}", result);
+            }
+            println!("[LOG] Capacity set successfully.");
+    
+            // Отправка команды на съемку
+            thread::sleep(Duration::from_millis(100));
+            let result = EdsSendCommand(self.camera_ref, 0x00000000, 0x00000000);
+            if result != 0 {
+                eprintln!("[ERROR] Failed to send capture command (1). Error code: 0x{:X}", result);
+                return Err(result);
+            }
+            // let result = EdsSendCommand(self.camera_ref, 0x00000004, 0x00000000);
+            // if result != 0 {
+            //     eprintln!("[ERROR] Failed to send capture command (2). Error code: 0x{:X}", result);
+            //     // return Err(result);
+            // }
+            println!("[LOG] Photo capture commands sent successfully.");
+
+            // Ожидаем завершения создания фотографии
+            let mut photo_created = self.photo_created.lock().unwrap();
+            while !*photo_created {
+                drop(photo_created); // Освобождаем блокировку, чтобы обработчики могли обновлять состояние
+                EdsGetEvent();       // Обрабатываем события
+                thread::sleep(Duration::from_millis(100));
+                photo_created = self.photo_created.lock().unwrap();
+            }
+
+            println!("[LOG] Photo captured successfully.");
+            Ok(())
         }
     }
 
-    fn download_image(directory_item: *mut c_void) -> Result<String, u32> {
-        println!("[LOG] Downloading image...");
-        let mut err: u32;
-        let mut stream: *mut c_void = std::ptr::null_mut();
-        let mut dir_item_info = EdsDirectoryItemInfo {
-            size: 0,
-            is_folder: 0,
-            group_id: 0,
-            option: 0,
-            szFileName: [0; 256],
-        };
 
-        // Получаем информацию о элементе директории
-        err = unsafe { EdsGetDirectoryItemInfo(directory_item, &mut dir_item_info) };
-        if err != 0 {
-            println!("[ERROR] Failed to get directory item info: 0x{:X}", err);
-            return Err(err);
+    fn download_image(directory_item: *mut c_void, file_name: &str) -> EdsError {
+        unsafe {
+            let c_file_name = CString::new(file_name).expect("Failed to create CString");
+            let mut dir_item_info = EdsDirectoryItemInfo {
+                size: 0,
+                is_folder: 0,
+                group_id: 0,
+                option: 0,
+                sz_file_name: [0; 256],
+            };
+
+            // Получаем информацию о элементе директории
+            let err = EdsGetDirectoryItemInfo(directory_item, &mut dir_item_info);
+            if err != 0 {
+                println!("[ERROR] Failed to get directory item info: 0x{:X}", err);
+                // return Err(err);
+            }
+
+            let mut stream: *mut c_void = std::ptr::null_mut();
+            let err = EdsCreateFileStream(c_file_name.as_ptr(), 1, 2, &mut stream);
+            if err != 0 {
+                println!("[ERROR] Failed to create file stream: 0x{:X}", err);
+                // return Err(err);
+            }
+            // Создаем поток в памяти для сохранения изображения
+            // err = unsafe { EdsCreateMemoryStream(dir_item_info.size, &mut stream) };
+            // if err != 0 {
+            //     println!("[ERROR] Failed to create memory stream: 0x{:X}", err);
+                // return err.try_into().unwrap();
+            // }
+
+            // Скачиваем изображение в поток
+            let err = EdsDownload(directory_item, dir_item_info.size, stream);
+            if err != 0 {
+                println!("[ERROR] Failed to download image: 0x{:X}", err);
+                EdsRelease(stream);
+                // return Err(err);
+            }
+            println!("[LOG] Image downloaded successfully.");
+
+            // Завершаем скачивание
+            let err = EdsDownloadComplete(directory_item);
+            if err != 0 {
+                eprintln!("[ERROR] Failed to complete download: 0x{:X}", err);
+                EdsRelease(stream);
+                // return Err(err);
+            }
+
+            // Освобождаем поток
+            if !stream.is_null() {
+                EdsRelease(stream);
+            }
+
+            println!("[LOG] Image downloaded and encoded to base64 successfully.");
+            0
         }
-
-        // Создаем поток в памяти для сохранения изображения
-        err = unsafe { EdsCreateMemoryStream(dir_item_info.size, &mut stream) };
-        if err != 0 {
-            println!("[ERROR] Failed to create memory stream: 0x{:X}", err);
-            return Err(err);
-        }
-
-        // Скачиваем изображение в поток
-        err = unsafe { EdsDownload(directory_item, dir_item_info.size, stream) };
-        if err != 0 {
-            println!("[ERROR] Failed to download image: 0x{:X}", err);
-            unsafe { EdsRelease(stream); }
-            return Err(err);
-        }
-        println!("[LOG] Image downloaded successfully.");
-
-        // Завершаем скачивание
-        err = unsafe { EdsDownloadComplete(directory_item) };
-        if err != 0 {
-            eprintln!("[ERROR] Failed to complete download: 0x{:X}", err);
-            unsafe { EdsRelease(stream); }
-            return Err(err);
-        }
-
-        // Получаем указатель на данные изображения
-        let mut data_ptr: *mut u8 = std::ptr::null_mut();
-        err = unsafe { EdsGetPointer(stream, &mut data_ptr) };
-        if err != 0 || data_ptr.is_null() {
-            eprintln!("[ERROR] Failed to get image data pointer: 0x{:X}", err);
-            unsafe { EdsRelease(stream); }
-            return Err(err);
-        }
-
-        // Читаем данные изображения в буфер
-        let image_data = unsafe { slice::from_raw_parts(data_ptr, dir_item_info.size as usize) };
-
-        // Кодируем данные изображения в base64
-        let base64_encoded_image = BASE64_STANDARD.encode(image_data);
-        println!("Size of base64 encoded image: {} bytes", base64_encoded_image.len());
-        // let _ = app_handle.emit_all("capture_image_from_base64", base64_encoded_image);
-        // println!("Image data sent to frontend.");
-        // Освобождаем поток
-        if !stream.is_null() {
-            unsafe { EdsRelease(stream); }
-        }
-
-        println!("[LOG] Image downloaded and encoded to base64 successfully.");
-        Ok(base64_encoded_image)
     }
-
-    // fn get_struct_camera_app_handle(&self) -> () {
-    //     self.app_handle.clone();
-    // }
 
     fn start_live_view(&mut self) -> Result<(), u32> {
         if !self.is_live_view_started {
             self.is_live_view_started = true;
             unsafe {
-                let mut device: u32 = 0; // Измените на u32 для соответствия типу
+                let mut device: u32 = 0;
                 let err = EdsGetPropertyData(self.camera_ref, 0x00000500, 0, size_of::<u32>() as u32, &mut device as *mut _ as *mut c_void);
-                println!("Current output device: {}", device);
-
-                if device & 2 != 0 {
-                    println!("Live view is already active.");
-                } else {
-                    device |= 2;  // Включить вывод живого просмотра на ПК
-
+                if err != 0 {
+                    return Err(err);
+                }
+                if device & 2 == 0 {
+                    device |= 2; // Включить вывод живого просмотра
                     let err = EdsSetPropertyData(self.camera_ref, 0x00000500, 0, size_of::<u32>() as u32, &device as *const _ as *mut c_void);
-                    println!("Setting output device to: {}", device);
                     if err != 0 {
-                        println!("Failed to set live view output device: {}", err);
                         return Err(err);
                     }
                 }
@@ -331,10 +364,9 @@ impl Camera {
         if self.is_live_view_started {
             unsafe {
                 let mut device: u32 = 0;
-                // Получаем текущее устройство вывода
                 let err = EdsGetPropertyData(
                     self.camera_ref,
-                    0x00000500, // kEdsPropID_Evf_OutputDevice
+                    0x00000500,
                     0,
                     std::mem::size_of::<u32>() as u32,
                     &mut device as *mut _ as *mut c_void,
@@ -345,22 +377,10 @@ impl Camera {
                     return Err(err);
                 }
     
-                // Проверка, активно ли устройство вывода для живого просмотра
                 if device & 2 != 0 {
-                    // Отключаем вывод на компьютер (удаляем бит)
-                    device &= !2;
-    
-                    // Устанавливаем новое значение для устройства вывода
-                    let err = EdsSetPropertyData(
-                        self.camera_ref,
-                        0x00000500, // kEdsPropID_Evf_OutputDevice
-                        0,
-                        std::mem::size_of::<u32>() as u32,
-                        &device as *const _ as *const c_void,
-                    );
-    
+                    device &= !2; // Отключить вывод живого просмотра
+                    let err = EdsSetPropertyData(self.camera_ref, 0x00000500, 0, size_of::<u32>() as u32, &device as *const _ as *mut c_void);
                     if err != 0 {
-                        println!("Failed to disable live view output device: {}", err);
                         return Err(err);
                     }
                 }
@@ -450,16 +470,6 @@ fn download_ev_image_command(state: tauri::State<'_, Arc<Mutex<Option<Arc<Mutex<
     }
 }
 
-// fn get_struct_camera_app_handle(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -> tauri::AppHandle {
-//     let camera = state.lock().unwrap();
-//     if let Some(camera) = camera.as_ref() {
-//         camera.lock().unwrap().app_handle.clone().unwrap()
-//     } else {
-//         panic!("Camera is not initialized");
-//     }
-// }
-
-// Tauri command for initializing the camera
 #[tauri::command]
 fn initialize_camera(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -> Result<String, String> {
     let camera = match Camera::new() {
@@ -489,18 +499,40 @@ fn capture_photo_as(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) ->
 }
 
 #[tauri::command]
-fn capture_photo(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -> Result<String, String> {
-    let state_lock = state.lock().unwrap();
-    if let Some(camera) = &*state_lock {
-        let camera_lock = camera.lock().unwrap();
-        match camera_lock.capture_photo() {
-            Ok(_) => Ok("Photo captured successfully".into()),
-            Err(err) => Err(format!("Failed to capture photo: Error code {}", err)),
+fn get_captured_image() -> Result<String, String> {
+    // thread::sleep(Duration::from_millis(6000));
+    println!("Getting captured image");
+    let file_path = PathBuf::from(env::current_dir().map_err(|err| err.to_string())?).join("captured_image.jpg");
+    match fs::read(file_path.clone()) {
+        Ok(data) => {
+            println!("Image data read successfully");
+            let base64_str = BASE64_STANDARD.encode(&data);
+            // fs::remove_file(file_path).map_err(|e| format!("Failed to delete file: {}", e))?;
+            if file_path.exists() {
+                fs::remove_file(&file_path).map_err(|err| err.to_string())?;
+            } else {
+                println!("Image not found, skipping deletion.");
+            }
+            Ok(base64_str)
         }
-    } else {
-        Err("Camera is not initialized".into())
+        Err(e) => Err(format!("Failed to read file: {}", e)),
     }
+    // println!("Getting captured image");
 }
+
+// #[tauri::command]
+// fn capture_photo(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -> Result<String, String> {
+//     let state_lock = state.lock().unwrap();
+//     if let Some(camera) = &*state_lock {
+//         let camera_lock = camera.lock().unwrap();
+//         match camera_lock.capture_photo() {
+//             Ok(_) => Ok("Photo captured successfully".into()),
+//             Err(err) => Err(format!("Failed to capture photo: Error code {}", err)),
+//         }
+//     } else {
+//         Err("Camera is not initialized".into())
+//     }
+// }
 
 #[tauri::command]
 fn start_live_view(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -> Result<String, String> {
@@ -612,6 +644,7 @@ async fn main() {
             capture_photo_as,
             start_live_view,
             download_ev_image_command,
+            get_captured_image,
             stop_live_view])
         .manage(Arc::new(Mutex::new(None::<Arc<Mutex<Camera>>>)))
         .run(tauri::generate_context!())
@@ -1004,6 +1037,7 @@ fn load_available_canvas_data(app_handle: tauri::AppHandle) -> Result<Vec<Value>
 
     Ok(canvas_data)
 }
+
 //-------------------------------------------------Printer Information-------------------------------------------------------------------------------------
 #[tauri::command]
 fn get_printer_list() -> Result<Vec<String>, String> {

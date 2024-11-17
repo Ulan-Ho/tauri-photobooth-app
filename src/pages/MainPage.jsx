@@ -7,8 +7,10 @@ import { toast,ToastContainer } from "react-toastify";
 import { usePageNavigation } from "../App";
 import { invoke } from "@tauri-apps/api";
 import { listen } from "@tauri-apps/api/event";
+import { useStore } from "../admin/store";
 
-export default function MainPage( {setTemplates} ) {
+export default function MainPage() {
+    const { setCanvasData, updated, setUpdated } = useStore();
     const [bgImage, setBgImage] = useState(localStorage.getItem("back_1") || `url(${back_img})`);
     usePageNavigation();
 
@@ -30,15 +32,16 @@ export default function MainPage( {setTemplates} ) {
         }
     },[]);
 
-    const templates = [];
     const fetchTemplate = async() => {
-        const response = await invoke('load_all_canvas_images');
-        let id = 1;
-        response.map((template) => {
-            templates.push({id: id, image: template});
-            id+=1;
-        })
-        setTemplates(templates);
+        try {
+            if (updated === false) {
+                const canvasArray = await invoke('load_all_canvas_data');
+                setCanvasData(canvasArray);
+                setUpdated(true);
+            }
+        } catch (err) {
+            console.log(err);
+        }
     }
 
     return (

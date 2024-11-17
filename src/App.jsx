@@ -22,26 +22,22 @@ export default function App(){
 
   const [design, setDesign] = useState('');
   const [images, setImages] = useState([]);
-  const [template, setTemplate] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [canvas, setCanvas] = useState(null);
-
-  const [templates, setTemplates] = useState([]);
 
   return (
         <Router>
           <Routes>
-            <Route path="/" element={<MainPage setTemplates={setTemplates} />}/>
-            <Route path="/template" element={<TemplatePage templates={templates} onSelectDesign={setDesign} onSelectTemplate={setTemplate} />} />
-            <Route path="/capture" element={<CapturePage onCapture={setImages} template={template} setCanvas={setCanvas}/>} />
-            <Route path="/print" element={<PrintPage design={design} template={canvas} images={images} onPrint={() => {}} />} />
+            <Route path="/" element={<MainPage />}/>
+            <Route path="/template" element={<TemplatePage onSelectDesign={setDesign} />} />
+            <Route path="/capture" element={<CapturePage onCapture={setImages}/>} />
+            <Route path="/print" element={<PrintPage design={design} images={images} onPrint={() => {}} />} />
 
             <Route path="/settings" element={<Settings isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />} />
             <Route path="/settings/touchscreen" element={<Touchscreen isDarkMode={isDarkMode} />} />
             <Route path="/settings/printer" element={<PrinterInfo isDarkMode={isDarkMode}/>} />
             <Route path="/settings/timer" element={<Timer />} />
             <Route path="/settings/editor" element={<Editor isDarkMode={isDarkMode}/>} />
-            <Route path="/settings/template-editor" element={<TemplateEditor isDarkMode={isDarkMode} initialTemplates={templates} />} />
+            <Route path="/settings/template-editor" element={<TemplateEditor isDarkMode={isDarkMode} />} />
             {/* <Route path="/settings/statistic" element={<Statistic />} /> */}
           </Routes>
         </Router>

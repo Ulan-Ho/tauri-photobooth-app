@@ -7,7 +7,7 @@ import { useFetcher } from 'react-router-dom';
 import { usePageNavigation } from '../App';
 import { toast, ToastContainer } from 'react-toastify';
 import { invoke } from '@tauri-apps/api';
-import { drawMyCanvas } from '../components/CanvasDrawer';
+import { drawMyCanvas, drawCanvasForSelect } from '../components/CanvasDrawer';
 
 const props = {
     page: 'Редактор Шаблонов',
@@ -18,12 +18,14 @@ export default function TemplateEditor() {
 
     usePageNavigation();
 
-    const { addObject, setCanvasProps, canvases, currentCanvasId, updateObjectProps, removeObject, addCanvas, removeCanvas, switchCanvas, setCanvasData } = useStore();
+    const { addObject, setCanvasProps, canvases, currentCanvasId, updateObjectProps, removeObject, addCanvas, removeCanvas, switchCanvas, setCanvasData, updated, setUpdated } = useStore();
     const [activeTab, setActiveTab] = useState('shapes');
     const canvasRef = useRef(null);
+    const canvasRefForSelect = useRef(null);
     const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
     const fileInputRef = useRef(null);
     const [selectedObjectId, setSelectedObjectId] = useState(null);
+    if (updated === true) setUpdated(false);
 
     const handleObjectClick = (e) => {
         // Получаем координаты клика относительно холста
@@ -96,12 +98,12 @@ export default function TemplateEditor() {
     };
 
     const addNewImage = (imageSrc, imgWidth, imgHeight, imgObject) => {
-        const existingImage = currentCanvas.objects.find(obj => obj.src === imageSrc);
-        if (existingImage) return; // Пропускаем, если изображение уже существует
+        // const existingImage = currentCanvas.objects.find(obj => obj.src === imageSrc);
+        // if (existingImage) return; // Пропускаем, если изображение уже существует
         const newImage = {
             id: Date.now(),
             type: 'image',
-            fill: 'transparent', // Прозрачный фон для изображения
+            // fill: 'rgba(0, 0, 0, 0)', // Прозрачный фон для изображения
             src: imageSrc,
             imgObject: imgObject,
             left: 50,
@@ -123,7 +125,7 @@ export default function TemplateEditor() {
             top: 48,
             width: 530,
             height: 490,
-            fill: 'transparent', // Прозрачный фон для фото-заглушки
+            // fill: 'rgba(0, 0, 0, 0)', // Прозрачный фон для фото-заглушки
             src: '', // Здесь будет ссылка на фото, которая появится после съемки
             zIndex: 1,
             stroke: '#000000',
@@ -156,8 +158,13 @@ export default function TemplateEditor() {
     useEffect(() => {
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
+        const canvasSel = canvasRefForSelect.current;
+        const ctxSel = canvasSel.getContext('2d');
+        
+        // console.log(currentCanvas.canvasProps)
         if (currentCanvas) {
             drawMyCanvas(ctx, canvas, currentCanvas);
+            drawCanvasForSelect(ctxSel, canvasSel, currentCanvas);
         }
     }, [currentCanvas]);
 
@@ -248,15 +255,9 @@ export default function TemplateEditor() {
         }
     }
 
-    async function saveCanvasAsImage(canvasId, canvasData) {
+    async function saveCanvasImage(canvasId, canvasData) {
         try {
-            const canvas = canvasRef.current;
-            const ctx = canvas.getContext('2d');
-            if (currentCanvas) {
-                drawMyCanvas(ctx, canvas);
-            }
-            // Конвертируем холст в data URL (base64)
-            const imageDataUrl = canvas.toDataURL('image/png');
+            const imageDataUrl = canvasRef.current.toDataURL('image/png');
 
             // Убираем префикс data:image/png;base64, чтобы передать только base64
             const imageBase64 = imageDataUrl.replace(/^data:image\/(png|jpg);base64,/, '');
@@ -299,10 +300,11 @@ export default function TemplateEditor() {
         try {
             currentCanvas.objects.map((obj) => {
                 if (obj.type === 'image') obj.imgObject = '';
-                console.log('nice')
+                // console.log('nice')
             });
+            currentCanvas.canvasProps.webpData = canvasRefForSelect.current.toDataURL('image/webp');
             saveCanvasData(currentCanvas.id, currentCanvas);
-            saveCanvasAsImage(currentCanvas.id, currentCanvas);
+            saveCanvasImage(currentCanvas.id, currentCanvas);
             toast.success('Данные сохранены');
         } catch (error) {
             toast.error('Не удалось сохранить данные:', error);
@@ -319,6 +321,7 @@ export default function TemplateEditor() {
                             <canvas ref={canvasRef} style={{ border: '1px solid black', width: '413.3px', height: '614.6px' }}
                                 onClick={(e) => handleObjectClick(e)}
                             />
+                            <canvas ref={canvasRefForSelect} style={{ width: '413.3px', height: '614.6px', display: 'none'}} />
                             {/* Render canvas from `canvases` */}
                         </div>
                     </div>
@@ -446,7 +449,9 @@ export default function TemplateEditor() {
                                                 <input
                                                     type='checkbox'
                                                     checked={currentCanvas.canvasProps.available}
-                                                    className='w-5 h-5'/>
+                                                    className='w-5 h-5'
+                                                    onChange={() => setCanvasProps(currentCanvas.id, { available: !currentCanvas.canvasProps.available })}
+                                                    />
                                                 <p className='text-2xl'>Использовать Холст</p>
                                             </button>
                                         </div>

@@ -87,7 +87,7 @@ export const drawLine = (ctx, obj) => {
     if (obj.strokeWidth) setStroke(ctx, obj);
 };
 // Функция для рисования изображения
-export const drawImage = (ctx, obj) => {
+export const drawImageInEditor = (ctx, obj) => {
     if (!obj.imgObject) {
         // Создаем и сохраняем объект изображения, если он еще не создан
         obj.imgObject = new Image();
@@ -109,6 +109,30 @@ export const drawImage = (ctx, obj) => {
         if (obj.numberImage === 2) drawSquare(ctx, obj, 'blue', 2);
         if (obj.numberImage === 3) drawSquare(ctx, obj, 'green', 3);
 
+        ctx.drawImage(obj.imgObject, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
+        offShadow(ctx);
+        if (obj.strokeWidth) setStroke(ctx, obj);
+    }
+};
+// Функция для рисования изображения в режиме выбора
+export const drawImageForSelect = (ctx, obj) => {
+    if (!obj.imgObject) {
+        // Создаем и сохраняем объект изображения, если он еще не создан
+        obj.imgObject = new Image();
+        obj.imgObject.src = obj.src;
+    }
+
+    // Отрисовка изображения после загрузки
+    obj.imgObject.onload = () => {
+        setShadow(ctx, obj);
+        ctx.drawImage(obj.imgObject, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
+        offShadow(ctx);
+        if (obj.strokeWidth) setStroke(ctx, obj);
+    };
+
+    // Проверка, если изображение уже загружено, то сразу рисуем
+    if (obj.imgObject.complete) {
+        setShadow(ctx, obj);
         ctx.drawImage(obj.imgObject, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
         offShadow(ctx);
         if (obj.strokeWidth) setStroke(ctx, obj);
@@ -175,7 +199,7 @@ export const drawMyCanvas = (ctx, canvas, currentCanvas) => {
         ctx.save();  // Сохраняем состояние контекста
 
         ctx.globalAlpha = obj.opacity;
-        ctx.fillStyle = obj.fill;
+        if (obj.type !== 'image') ctx.fillStyle = obj.fill;
         setRotate(ctx, obj);
 
         switch (obj.type) {
@@ -198,12 +222,136 @@ export const drawMyCanvas = (ctx, canvas, currentCanvas) => {
                 drawLine(ctx, obj);
                 break;
             case 'image':
-                drawImage(ctx, obj);
+                drawImageInEditor(ctx, obj);
                 break;
             default:
                 break;
         }
 
+        ctx.restore();  // Восстанавливаем состояние контекста
+    });
+}
+
+export const drawCanvasForSelect = (ctx, canvas, currentCanvas) => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Устанавливаем размеры холста
+    canvas.width = currentCanvas.canvasProps.width;
+    canvas.height = currentCanvas.canvasProps.height;
+
+    // Задаем цвет фона
+    ctx.fillStyle = currentCanvas.canvasProps.backgroundColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const sortedObjects = [...currentCanvas.objects].sort((a, b) => a.zIndex - b.zIndex);
+
+    // Отрисовываем объекты
+    sortedObjects.forEach(obj => {
+        ctx.save();  // Сохраняем состояние контекста
+
+        ctx.globalAlpha = obj.opacity;
+        if (obj.type !== 'image') ctx.fillStyle = obj.fill;
+        setRotate(ctx, obj);
+
+        switch (obj.type) {
+            case 'rectangle':
+                drawRectangle(ctx, obj);
+                break;
+            case 'circle':
+                drawCircle(ctx, obj);
+                break;
+            case 'star':
+                drawStar(ctx, obj);
+                break;
+            case 'polygon':
+                drawPolygon(ctx, obj);
+                break;
+            case 'triangle':
+                drawTriangle(ctx, obj);
+                break;
+            case 'line':
+                drawLine(ctx, obj);
+                break;
+            case 'image':
+                drawImageForSelect(ctx, obj);
+                break;
+            default:
+                break;
+        }
+        ctx.restore();  // Восстанавливаем состояние контекста
+    });
+}
+
+
+//---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+export const drawCaptureImage = (ctx, obj, image, design) => {
+    const img = new Image();
+    img.src = image.url;
+
+    // Отрисовка изображения после загрузки
+    img.onload = () => {
+        setShadow(ctx, obj);
+        if (design === 'grayscale') {
+            ctx.filter = 'grayscale(100%)';
+        }
+        ctx.drawImage(img, obj.left, obj.top, obj.width, obj.height);
+        ctx.filter = 'none';
+        offShadow(ctx);
+        if (obj.strokeWidth) setStroke(ctx, obj);
+    };
+};
+
+
+
+export const drawCanvasCaptureImage = (ctx, canvas, currentCanvas, images, design) => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Устанавливаем размеры холста
+    canvas.width = currentCanvas.canvasProps.width;
+    canvas.height = currentCanvas.canvasProps.height;
+
+    // Задаем цвет фона
+    ctx.fillStyle = currentCanvas.canvasProps.backgroundColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const sortedObjects = [...currentCanvas.objects].sort((a, b) => a.zIndex - b.zIndex);
+
+    // Отрисовываем объекты
+    sortedObjects.forEach(obj => {
+        ctx.save();  // Сохраняем состояние контекста
+
+        ctx.globalAlpha = obj.opacity;
+        if (obj.type !== 'image') ctx.fillStyle = obj.fill;
+        setRotate(ctx, obj);
+
+        switch (obj.type) {
+            case 'rectangle':
+                drawRectangle(ctx, obj);
+                break;
+            case 'circle':
+                drawCircle(ctx, obj);
+                break;
+            case 'star':
+                drawStar(ctx, obj);
+                break;
+            case 'polygon':
+                drawPolygon(ctx, obj);
+                break;
+            case 'triangle':
+                drawTriangle(ctx, obj);
+                break;
+            case 'line':
+                drawLine(ctx, obj);
+                break;
+            case 'image':
+                if (obj.src !== '') drawImageInEditor(ctx, obj);
+                if (obj.numberImage === 1 && obj.src === '') drawCaptureImage(ctx, obj, images[0], design);
+                if (obj.numberImage === 2 && obj.src === '') drawCaptureImage(ctx, obj, images[1], design);
+                if (obj.numberImage === 3 && obj.src === '') drawCaptureImage(ctx, obj, images[2], design);
+                break;
+            default:
+                break;
+        }
         ctx.restore();  // Восстанавливаем состояние контекста
     });
 }
