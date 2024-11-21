@@ -115,7 +115,7 @@ export const drawImageInEditor = (ctx, obj) => {
     }
 };
 // Функция для рисования изображения в режиме выбора
-export const drawImageForSelect = (ctx, obj) => {
+export const drawImages = (ctx, obj, bool) => {
     if (!obj.imgObject) {
         // Создаем и сохраняем объект изображения, если он еще не создан
         obj.imgObject = new Image();
@@ -123,20 +123,75 @@ export const drawImageForSelect = (ctx, obj) => {
     }
 
     // Отрисовка изображения после загрузки
-    obj.imgObject.onload = () => {
-        setShadow(ctx, obj);
-        ctx.drawImage(obj.imgObject, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
-        offShadow(ctx);
-        if (obj.strokeWidth) setStroke(ctx, obj);
-    };
+    if (bool === true) {
+        obj.imgObject.onload = () => {
+            setShadow(ctx, obj);
+            ctx.drawImage(obj.imgObject, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
+            offShadow(ctx);
+            if (obj.strokeWidth) setStroke(ctx, obj);
+        };
+
+        if (obj.imgObject.complete) {
+            setShadow(ctx, obj);
+            if (obj.numberImage === 1) drawSquare(ctx, obj, 'red', 1);
+            if (obj.numberImage === 2) drawSquare(ctx, obj, 'blue', 2);
+            if (obj.numberImage === 3) drawSquare(ctx, obj, 'green', 3);
+            ctx.drawImage(obj.imgObject, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
+            offShadow(ctx);
+            if (obj.strokeWidth) setStroke(ctx, obj);
+        }
+    }
+    if (bool === false) {
+        if (obj.numberImage === 1 || obj.numberImage === 2 || obj.numberImage === 3) {
+            obj.imgObject.onload = () => {
+                // Пропорции изображения и объекта
+                const imgAspectRatio = obj.imgObject.width / obj.imgObject.height;
+                const objectAspectRatio = obj.width / obj.height;
+                let drawWidth, drawHeight, offsetX, offsetY;
+                // Рассчитываем размеры и смещение для "object-cover"
+                if (imgAspectRatio > objectAspectRatio) {
+                    // Изображение шире объекта
+                    drawWidth = obj.height * imgAspectRatio;
+                    drawHeight = obj.height;
+                    offsetX = -(drawWidth - obj.width) / 2;
+                    offsetY = 0;
+                } else {
+                    // Изображение выше объекта
+                    drawWidth = obj.width;
+                    drawHeight = obj.width / imgAspectRatio;
+                    offsetX = 0;
+                    offsetY = -(drawHeight - obj.height) / 2;
+                }
+                // Рисуем изображение с обрезкой
+                ctx.save(); // Сохраняем текущий контекст
+                ctx.translate(obj.x, obj.y); // Перемещаемся в позицию объекта
+                ctx.beginPath();
+                ctx.rect(-obj.width / 2, -obj.height / 2, obj.width, obj.height); // Ограничиваем область
+                ctx.clip(); // Применяем обрезку
+                ctx.drawImage(
+                    obj.imgObject,
+                    offsetX - obj.width / 2, // Смещение внутри объекта
+                    offsetY - obj.height / 2,
+                    drawWidth,
+                    drawHeight
+                );
+                ctx.restore(); // Восстанавливаем контекст
+            };
+        } else {
+            obj.imgObject.onload = () => {
+                setShadow(ctx, obj);
+                ctx.drawImage(obj.imgObject, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
+                offShadow(ctx);
+                if (obj.strokeWidth) setStroke(ctx, obj);
+            };
+        }
+
+        if (obj.imgObject.complete) {
+            obj.imgObject.onload();
+        }
+    }
 
     // Проверка, если изображение уже загружено, то сразу рисуем
-    if (obj.imgObject.complete) {
-        setShadow(ctx, obj);
-        ctx.drawImage(obj.imgObject, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
-        offShadow(ctx);
-        if (obj.strokeWidth) setStroke(ctx, obj);
-    }
 };
 // Функция для рисования квадрата с номером изображения
 export const drawSquare = (ctx, obj, fill, numberImage) => {
@@ -181,7 +236,7 @@ export const setRotate = (ctx, obj) => {
     ctx.rotate((obj.rotate || 0) * Math.PI / 180);
 }
 
-export const drawMyCanvas = (ctx, canvas, currentCanvas) => {
+export const drawMyCanvas = (ctx, canvas, currentCanvas, bool) => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // Устанавливаем размеры холста
@@ -222,7 +277,7 @@ export const drawMyCanvas = (ctx, canvas, currentCanvas) => {
                 drawLine(ctx, obj);
                 break;
             case 'image':
-                drawImageInEditor(ctx, obj);
+                drawImages(ctx, obj, bool);
                 break;
             default:
                 break;

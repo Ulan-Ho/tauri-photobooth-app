@@ -163,8 +163,8 @@ export default function TemplateEditor() {
         
         // console.log(currentCanvas.canvasProps)
         if (currentCanvas) {
-            drawMyCanvas(ctx, canvas, currentCanvas);
-            drawCanvasForSelect(ctxSel, canvasSel, currentCanvas);
+            drawMyCanvas(ctx, canvas, currentCanvas, true);
+            drawMyCanvas(ctxSel, canvasSel, currentCanvas, false);
         }
     }, [currentCanvas]);
 
@@ -229,6 +229,45 @@ export default function TemplateEditor() {
         };
     }, [isDragging, draggedObjectId, dragOffset, currentCanvas.objects]);
 
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (!selectedObjectId || !currentCanvas) return;
+    
+            const step = 1; // Шаг перемещения объекта
+            const object = currentCanvas.objects.find(obj => obj.id === selectedObjectId);
+            if (!object) return;
+    
+            switch (e.key) {
+                case 'ArrowUp':
+                    updateObject(selectedObjectId, { top: object.top - step });
+                    break;
+                case 'ArrowDown':
+                    updateObject(selectedObjectId, { top: object.top + step });
+                    break;
+                case 'ArrowLeft':
+                    updateObject(selectedObjectId, { left: object.left - step });
+                    break;
+                case 'ArrowRight':
+                    updateObject(selectedObjectId, { left: object.left + step });
+                    break;
+                case 'Delete':
+                    removeObject(selectedObjectId);
+                    setSelectedObjectId(null);
+                    break;
+                default:
+                    break;
+            }
+        };
+    
+        // Добавляем слушатель события
+        window.addEventListener('keydown', handleKeyDown);
+    
+        // Удаляем слушатель при размонтировании
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [selectedObjectId, currentCanvas, updateObject, removeObject]);
+
     async function loadAllCanvasData() {
         try {
             const canvasArray = await invoke('load_all_canvas_data');
@@ -268,7 +307,7 @@ export default function TemplateEditor() {
                 base64Image: imageBase64,
                 available: canvasData.canvasProps.available,
             });
-
+            toast.success('Изображение сохранено');
             console.log('Canvas image saved successfully.');
             } catch (error) {
             console.error('Failed to save canvas image:', error);

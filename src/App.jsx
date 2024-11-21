@@ -17,30 +17,49 @@ import Editor from './admin/Editor.jsx';
 import templateSimple from './assets/templateSimple.png';
 import templateRul from './assets/templateRul.png';
 import { listen } from '@tauri-apps/api/event';
+import PrinterPopup from './components/PrinterPopup.jsx';
+import { invoke } from '@tauri-apps/api';
+import { toast, ToastContainer } from 'react-toastify';
 
 export default function App(){
-
+  const [selectedPrinter, setSelectedPrinter] = useState(null);
+  const [showPopup, setShowPopup] = useState(true);
   const [design, setDesign] = useState('');
   const [images, setImages] = useState([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if(loading) setShowPopup(false);
+  }, []);
+
+  const handlePrinterSelection = (printerName) => {
+    setSelectedPrinter(printerName);
+    // invoke("save_selected_printer", { printerName });
+  }
 
   return (
-        <Router>
-          <Routes>
-            <Route path="/" element={<MainPage />}/>
-            <Route path="/template" element={<TemplatePage onSelectDesign={setDesign} />} />
-            <Route path="/capture" element={<CapturePage onCapture={setImages}/>} />
-            <Route path="/print" element={<PrintPage design={design} images={images} onPrint={() => {}} />} />
+        <>
+          <Router>
+            <Routes>
+              <Route path="/" element={<MainPage active={showPopup} setLoading={setLoading} loading={loading} />}/>
+              <Route path="/template" element={<TemplatePage onSelectDesign={setDesign} />} />
+              <Route path="/capture" element={<CapturePage onCapture={setImages}/>} />
+              <Route path="/print" element={<PrintPage design={design} images={images} onPrint={() => {}} />} />
 
-            <Route path="/settings" element={<Settings isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />} />
-            <Route path="/settings/touchscreen" element={<Touchscreen isDarkMode={isDarkMode} />} />
-            <Route path="/settings/printer" element={<PrinterInfo isDarkMode={isDarkMode}/>} />
-            <Route path="/settings/timer" element={<Timer />} />
-            <Route path="/settings/editor" element={<Editor isDarkMode={isDarkMode}/>} />
-            <Route path="/settings/template-editor" element={<TemplateEditor isDarkMode={isDarkMode} />} />
-            {/* <Route path="/settings/statistic" element={<Statistic />} /> */}
-          </Routes>
-        </Router>
+              <Route path="/settings" element={<Settings isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />} />
+              <Route path="/settings/touchscreen" element={<Touchscreen isDarkMode={isDarkMode} />} />
+              <Route path="/settings/printer" element={<PrinterInfo isDarkMode={isDarkMode}/>} />
+              <Route path="/settings/timer" element={<Timer />} />
+              <Route path="/settings/editor" element={<Editor isDarkMode={isDarkMode}/>} />
+              <Route path="/settings/template-editor" element={<TemplateEditor isDarkMode={isDarkMode} />} />
+              {/* <Route path="/settings/statistic" element={<Statistic />} /> */}
+            </Routes>
+          </Router>
+          {showPopup && (
+            <PrinterPopup  onClose={() => setShowPopup(false)} onSelectPrinter={handlePrinterSelection} loading={loading} />
+          )}
+        </>
       )
 };
 

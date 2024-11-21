@@ -3,21 +3,10 @@
 //     windows_subsystem = "windows"
 // )]
 
-//--------------------------------Windows API-------------------------------------------------
-extern crate winapi;
-use winapi::um::winspool::EnumPrintersW;
-use winapi::um::winspool::DRIVER_INFO_3W;
-use winapi::um::winspool::PRINTER_ENUM_LOCAL;
-use winapi::um::winspool::PRINTER_INFO_2W;
-use std::ffi::CString;
-use std::ffi::OsString;
-use std::os::windows::ffi::OsStringExt;
-use std::ptr::null_mut;
-use winapi::um::winspool::EnumPrinterDriversW;
-use std::os::windows::ffi::OsStrExt;
 //-------------------------------------------------------------------------------------------------
 // use tauri::AppHandle;
 // use std::slice;
+use std::ffi::CString;
 use device_query::{DeviceQuery, DeviceState, Keycode};
 use std::result::Result;
 use std::sync::{Arc, Mutex};
@@ -197,10 +186,18 @@ impl Camera {
     }
 
     extern "C" fn handle_state_event(event: EdsStateEvent, _param: EdsUInt32, _context: *mut EdsVoid) -> EdsError {
-        println!("[LOG] State event triggered: 0x{:X}", event);
-        // println!("Camera ref: {:?}", context);
-        // println!("Param: {}", param);
-        // Обработка события состояния
+        match event {
+            0x00000302 => {
+                println!("[INFO] Camera disconnected.");
+                Self::new().unwrap();
+            }
+            0x00000301 => {
+                println!("[INFO] Camera connected.");
+            }
+            _ => {
+                println!("[LOG] State event triggered: 0x{:X}", event);
+            }
+        }
         0
     }
 
@@ -249,17 +246,35 @@ impl Camera {
             println!("[LOG] Capacity set successfully.");
     
             // Отправка команды на съемку
-            thread::sleep(Duration::from_millis(100));
-            let result = EdsSendCommand(self.camera_ref, 0x00000000, 0x00000000);
-            if result != 0 {
-                eprintln!("[ERROR] Failed to send capture command (1). Error code: 0x{:X}", result);
-                return Err(result);
-            }
-            // let result = EdsSendCommand(self.camera_ref, 0x00000004, 0x00000000);
+            // thread::sleep(Duration::from_millis(100));
+            // let result = EdsSendCommand(self.camera_ref, 0x00000000, 0x00000000);
             // if result != 0 {
-            //     eprintln!("[ERROR] Failed to send capture command (2). Error code: 0x{:X}", result);
-            //     // return Err(result);
+            //     eprintln!("[ERROR] Failed to send capture command (1). Error code: 0x{:X}", result);
+            //     return Err(result);
             // }
+
+            let max_retries = 10; // Максимальное количество попыток
+            let mut attempts = 0;
+
+            while attempts < max_retries {
+                let result = EdsSendCommand(self.camera_ref, 0x00000000, 0x00000000);
+                if result == 0 {
+                    println!("[INFO] Capture command sent successfully.");
+                    break; // Успешное выполнение команды — выходим из цикла
+                } else {
+                    eprintln!("[ERROR] Failed to send capture command (attempt {}). Error code: 0x{:X}", attempts + 1, result);
+                    attempts += 1;
+
+                    // Здесь можно добавить задержку перед следующей попыткой, если нужно
+                    std::thread::sleep(std::time::Duration::from_millis(200)); // Задержка 500 мс
+                }
+            }
+
+            if attempts == max_retries {
+                eprintln!("[ERROR] All attempts to send capture command failed.");
+                return Err(result); // Возвращаем ошибку после всех попыток
+            }
+
             println!("[LOG] Photo capture commands sent successfully.");
 
             // Ожидаем завершения создания фотографии
@@ -270,6 +285,7 @@ impl Camera {
                 thread::sleep(Duration::from_millis(100));
                 photo_created = self.photo_created.lock().unwrap();
             }
+            *photo_created = false;
 
             println!("[LOG] Photo captured successfully.");
             Ok(())
@@ -377,10 +393,22 @@ impl Camera {
                     return Err(err);
                 }
     
+                // Проверка, активно ли устройство вывода для живого просмотра
                 if device & 2 != 0 {
-                    device &= !2; // Отключить вывод живого просмотра
-                    let err = EdsSetPropertyData(self.camera_ref, 0x00000500, 0, size_of::<u32>() as u32, &device as *const _ as *mut c_void);
+                    // Отключаем вывод на компьютер (удаляем бит)
+                    device &= !2;
+    
+                    // Устанавливаем новое значение для устройства вывода
+                    let err = EdsSetPropertyData(
+                        self.camera_ref,
+                        0x00000500, // kEdsPropID_Evf_OutputDevice
+                        0,
+                        std::mem::size_of::<u32>() as u32,
+                        &device as *const _ as *const c_void,
+                    );
+    
                     if err != 0 {
+                        println!("Failed to disable live view output device: {}", err);
                         return Err(err);
                     }
                 }
@@ -500,16 +528,35 @@ fn capture_photo_as(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) ->
 
 #[tauri::command]
 fn get_captured_image() -> Result<String, String> {
-    // thread::sleep(Duration::from_millis(6000));
-    println!("Getting captured image");
-    let file_path = PathBuf::from(env::current_dir().map_err(|err| err.to_string())?).join("captured_image.jpg");
-    match fs::read(file_path.clone()) {
+    println!("Waiting for captured image...");
+
+    // Путь к файлу captured_image.jpg
+    let file_path = PathBuf::from(env::current_dir().map_err(|err| err.to_string())?)
+        .join("captured_image.jpg");
+
+    // Проверяем наличие файла каждые 1 секунду, максимум 30 секунд
+    let max_attempts = 30;
+    let mut attempts = 0;
+
+    while !file_path.exists() {
+        if attempts >= max_attempts {
+            return Err("Image not found after 30 seconds.".to_string());
+        }
+        attempts += 1;
+        println!("Image not found, retrying... (Attempt {}/{})", attempts, max_attempts);
+        thread::sleep(Duration::from_secs(1));
+    }
+
+    // Читаем файл, если он существует
+    match fs::read(&file_path) {
         Ok(data) => {
             println!("Image data read successfully");
             let base64_str = BASE64_STANDARD.encode(&data);
-            // fs::remove_file(file_path).map_err(|e| format!("Failed to delete file: {}", e))?;
+            
+            // Удаляем файл после успешного чтения
             if file_path.exists() {
-                fs::remove_file(&file_path).map_err(|err| err.to_string())?;
+                fs::remove_file(&file_path).map_err(|err| format!("Failed to delete file: {}", err))?;
+                println!("Remove file")
             } else {
                 println!("Image not found, skipping deletion.");
             }
@@ -517,7 +564,6 @@ fn get_captured_image() -> Result<String, String> {
         }
         Err(e) => Err(format!("Failed to read file: {}", e)),
     }
-    // println!("Getting captured image");
 }
 
 // #[tauri::command]
@@ -638,33 +684,91 @@ async fn main() {
 
             Ok(())
         }})
-        .invoke_handler(tauri::generate_handler![print_image, get_work_hours, set_work_hours, save_image, get_printer_list, get_printer_driver, get_image, save_canvas_data, save_canvas_image, load_all_canvas_data, delete_canvas_image_and_data, load_all_canvas_images,
+        .invoke_handler(tauri::generate_handler![print_image, get_work_hours, set_work_hours, save_image, get_image, save_canvas_data, save_canvas_image, load_all_canvas_data, delete_canvas_image_and_data, load_all_canvas_images,
             load_available_canvas_data,
             initialize_camera,
             capture_photo_as,
             start_live_view,
             download_ev_image_command,
             get_captured_image,
-            stop_live_view])
+            stop_live_view,
+            get_printers,
+            save_printers,
+            update_selected_printer])
         .manage(Arc::new(Mutex::new(None::<Arc<Mutex<Camera>>>)))
+        .manage(PrinterState::default())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
 #[tauri::command]
-fn print_image(image_data: String) -> Result<(), String> {
-    let base64_str = image_data.split(',').nth(1).ok_or("Invalid base64 string")?;
-    let decoded_data = BASE64_STANDARD.decode(base64_str).map_err(|e| e.to_string())?;
+fn print_image(image_data: String, state: State<PrinterState>) -> Result<(), String> {
+    // let base64_str = image_data.split(',').nth(1).ok_or("Invalid base64 string")?;
+    let decoded_data = BASE64_STANDARD.decode(image_data).map_err(|e| e.to_string())?;
 
-    let file_path = "temp_image.png";
-    let mut file = File::create(file_path).map_err(|e| e.to_string())?;
-    file.write_all(&decoded_data).map_err(|e| e.to_string())?;
+    // let file_path = "temp_image.png";
+    let file_path = PathBuf::from(env::current_dir().map_err(|err| err.to_string())?).join("temp_image.png");
+    if file_path.exists() {
+        // println!("File already exists, sending it to print: {:?}", file_path);
+    } else {
+        // Если файл не существует, создаем новый
+        // println!("File path: {:?}", file_path);
+        let mut file = File::create(&file_path).map_err(|e| e.to_string())?;
+        file.write_all(&decoded_data).map_err(|e| e.to_string())?;
+    }
+
+    let state_printer = state.selected_printer.lock().unwrap();
+    let printer_name = state_printer.as_ref().map(|printer| printer.name.clone()).unwrap_or_default();
+
+    // Экранирование пути к файлу для PowerShell
+    let file_path_str = file_path.display().to_string();
+    let escaped_file_path = format!("\"{}\"", file_path_str.replace("\\", "\\\\"));
+    // println!("Escaped file path: {}", escaped_file_path);
+
+    let print_function = r#"
+        function Print-Image {
+            param(
+                [string]$PrinterName,
+                [string]$FilePath,
+                [int]$Scale,
+                [string]$PaperSize,
+                [string]$PrintJobName,
+                [string]$PrintQuality
+            )
+            Add-Type -AssemblyName System.Drawing
+            $printDocument = New-Object System.Drawing.Printing.PrintDocument
+            $printDocument.PrinterSettings.PrinterName = $PrinterName
+            $printDocument.DefaultPageSettings.Landscape = $false
+            $printDocument.DefaultPageSettings.PaperSize = New-Object System.Drawing.Printing.PaperSize('Custom', 600, 400)
+            $printDocument.add_PrintPage({
+                param($sender, $e)
+                $image = [System.Drawing.Image]::FromFile($FilePath)
+                $e.Graphics.TranslateTransform(0, 0)
+                $e.Graphics.RotateTransform(0)
+                $scaledWidth = $image.Width * ($Scale / 300)
+                $scaledHeight = $image.Height * ($Scale / 300)
+                $e.Graphics.DrawImage($image, 0, 0, $scaledWidth, $scaledHeight)
+                $image.Dispose()
+            })
+            $printDocument.PrinterSettings.DefaultPageSettings.PrinterResolution.Kind = [System.Drawing.Printing.PrinterResolutionKind]::High
+            $printDocument.PrintController = New-Object System.Drawing.Printing.StandardPrintController
+            $printDocument.Print()
+        }
+    "#;
 
     let command = format!(
-        "function Print-Image {{ param([string]$PrinterName, [string]$FilePath, [int]$Scale, [string]$PaperSize, [string]$PrintJobName, [string]$PrintQuality); Add-Type -AssemblyName System.Drawing; $printDocument = New-Object System.Drawing.Printing.PrintDocument; $printDocument.PrinterSettings.PrinterName = $PrinterName; $printDocument.DefaultPageSettings.Landscape = $false; $printDocument.DefaultPageSettings.PaperSize = New-Object System.Drawing.Printing.PaperSize(\"Custom\", 600, 400); $printDocument.add_PrintPage({{ param($sender, $e); $image = [System.Drawing.Image]::FromFile($FilePath); $e.Graphics.TranslateTransform(0, 0); $e.Graphics.RotateTransform(0); $scaledWidth = $image.Width * ($Scale / 300); $scaledHeight = $image.Height * ($Scale / 300); $e.Graphics.DrawImage($image, 0, 0, $scaledWidth, $scaledHeight); $image.Dispose(); }}); $printDocument.PrinterSettings.DefaultPageSettings.PrinterResolution.Kind = [System.Drawing.Printing.PrinterResolutionKind]::High; $printDocument.PrintController = New-Object System.Drawing.Printing.StandardPrintController; $printDocument.Print(); }} Print-Image -PrinterName \"HiTi P525\" -FilePath \"{}\" -Scale 100 -PaperSize \"6x4-Split (6x2 2 prints)\" -PrintJobName \"ImagePrintJob\" -PrintQuality \"High\"",
-        file_path
+        r#"
+        {}
+        Print-Image -PrinterName "{}" -FilePath {} -Scale 100 -PaperSize "6x4-Split (6x2 2 prints)" -PrintJobName "ImagePrintJob" -PrintQuality "High"
+        "#,
+        print_function,
+        printer_name,
+        escaped_file_path
     );
 
+    // println!("PowerShell command: {}", command);
+
+    // Передача функции в PowerShell
     let output = Command::new("powershell")
         .args(&["-Command", &command])
         .output()
@@ -676,6 +780,7 @@ fn print_image(image_data: String) -> Result<(), String> {
 
     Ok(())
 }
+
 
 #[tauri::command]
 fn save_image(app_handle: tauri::AppHandle, image_data: String, file_name: String) -> Result<(), String> {
@@ -1039,131 +1144,76 @@ fn load_available_canvas_data(app_handle: tauri::AppHandle) -> Result<Vec<Value>
 }
 
 //-------------------------------------------------Printer Information-------------------------------------------------------------------------------------
+#[derive(Serialize, Deserialize, Debug)]
+struct PrinterInfo {
+    id: u32,
+    name: String,
+    state: String,
+    system_name: String,
+    driver_name: String,
+    is_used: bool,
+}
+
+#[derive(Default, Debug)]
+struct PrinterState {
+    selected_printer: Mutex<Option<PrinterInfo>>,
+}
+
+use printers;
+use printers::printer::Printer;
+
 #[tauri::command]
-fn get_printer_list() -> Result<Vec<String>, String> {
-    let mut buffer_size: u32 = 0;
-    let mut printer_count: u32 = 0;
-
-    // Первый вызов для получения необходимого размера буфера
-    let result = unsafe {
-        EnumPrintersW(
-            PRINTER_ENUM_LOCAL,
-            null_mut(),
-            2,
-            null_mut(),
-            0,
-            &mut buffer_size,
-            &mut printer_count,
-        )
-    };
-
-    if result == 0 {
-        return Err("Не создался необходимый размер буфера".into());
-    }
-
-    // Создаем буфер нужного размера
-    let mut buffer: Vec<u8> = vec![0; buffer_size as usize];
-
-    // Второй вызов для получения данных о принтерах
-    let result = unsafe {
-        EnumPrintersW(
-            PRINTER_ENUM_LOCAL,
-            null_mut(),
-            2,
-            buffer.as_mut_ptr(),
-            buffer_size,
-            &mut buffer_size,
-            &mut printer_count,
-        )
-    };
-
-    if result == 0 {
-        return Err("Не получил данные принтера".into());
-    }
-
-    // Преобразуем полученные данные в структуру PRINTER_INFO_2W
-    let printers: &[PRINTER_INFO_2W] = unsafe {
-        std::slice::from_raw_parts(
-            buffer.as_ptr() as *const PRINTER_INFO_2W,
-            printer_count as usize,
-        )
-    };
-
-    // Преобразуем имена принтеров в Vec<String>
-    let printer_names: Vec<String> = printers.iter().map(|printer| {
-        let name = unsafe {
-            let len = (0..).take_while(|&i| *printer.pPrinterName.offset(i) != 0).count();
-            OsString::from_wide(std::slice::from_raw_parts(printer.pPrinterName, len))
+fn get_printers() -> Result<Vec<PrinterInfo>, String> {
+    let printers: Vec<Printer> = printers::get_printers();
+    let mut id_counter = 1;
+    let printer_infos: Vec<PrinterInfo> = printers.into_iter().map(|printer| {
+        let info = PrinterInfo {
+            id: id_counter,
+            name: printer.name.clone(),
+            state: format!("{:?}", printer.state),
+            system_name: printer.system_name.clone(),
+            driver_name: printer.driver_name.clone(),
+            is_used: false,
         };
-        name.to_string_lossy().into_owned()
+        id_counter += 1;
+        info
     }).collect();
-
-    Ok(printer_names)
+    Ok(printer_infos)
 }
 
 #[tauri::command]
-fn get_printer_driver(printer_name: String) -> Result<String, String> {
-    let printer_name: Vec<u16> = OsString::from(printer_name)
-        .encode_wide()
-        .chain(Some(0).into_iter())
-        .collect();
-
-    let mut needed: u32 = 0;
-    let mut driver_count: u32 = 0;
-
-    // Первый вызов для получения необходимого размера буфера
-    let result = unsafe {
-        EnumPrinterDriversW(
-            null_mut(),
-            printer_name.as_ptr() as *mut u16,
-            3,
-            null_mut(),
-            0,
-            &mut needed,
-            &mut driver_count,
-        )
-    };
-
-    if result == 0 {
-        return Err("Не получил размер буфера для драйвера".into());
+fn save_printers(printer: PrinterInfo, app_handle: tauri::AppHandle, state: State<PrinterState>) -> Result<(), String> {
+    let base_path = app_handle
+        .path_resolver()
+        .app_data_dir()
+        .ok_or("Не удалось разрешить папку данных приложения.")?;
+    let dir = base_path.join("database/printers");
+    if !dir.exists() {
+        fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     }
+    let file_path = dir.join("printers.json");
+    let data = serde_json::to_string(&printer).map_err(|e| e.to_string())?;
+    fs::write(&file_path, data).map_err(|e| e.to_string())?;
+    let mut state = state.selected_printer.lock().unwrap();
+    *state = Some(printer);
+    println!("Сохранено: {:?}", *state);
+    Ok(())
+}
 
-    // Создаем буфер нужного размера
-    let mut buffer: Vec<u8> = vec![0; needed as usize];
-
-    // Второй вызов для получения данных о драйверах
-    let result = unsafe {
-        EnumPrinterDriversW(
-            null_mut(),
-            printer_name.as_ptr() as *mut u16,
-            3,
-            buffer.as_mut_ptr(),
-            needed,
-            &mut needed,
-            &mut driver_count,
-        )
-    };
-
-    if result == 0 {
-        return Err("Failed to enumerate printer drivers".into());
+#[tauri::command]
+fn update_selected_printer(app_handle: tauri::AppHandle, state: State<PrinterState>) -> Result<(), String> {
+    let base_path = app_handle
+        .path_resolver()
+        .app_data_dir()
+        .ok_or("Не удалось разрешить папку данных приложения.")?;
+    let dir = base_path.join("database/printers");
+    if !dir.exists() {
+        fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     }
-
-    // Преобразуем полученные данные в структуру DRIVER_INFO_3W
-    let drivers: &[DRIVER_INFO_3W] = unsafe {
-        std::slice::from_raw_parts(
-            buffer.as_ptr() as *const DRIVER_INFO_3W,
-            driver_count as usize,
-        )
-    };
-
-    // Преобразуем имена драйверов в строку
-    let driver_names: Vec<String> = drivers.iter().map(|driver| {
-        let name = unsafe {
-            let len = (0..).take_while(|&i| *driver.pName.offset(i) != 0).count();
-            OsString::from_wide(std::slice::from_raw_parts(driver.pName, len))
-        };
-        name.to_string_lossy().into_owned()
-    }).collect();
-
-    Ok(driver_names.join(", "))
+    let file_path = dir.join("printers.json");
+    let file_content = fs::read_to_string(&file_path).map_err(|e| e.to_string())?;
+    let selected_printer: PrinterInfo = serde_json::from_str(&file_content).map_err(|e| e.to_string())?;
+    let mut state = state.selected_printer.lock().unwrap();
+    *state = Some(selected_printer);
+    Ok(())
 }

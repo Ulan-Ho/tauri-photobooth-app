@@ -9,8 +9,9 @@ import { invoke } from "@tauri-apps/api";
 import { listen } from "@tauri-apps/api/event";
 import { useStore } from "../admin/store";
 
-export default function MainPage() {
-    const { setCanvasData, updated, setUpdated } = useStore();
+export default function MainPage({ active, loading, setLoading }) {
+    const { setCanvasData, updated, setUpdated, currentCanvasId, canvases } = useStore();
+    // const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
     const [bgImage, setBgImage] = useState(localStorage.getItem("back_1") || `url(${back_img})`);
     usePageNavigation();
 
@@ -44,13 +45,29 @@ export default function MainPage() {
         }
     }
 
+    const loadingAppSettings = async () => {
+        try {
+            if (loading === false) {
+                await invoke('update_selected_printer');
+                setLoading(true);
+            }
+        } catch (err) {
+            console.log(err);
+        }
+    }
+
+    useEffect(() => {
+        fetchTemplate();
+        loadingAppSettings();
+    }, [updated]);
+
     return (
-        <div className="flex justify-center items-center">
+        <div className={`${active == true ? "pointer-events-none": "pointer-events-auto"} flex justify-center items-center`}>
             <div className="select-none relative  bg-cover bg-center bg-no-repeat" style={{width: '1280px', height: '1024px', backgroundImage: bgImage}}>
                 <div className='back-img'></div>
                 <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
                     <div className="flex flex-col">
-                        <NavLink to='/template' onClick={() => fetchTemplate()}><img src={main_icon} alt="camera icon" /></NavLink>
+                        <NavLink to='/template'><img src={main_icon} alt="camera icon" /></NavLink>
                         <div style={word}>НАЧАТЬ ФОТОСЕССИЮ </div>
                         {/* <NavLink to='/settings' className="text-black">Settings</NavLink> */}
                         {/* <div className="text-black">{appPath}</div> */}

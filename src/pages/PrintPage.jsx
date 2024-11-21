@@ -13,7 +13,7 @@ import rulSrc from "../components/images_for_template/rule.png";
 import printer from "../assets/printer.png";
 import { usePageNavigation } from '../App.jsx';
 import back_img from '../assets/defaultImage.jpeg';
-import { drawCanvasCaptureImage } from '../components/CanvasDrawer';
+import { drawMyCanvas } from '../components/CanvasDrawer';
 import { useStore } from '../admin/store.js';
 
 import test_image_1 from '../image_beta/IMG_6700.JPG';
@@ -22,7 +22,7 @@ import test_image_3 from '../image_beta/IMG_7111.JPG';
 
 export default function PrintPage({ images, design }) {
   const [bgImage, setBgImage] = useState(localStorage.getItem("back_4") || `url(${back_img})`);
-  const { canvases, currentCanvasId } = useStore();
+  const { canvases, currentCanvasId, updateObjectProps } = useStore();
   const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
   usePageNavigation();
   const canvasRef = useRef(null);
@@ -52,35 +52,42 @@ export default function PrintPage({ images, design }) {
     const canvas = canvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext('2d');
-      drawCanvasCaptureImage(ctx, canvas, currentCanvas, images, design)
-        // const imageData = canvas.toDataURL('image/png');
-        // setIsImage(imageData);
+      drawMyCanvas(ctx, canvas, currentCanvas, false);
 
       // Второй вызов отрисовки через небольшой промежуток времени
       const timeoutId = setTimeout(() => {
-        drawCanvasCaptureImage(ctx, canvas, currentCanvas, images, design);
+        drawMyCanvas(ctx, canvas, currentCanvas, false);
       }, 50); // Задержка в 50 миллисекунд (можно варьировать)
-
       // Очистка таймера, если компонент размонтируется
+      const imageData = canvas.toDataURL('image/png');
+      setIsImage(imageData);
       return () => clearTimeout(timeoutId);
+
     }
   }, [images, design]);
 
   const handlePrint = async () => {
     const canvas = canvasRef.current;
     if (canvas) {
-      const imageData = canvas.toDataURL('image/png');
-      setIsImage(imageData);
-      toast('Printing...', { type: 'info' });
-      invoke('print_image', { imageData: imageData })
-        .then(() => {
-          toast('Printing started', { type: 'success' });
-          console.log('Printing started');
+      const ctx = canvas.getContext('2d');
+        currentCanvas.objects.forEach(object => {
+          if (object.type === 'image') {
+              if (object.numberImage === 1) {
+                updateObjectProps(currentCanvasId, object.id, { imgObject: null, src: '' });
+              }
+              if (object.numberImage === 2) {
+                updateObjectProps(currentCanvasId, object.id, { imgObject: null, src: '' });
+              }
+              if (object.numberImage === 3) {
+                updateObjectProps(currentCanvasId, object.id, { imgObject: null, src: '' });
+              }
+            }
         })
-        .catch((error) => {
-          toast('Error printing', { type: 'error' });
-          console.error('Error printing:', error);
-        });
+      const imageData = canvasRef.current.toDataURL('image/png');
+      const imageBase64 = imageData.replace(/^data:image\/(png|jpg);base64,/, '');
+      setIsImage(imageBase64);
+      toast('Printing...', { type: 'info' });
+      await invoke('print_image', { imageData: imageBase64 });
         navigate('/')
     } else {
       toast('No image available for printing', { type: 'warning' });
@@ -93,7 +100,6 @@ export default function PrintPage({ images, design }) {
       <div className="select-none relative bg-cover bg-center bg-no-repeat" style={{width: '1280px', height: '1024px', backgroundImage: bgImage}}>
         <div className='back-img'></div>
         <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
-
           <div className="w-full flex flex-col gap-9 justify-center items-center px-20">
             <div className='flex flex-col gap-3'>
               <button className='h-9 flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' style={{ visibility: 'hidden' }}>
@@ -109,9 +115,8 @@ export default function PrintPage({ images, design }) {
                         ref={canvasRef}
                         width={currentCanvas.canvasProps.width}
                         height={currentCanvas.canvasProps.height}
-                        style={{ width: '300px', height: '450px'}}
+                        style={{ width: '300px', height: '450px', display: 'block'}}
                       ></canvas>
-                      {/* <img src={imgES[2]} style={{ width: '300px', height: '450px' }} /> */}
                     </div>
                   </div>
                 </div>
