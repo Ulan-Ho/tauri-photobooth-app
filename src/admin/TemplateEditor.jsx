@@ -227,7 +227,7 @@ export default function TemplateEditor() {
             canvas.removeEventListener('mousemove', handleMouseMove);
             canvas.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [isDragging, draggedObjectId, dragOffset, currentCanvas.objects]);
+    }, [isDragging, draggedObjectId, dragOffset, currentCanvas?.objects]);
 
     useEffect(() => {
         const handleKeyDown = (e) => {

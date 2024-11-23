@@ -13,6 +13,7 @@ import test_image_1 from '../image_beta/IMG_6700.JPG';
 import test_image_2 from '../image_beta/IMG_7107.JPG';
 import test_image_3 from '../image_beta/IMG_7111.JPG';
 import { toast } from 'react-toastify';
+// import RemoveBackground from '../ChromaKeyTest.jsx';
 
 export default function CaptureScreen({ onCapture }) {
     const [bgImage, setBgImage] = useState(localStorage.getItem("back_3") || `url(${back_img})`);
@@ -117,7 +118,7 @@ export default function CaptureScreen({ onCapture }) {
     // Функция для захвата фото через Tauri
     const capture = useCallback(async () => {
         try {
-            // await invoke('stop_live_view'); // Остановка live view
+            await invoke('stop_live_view'); // Остановка live view
             // setIsLiveView(!isLiveView);
             const capture = await invoke('capture_photo_as'); // Вызов команды на съемку фото
             console.log(capture);
@@ -160,6 +161,7 @@ export default function CaptureScreen({ onCapture }) {
 
     // Сохранение фото
     const savePhoto = useCallback( async () => {
+        startLiveView();
         const newImage = {
             id: new Date().getTime(),
             name: `photo-${new Date().getTime()}`,
@@ -179,6 +181,7 @@ export default function CaptureScreen({ onCapture }) {
 
     // Пересъемка фото
     const reshootPhoto = useCallback(() => {
+        startLiveView();
         setCapturedImage(null);
         startCountdown();
     }, [startCountdown]);

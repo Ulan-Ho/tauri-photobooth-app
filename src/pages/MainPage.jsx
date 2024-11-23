@@ -37,8 +37,12 @@ export default function MainPage({ active, loading, setLoading }) {
         try {
             if (updated === false) {
                 const canvasArray = await invoke('load_all_canvas_data');
-                setCanvasData(canvasArray);
-                setUpdated(true);
+                if (canvasArray.length > 0) {
+                    setCanvasData(canvasArray);
+                    setUpdated(true);
+                } else {
+                    toast.error('Канвасы не найдены');
+                }
             }
         } catch (err) {
             console.log(err);

@@ -25,7 +25,8 @@ use serde_json::Value;
 // use std::ffi::{ c_void, c_uint, c_int};
 use libc::{c_void, c_uint, c_int, c_char};
 use tauri::State;
-
+use chrono::{Local, NaiveTime};
+use std::io;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct WorkHours {
     pub start: String,
@@ -186,18 +187,20 @@ impl Camera {
     }
 
     extern "C" fn handle_state_event(event: EdsStateEvent, _param: EdsUInt32, _context: *mut EdsVoid) -> EdsError {
-        match event {
-            0x00000302 => {
-                println!("[INFO] Camera disconnected.");
-                Self::new().unwrap();
-            }
-            0x00000301 => {
-                println!("[INFO] Camera connected.");
-            }
-            _ => {
-                println!("[LOG] State event triggered: 0x{:X}", event);
-            }
-        }
+        // match event {
+        //     0x00000302 => {
+        //         println!("[INFO] Camera disconnected.");
+        //         Self::new().unwrap();
+        //     }
+        //     0x00000301 => {
+        //         println!("[INFO] Camera connected.");
+        //     }
+        //     _ => {
+        //         println!("[LOG] State event triggered: 0x{:X}", event);
+        //     }
+        // }
+        println!("[LOG] State event triggered: 0x{:X}", event);
+
         0
     }
 
@@ -708,65 +711,61 @@ fn print_image(image_data: String, state: State<PrinterState>) -> Result<(), Str
 
     // let file_path = "temp_image.png";
     let file_path = PathBuf::from(env::current_dir().map_err(|err| err.to_string())?).join("temp_image.png");
-    if file_path.exists() {
-        // println!("File already exists, sending it to print: {:?}", file_path);
-    } else {
-        // Если файл не существует, создаем новый
-        // println!("File path: {:?}", file_path);
-        let mut file = File::create(&file_path).map_err(|e| e.to_string())?;
-        file.write_all(&decoded_data).map_err(|e| e.to_string())?;
-    }
-
+    let mut file = File::create(&file_path).map_err(|e| e.to_string())?;
+    file.write_all(&decoded_data).map_err(|e| e.to_string())?;
+    drop(file);
     let state_printer = state.selected_printer.lock().unwrap();
     let printer_name = state_printer.as_ref().map(|printer| printer.name.clone()).unwrap_or_default();
 
     // Экранирование пути к файлу для PowerShell
     let file_path_str = file_path.display().to_string();
     let escaped_file_path = format!("\"{}\"", file_path_str.replace("\\", "\\\\"));
-    // println!("Escaped file path: {}", escaped_file_path);
+    println!("Escaped file path: {}", escaped_file_path);
+
+    thread::sleep(Duration::from_millis(100));
 
     let print_function = r#"
-        function Print-Image {
-            param(
-                [string]$PrinterName,
-                [string]$FilePath,
-                [int]$Scale,
-                [string]$PaperSize,
-                [string]$PrintJobName,
-                [string]$PrintQuality
-            )
-            Add-Type -AssemblyName System.Drawing
-            $printDocument = New-Object System.Drawing.Printing.PrintDocument
-            $printDocument.PrinterSettings.PrinterName = $PrinterName
-            $printDocument.DefaultPageSettings.Landscape = $false
-            $printDocument.DefaultPageSettings.PaperSize = New-Object System.Drawing.Printing.PaperSize('Custom', 600, 400)
-            $printDocument.add_PrintPage({
-                param($sender, $e)
-                $image = [System.Drawing.Image]::FromFile($FilePath)
-                $e.Graphics.TranslateTransform(0, 0)
-                $e.Graphics.RotateTransform(0)
-                $scaledWidth = $image.Width * ($Scale / 300)
-                $scaledHeight = $image.Height * ($Scale / 300)
-                $e.Graphics.DrawImage($image, 0, 0, $scaledWidth, $scaledHeight)
-                $image.Dispose()
-            })
-            $printDocument.PrinterSettings.DefaultPageSettings.PrinterResolution.Kind = [System.Drawing.Printing.PrinterResolutionKind]::High
-            $printDocument.PrintController = New-Object System.Drawing.Printing.StandardPrintController
-            $printDocument.Print()
-        }
+function Print-Image {
+    param(
+        [string]$PrinterName,
+        [string]$FilePath,
+        [int]$Scale,
+        [string]$PaperSize,
+        [string]$PrintJobName,
+        [string]$PrintQuality
+    )
+    Add-Type -AssemblyName System.Drawing
+    $printDocument = New-Object System.Drawing.Printing.PrintDocument
+    $printDocument.PrinterSettings.PrinterName = $PrinterName
+    $printDocument.DefaultPageSettings.Landscape = $false
+    $printDocument.DefaultPageSettings.PaperSize = New-Object System.Drawing.Printing.PaperSize('Custom', 600, 400)
+    $printDocument.add_PrintPage({
+        param($sender, $e)
+        $image = [System.Drawing.Image]::FromFile($FilePath)
+        $e.Graphics.TranslateTransform(0, 0)
+        $e.Graphics.RotateTransform(0)
+        $scaledWidth = $image.Width * ($Scale / 300)
+        $scaledHeight = $image.Height * ($Scale / 300)
+        $e.Graphics.DrawImage($image, 0, 0, $scaledWidth, $scaledHeight)
+        $image.Dispose()
+    })
+    $printDocument.PrinterSettings.DefaultPageSettings.PrinterResolution.Kind = [System.Drawing.Printing.PrinterResolutionKind]::High
+    $printDocument.PrintController = New-Object System.Drawing.Printing.StandardPrintController
+    $printDocument.Print()
+}
     "#;
 
     let command = format!(
         r#"
-        {}
-        Print-Image -PrinterName "{}" -FilePath {} -Scale 100 -PaperSize "6x4-Split (6x2 2 prints)" -PrintJobName "ImagePrintJob" -PrintQuality "High"
+{}
+Print-Image -PrinterName "{}" -FilePath {} -Scale 100 -PaperSize "6x4-Split (6x2 2 prints)" -PrintJobName "ImagePrintJob" -PrintQuality "High"
         "#,
         print_function,
         printer_name,
         escaped_file_path
     );
 
-    // println!("PowerShell command: {}", command);
+    println!("PowerShell command: {}", command);
 
     // Передача функции в PowerShell
     let output = Command::new("powershell")
@@ -832,12 +831,132 @@ fn get_work_hours(app_handle: tauri::AppHandle) -> Result<WorkHours, String> {
 
 #[tauri::command]
 fn set_work_hours(app_handle: tauri::AppHandle, start: String, end: String) -> Result<(), String> {
+
+    let sleep_time  = NaiveTime::parse_from_str(&end, "%H:%M").map_err(|e| e.to_string())?;
+    let wake_time  = NaiveTime::parse_from_str(&start, "%H:%M").map_err(|e| e.to_string())?;
     let data_dir = app_handle.path_resolver().app_data_dir()
         .ok_or("Failed to get app data directory")?;
     let file_path = data_dir.join("database/time/time.json");
-    let work_hours = WorkHours { start, end };
+    let work_hours = WorkHours { start: start.clone(), end };
     let file_content = serde_json::to_string(&work_hours).map_err(|e| e.to_string())?;
     fs::write(file_path, file_content).map_err(|e| e.to_string())?;
+
+    let now = Local::now().time();
+    // Вычисляем задержки для сна и пробуждения
+    let sleep_duration = if sleep_time > now {
+        (sleep_time - now).num_seconds()
+    } else {
+        (sleep_time + chrono::Duration::hours(24) - now).num_seconds()
+    };
+
+    let wake_duration = if wake_time > now {
+        (wake_time - now).num_seconds()
+    } else {
+        (wake_time + chrono::Duration::hours(24) - now).num_seconds()
+    };
+    // Логируем оставшееся время
+    println!(
+        "Оставшееся время до сна: {} секунд ({} часов, {} минут)",
+        sleep_duration,
+        sleep_duration / 3600,
+        (sleep_duration % 3600) / 60
+    );
+    println!(
+        "Оставшееся время до пробуждения: {} секунд ({} часов, {} минут)",
+        wake_duration,
+        wake_duration / 3600,
+        (wake_duration % 3600) / 60
+    );
+    
+    // Настраиваем таймер на вход в спящий режим
+    if !(sleep_time == wake_time) {
+        thread::spawn(move || {
+            loop {
+                let current_time = Local::now().time();
+                // Если текущее время равно времени выключения, переводим компьютер в спящий режим
+                if current_time >= sleep_time && current_time < sleep_time + chrono::Duration::minutes(1) {
+                    Command::new("shutdown")
+                        .args(&["/h", "/f"])  // Перевод в спящий режим с принудительным закрытием приложений
+                        .spawn()
+                        .expect("Не удалось перевести компьютер в спящий режим");
+                }
+                // Проверяем каждые 30 секунд
+                thread::sleep(Duration::from_secs(30));
+            }
+        });
+    let wake_time_formatted = wake_time.format("%H:%M:%S").to_string();
+
+    let ps_script = format!(
+r#"
+# Check if task already exists, if so, delete it
+if (Get-ScheduledTask -TaskName "DailyWakeUpTask" -ErrorAction SilentlyContinue) {{
+    Unregister-ScheduledTask -TaskName "DailyWakeUpTask" -Confirm:$false
+}}
+
+# Task start time
+$taskTime = "{wake_time}"
+
+# XML file for task
+$taskXmlPath = "$env:temp\DailyWakeUpTask.xml"
+
+# Generate XML file
+@"
+<?xml version="1.0" encoding="UTF-16"?>
+<Task xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+    <RegistrationInfo>
+    <Description>Daily task to wake up the computer and execute the task</Description>
+    </RegistrationInfo>
+    <Triggers>
+    <CalendarTrigger>
+        <StartBoundary>$((Get-Date -Format "yyyy-MM-ddT") + $taskTime)</StartBoundary>
+        <Enabled>true</Enabled>
+        <ScheduleByDay>
+        <DaysInterval>1</DaysInterval>
+        </ScheduleByDay>
+    </CalendarTrigger>
+    </Triggers>
+    <Settings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <WakeToRun>true</WakeToRun>
+    <AllowHardTerminate>false</AllowHardTerminate>
+    <RestartOnFailure>
+        <Interval>PT1M</Interval>
+        <Count>3</Count>
+    </RestartOnFailure>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    </Settings>
+    <Actions Context="Author">
+    <Exec>
+        <Command>cmd.exe</Command>
+        <Arguments>/c echo Wake-up task executed</Arguments>
+    </Exec>
+    <Exec>
+        <Command>cmd.exe</Command>
+        <Arguments>/c echo Wake-up task executed</Arguments>
+    </Exec>
+    </Actions>
+</Task>
+"@ | Out-File -Encoding UTF8 -FilePath $taskXmlPath
+
+# Register task with XML
+Register-ScheduledTask -Xml (Get-Content $taskXmlPath -Raw) -TaskName "DailyWakeUpTask"
+
+# Remove the temporary XML file
+Remove-Item $taskXmlPath -Force
+"#,
+        wake_time = wake_time_formatted
+    );
+
+    // Execute PowerShell script
+    let output = Command::new("powershell")
+        .arg("-Command")
+        .arg(ps_script)
+        .output()
+        .map_err(|e| format!("Failed to execute PowerShell script: {}", e))?;
+    };
     Ok(())
 }
 

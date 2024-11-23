@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Clock, ArrowLeft } from "lucide-react";
 import Switch from 'react-switch';
@@ -24,20 +24,36 @@ export default function Timer() {
         setWorkhours( prev => ({ ...prev, [type]: value }));
     }
 
-    const loadWorkHours = async () => {
-        try {
+    useEffect(() => {
+        const loadHours = async () => {
+          try {
             const hours = await invoke("get_work_hours");
             setWorkhours(hours);
-            toast(hours)
-        } catch (error) {
+            toast(hours);
+          } catch (error) {
             console.error("Failed to load work hours:", error);
-        }
-    };
+            toast.error("Failed to load work hours.");
+          }
+        };
+    
+        // Вызываем функцию загрузки только один раз
+        loadHours();
+      }, []);
 
 
     const saveSchedule = async () => {
         try {
-            await invoke("set_work_hours", { start: workhours.start, end: workhours.end });
+            console.log("Trying to save");
+            if (isAlwaysOn){
+                await invoke("set_work_hours", { start: workhours.start, 
+                                                 end: workhours.start, 
+                                                });
+            }
+            else{
+                await invoke("set_work_hours", { start: workhours.start, 
+                                                 end: workhours.end, 
+                                                });
+            }
             toast("Schedule saved successfully");
         } catch (error) {
             toast.error("Failed to save schedule");
@@ -66,7 +82,7 @@ export default function Timer() {
                             />
                         </div>
 
-                        {isAlwaysOn && (
+                        
                             <div className="grid grid-cols-2 gap-8">
                                 <div className="space-y-2">
                                     <label htmlFor="startTime" className="text-lg">Время начала работы</label>
@@ -91,7 +107,6 @@ export default function Timer() {
                                     />
                                 </div>
                             </div>
-                        )}
 
                         <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-b-lg">
                             <h2 className="text-lg font-semibold mb-2">Текущее расписание:</h2>
@@ -110,7 +125,6 @@ export default function Timer() {
                         </button>
                         <button onClick={saveSchedule}>Сохранить расписание</button>
                     </div>
-                    <button onClick={loadWorkHours}>Update</button>
                 </AdminShell>
-    )
+    )
 }
