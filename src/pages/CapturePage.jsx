@@ -9,11 +9,19 @@ import { usePageNavigation } from '../App.jsx';
 import back_img from '../assets/defaultImage.jpeg';  // ПОМЕНЯТЬ НА СВОЙ ФОН
 import { useStore } from '../admin/store.js';
 
-import test_image_1 from '../image_beta/IMG_6700.JPG';
-import test_image_2 from '../image_beta/IMG_7107.JPG';
-import test_image_3 from '../image_beta/IMG_7111.JPG';
+// import test_image_1 from '../image_beta/IMG_6700.JPG';
+// import test_image_2 from '../image_beta/IMG_7107.JPG';
+// import test_image_3 from '../image_beta/IMG_7111.JPG';
+
+import test_image_1 from '../image_beta/image.png';
+import test_image_2 from '../image_beta/image_2.png';
+import test_image_3 from '../image_beta/image.png';
+
+
 import { toast } from 'react-toastify';
-// import RemoveBackground from '../ChromaKeyTest.jsx';
+import RemoveBackground from '../ChromaKeyTest.jsx';
+import * as bodyPix from "@tensorflow-models/body-pix";
+import "@tensorflow/tfjs";
 
 export default function CaptureScreen({ onCapture }) {
     const [bgImage, setBgImage] = useState(localStorage.getItem("back_3") || `url(${back_img})`);
@@ -21,6 +29,7 @@ export default function CaptureScreen({ onCapture }) {
     const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
     const imagesLenght = currentCanvas.objects.filter(object => object.type === 'image' && object.src === '').reduce((max, obj) => Math.max(max, obj.numberImage), 0);
     usePageNavigation();
+    const canvasRefDataImage = useRef(null);
 
     const [isCameraReady, setIsCameraReady] = useState(false);
     const [capturedImage, setCapturedImage] = useState(null);
@@ -30,8 +39,9 @@ export default function CaptureScreen({ onCapture }) {
     const navigate = useNavigate();
     const [imageData, setImageData] = useState(null);
     const [isLiveView, setIsLiveView] = useState(false);
-    // const [cer, setCer] = useState(1);
+    const [errCount, setErrCount] = useState(0);
     const canvasRef = useRef(null);
+    const [cameraStatus, setCameraStatus] = useState(false);
 
     useEffect(() => {
         const fetchImage = async () => {
@@ -69,32 +79,27 @@ export default function CaptureScreen({ onCapture }) {
             try {
                 const response = await invoke('initialize_camera');
                 // console.log(response);
-                // setCameraStatus(response);
+                setCameraStatus(true);
             } catch (error) {
                 console.error('Failed to initialize camera:', error);
-                toast.error('Ошибка инициализации камеры');
+                await invoke('end_camera');
+                if (error === ' Failed to initialize camera: Error code 2') {
+                    const response = await invoke('initialize_camera');
+                    setCameraStatus(true);
+                }
+                // // toast.error('Ошибка инициализации камеры');
                 // setCameraStatus(`Error: ${error.toString()}`);
             }
         };
 
-        // const startLiveView = async () => {
-        //     try {
-        //         const response = await invoke('start_live_view');
-        //         // console.log(response);
-        //         // setCaptureStatus(response);
-        //         setIsLiveView(true);
-        //     } catch (error) {
-        //         console.error('Failed to initialize camera:', error);
-        //         // setCaptureStatus(`Error: ${error.toString()}`);
-        //     }
-        // };
-
-        initializeCamera();
+        if (!cameraStatus) {
+            initializeCamera();
+        }
         if(!isLiveView) {
             setIsCameraReady(true)
             startLiveView();
         }
-    }, []);
+    }, [isCameraReady, cameraStatus]);
 
     useEffect(() => {
         const updateLiveView = async () => {
@@ -103,9 +108,11 @@ export default function CaptureScreen({ onCapture }) {
               // setImage(`data:image/jpeg;base64,${base64Image}`);
                 setImageData(base64Image);
             } catch (err) {
-                toast.error('Ошибка получения нового кадра');
-                // console.error('Failed to fetch image:', err);
-                setError('Ошибка получения изображения');
+                // toast.error('Ошибка получения нового кадра');
+                console.error('Failed to fetch image:', err);
+                if (err === 'Failed to fetch image: Error code 2' || err === 'Camera not initialized.') {
+                    setCameraStatus(false);
+                }
             }
         };
         let interval;
@@ -113,20 +120,92 @@ export default function CaptureScreen({ onCapture }) {
             interval = setInterval(updateLiveView, 80); // Обновляем изображение каждые 50 мс
         }
         return () => clearInterval(interval);
-    }, [isLiveView])
+    }, [isLiveView]);
+
+
+
+    // useEffect(() => {
+    //     const processImage = async () => {
+    //       if (!imageData) return;
+    
+    //       const canvas = canvasRefDataImage.current;
+    //       const ctx = canvas.getContext("2d");
+    //       const img = new Image();
+    
+    //       img.onload = async () => {
+    //         // Размер канваса и отображения
+    //         const targetWidth = 530;
+    //         const targetHeight = 530;
+    
+    //         // Устанавливаем фактическое разрешение канваса
+    //         canvas.width = targetWidth;
+    //         canvas.height = targetHeight;
+    
+    //         // Масштабируем изображение до целевого размера
+    //         const scale = Math.min(targetWidth / img.width, targetHeight / img.height);
+    //         const offsetX = (targetWidth - img.width * scale) / 2;
+    //         const offsetY = (targetHeight - img.height * scale) / 2;
+    
+    //         ctx.clearRect(0, 0, canvas.width, canvas.height);
+    //         ctx.drawImage(
+    //           img,
+    //           0,
+    //           0,
+    //           img.width,
+    //           img.height,
+    //           offsetX,
+    //           offsetY,
+    //           img.width * scale,
+    //           img.height * scale
+    //         );
+    
+    //         // Загружаем модель BodyPix
+    //         const net = await bodyPix.load();
+    //         const segmentation = await net.segmentPerson(canvas, {
+    //           flipHorizontal: false,
+    //           internalResolution: "full",
+    //           segmentationThreshold: 0.7, // Порог для сегментации
+    //         });
+    
+    //         const { data: mask } = segmentation;
+    //         const imageDataCa = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    //         const pixel = imageDataCa.data;
+    
+    //         // Удаляем фон, устанавливая прозрачность для пикселей, не принадлежащих человеку
+    //         for (let i = 0; i < pixel.length; i += 4) {
+    //           const shouldHide = mask[i / 4] === 0; // Если маска равна 0, это фон
+    //           if (shouldHide) {
+    //             pixel[i + 3] = 0; // Устанавливаем альфа-канал в 0
+    //           }
+    //         }
+    
+    //         ctx.putImageData(imageDataCa, 0, 0);
+    //       };
+    
+    //       img.src = imageData;
+    
+    //       const capture = canvas.toDataURL('image/png');
+    //       setImageData(capture);
+    //     };
+    
+    //     processImage();
+    // }, [imageData]);
+
+
+
 
     // Функция для захвата фото через Tauri
     const capture = useCallback(async () => {
         try {
-            await invoke('stop_live_view'); // Остановка live view
+            // await invoke('stop_live_view'); // Остановка live view
             // setIsLiveView(!isLiveView);
-            const capture = await invoke('capture_photo_as'); // Вызов команды на съемку фото
-            console.log(capture);
-            const base64Image = await invoke('get_captured_image'); // Вызываем backend для получения нового кадра
-            // if (images.length + 1 === 1) setCapturedImage(test_image_1);
-            // if (images.length + 1 === 2) setCapturedImage(test_image_2);
-            // if (images.length + 1 === 3) setCapturedImage(test_image_3);
-            setCapturedImage(`data:image/jpeg;base64,${base64Image}`);
+            // const capture = await invoke('capture_photo_as'); // Вызов команды на съемку фото
+            // console.log(capture);
+            // const base64Image = await invoke('get_captured_image'); // Вызываем backend для получения нового кадра
+            if (images.length + 1 === 1) setCapturedImage(test_image_1);
+            if (images.length + 1 === 2) setCapturedImage(test_image_2);
+            if (images.length + 1 === 3) setCapturedImage(test_image_3);
+            // setCapturedImage(`data:image/jpeg;base64,${base64Image}`);
             // startLiveView();
             setIsShooting(false);
         } catch (err) {
@@ -263,7 +342,8 @@ export default function CaptureScreen({ onCapture }) {
                                     </div>
                                 ) : (
                                     <div className='flex flex-col items-center w-full gap-10'>
-                                        <img src={capturedImage} alt='Captured' style={{ width: 530, height: 530, position: 'relative' }} className='border-solid border-2 capture-container rounded-md object-cover' />
+                                        {/* <img src={capturedImage} className='object-cover' style={{ width: 530, height: 530, position: 'relative' }} /> */}
+                                        <RemoveBackground image={capturedImage} setCaptured={setCapturedImage} alt='Captured' style={{ width: 530, height: 530, position: 'relative' }} className='border-solid border-2 capture-container rounded-md object-cover' />
                                         <div className='h-40 flex justify-between items-center w-full'>
                                             <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={() => navigate('/template')}>
                                                 <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД

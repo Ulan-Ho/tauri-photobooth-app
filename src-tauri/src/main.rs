@@ -1,7 +1,7 @@
-// #![cfg_attr(
-//     all(not(debug_assertions), target_os = "windows"),
-//     windows_subsystem = "windows"
-// )]
+#![cfg_attr(
+    all(not(debug_assertions), target_os = "windows"),
+    windows_subsystem = "windows"
+)]
 
 //-------------------------------------------------------------------------------------------------
 // use tauri::AppHandle;
@@ -26,7 +26,7 @@ use serde_json::Value;
 use libc::{c_void, c_uint, c_int, c_char};
 use tauri::State;
 use chrono::{Local, NaiveTime};
-use std::io;
+// use std::io;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct WorkHours {
     pub start: String,
@@ -608,6 +608,17 @@ fn stop_live_view(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -> R
     }
 }
 
+#[tauri::command]
+fn end_camera(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -> Result<String, String> {
+    let mut camera = state.lock().unwrap();
+    if let Some(camera) = camera.take() {
+        drop(camera);
+        Ok("Camera released successfully".into())
+    } else {
+        Err("Camera is not initialized".into())
+    }
+}
+
 #[tokio::main]
 async fn main() {
     // Создаем элементы меню
@@ -697,7 +708,8 @@ async fn main() {
             stop_live_view,
             get_printers,
             save_printers,
-            update_selected_printer])
+            update_selected_printer,
+            end_camera])
         .manage(Arc::new(Mutex::new(None::<Arc<Mutex<Camera>>>)))
         .manage(PrinterState::default())
         .run(tauri::generate_context!())
@@ -951,7 +963,7 @@ Remove-Item $taskXmlPath -Force
     );
 
     // Execute PowerShell script
-    let output = Command::new("powershell")
+    let _output = Command::new("powershell")
         .arg("-Command")
         .arg(ps_script)
         .output()

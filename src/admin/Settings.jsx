@@ -29,7 +29,7 @@ export default function Settings({ isDarkMode, setIsDarkMode }) {
         { title: "Проверка экарана", description: "Настройка сенсорного экрана", link: '/settings/touchscreen', icon: Fingerprint },
         { title: "Проверка принтера", description: "Управление подключенным принтером", link: '/settings/printer', icon: Printer },
         { title: "Управление питанием", description: "Настройка энергосбережения", link: '/settings/timer', icon: Power },
-        { title: "Cromakey", description: "Настройка зеленого фона", link: '/settings/cromakey', icon: Image },
+        { title: "Cromakey", description: "Настройка зеленого фона", link: '/settings/chromakey', icon: Image },
         // { title: "Статистика", description: "Журнал действий и созданных фото", link: '/settings/statistic', icon: BarChart2 },
     ]
 

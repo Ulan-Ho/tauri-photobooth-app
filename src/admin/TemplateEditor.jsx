@@ -7,7 +7,7 @@ import { useFetcher } from 'react-router-dom';
 import { usePageNavigation } from '../App';
 import { toast, ToastContainer } from 'react-toastify';
 import { invoke } from '@tauri-apps/api';
-import { drawMyCanvas, drawCanvasForSelect } from '../components/CanvasDrawer';
+import { drawMyCanvas } from '../components/CanvasDrawer';
 
 const props = {
     page: 'Редактор Шаблонов',
@@ -18,7 +18,7 @@ export default function TemplateEditor() {
 
     usePageNavigation();
 
-    const { addObject, setCanvasProps, canvases, currentCanvasId, updateObjectProps, removeObject, addCanvas, removeCanvas, switchCanvas, setCanvasData, updated, setUpdated } = useStore();
+    const { addObject, setCanvasProps, canvases, currentCanvasId, updateObjectProps, removeObject, addCanvas, removeCanvas, switchCanvas, setCanvasData, updated, setUpdated, chromokeyBackgroundImage } = useStore();
     const [activeTab, setActiveTab] = useState('shapes');
     const canvasRef = useRef(null);
     const canvasRefForSelect = useRef(null);
@@ -125,6 +125,7 @@ export default function TemplateEditor() {
             top: 48,
             width: 530,
             height: 490,
+            numberImage: 1,
             // fill: 'rgba(0, 0, 0, 0)', // Прозрачный фон для фото-заглушки
             src: '', // Здесь будет ссылка на фото, которая появится после съемки
             zIndex: 1,
@@ -163,8 +164,8 @@ export default function TemplateEditor() {
         
         // console.log(currentCanvas.canvasProps)
         if (currentCanvas) {
-            drawMyCanvas(ctx, canvas, currentCanvas, true);
-            drawMyCanvas(ctxSel, canvasSel, currentCanvas, false);
+            drawMyCanvas(ctx, canvas, currentCanvas, true, chromokeyBackgroundImage);
+            drawMyCanvas(ctxSel, canvasSel, currentCanvas, false, chromokeyBackgroundImage);
         }
     }, [currentCanvas]);
 
@@ -281,39 +282,6 @@ export default function TemplateEditor() {
         }
     }
 
-    async function saveCanvasData(canvasId, canvasData) {
-        try {
-            await invoke('save_canvas_data', {
-                canvasId: String(canvasId), // ID холста
-                data: JSON.stringify(canvasData), // Данные холста в формате JSON
-                available: canvasData.canvasProps.available,
-            });
-            console.log('Canvas data saved successfully.');
-        } catch (error) {
-            console.error('Failed to save canvas data:', error);
-        }
-    }
-
-    async function saveCanvasImage(canvasId, canvasData) {
-        try {
-            const imageDataUrl = canvasRef.current.toDataURL('image/png');
-
-            // Убираем префикс data:image/png;base64, чтобы передать только base64
-            const imageBase64 = imageDataUrl.replace(/^data:image\/(png|jpg);base64,/, '');
-
-            // Отправляем на бэк
-            await invoke('save_canvas_image', {
-                canvasId: String(canvasId),
-                base64Image: imageBase64,
-                available: canvasData.canvasProps.available,
-            });
-            toast.success('Изображение сохранено');
-            console.log('Canvas image saved successfully.');
-            } catch (error) {
-            console.error('Failed to save canvas image:', error);
-        }
-    }
-
     async function handleRemoveCanvas() {
         try {
             if (canvases.length === 1 || currentCanvas.id === 1) {
@@ -343,7 +311,7 @@ export default function TemplateEditor() {
             });
             currentCanvas.canvasProps.webpData = canvasRefForSelect.current.toDataURL('image/webp');
             saveCanvasData(currentCanvas.id, currentCanvas);
-            saveCanvasImage(currentCanvas.id, currentCanvas);
+            saveCanvasImage(currentCanvas.id, currentCanvas, canvasRef);
             toast.success('Данные сохранены');
         } catch (error) {
             toast.error('Не удалось сохранить данные:', error);
@@ -505,4 +473,37 @@ export default function TemplateEditor() {
             <ToastContainer className="absolute" />
         </AdminShell>
     );
+}
+
+export async function saveCanvasData(canvasId, canvasData) {
+    try {
+        await invoke('save_canvas_data', {
+            canvasId: String(canvasId), // ID холста
+            data: JSON.stringify(canvasData), // Данные холста в формате JSON
+            available: canvasData.canvasProps.available,
+        });
+        console.log('Canvas data saved successfully.');
+    } catch (error) {
+        console.error('Failed to save canvas data:', error);
+    }
+}
+
+export async function saveCanvasImage(canvasId, canvasData, canvasRef) {
+    try {
+        const imageDataUrl = canvasRef.current.toDataURL('image/png');
+
+        // Убираем префикс data:image/png;base64, чтобы передать только base64
+        const imageBase64 = imageDataUrl.replace(/^data:image\/(png|jpg);base64,/, '');
+
+        // Отправляем на бэк
+        await invoke('save_canvas_image', {
+            canvasId: String(canvasId),
+            base64Image: imageBase64,
+            available: canvasData.canvasProps.available,
+        });
+        toast.success('Изображение сохранено');
+        console.log('Canvas image saved successfully.');
+        } catch (error) {
+        console.error('Failed to save canvas image:', error);
+    }
 }

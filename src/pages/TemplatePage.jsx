@@ -14,7 +14,7 @@ export default function TemplatePage({ onSelectDesign }) {
     const navigate = useNavigate();
     usePageNavigation();
 
-    const [selectedDesign, setSelectedDesign] = useState('');
+    const [selectedDesign, setSelectedDesign] = useState('color');
     const [currentIndex, setCurrentIndex] = useState(0);
 
     useEffect(() => {

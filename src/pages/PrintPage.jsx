@@ -22,7 +22,7 @@ import test_image_3 from '../image_beta/IMG_7111.JPG';
 
 export default function PrintPage({ images, design }) {
   const [bgImage, setBgImage] = useState(localStorage.getItem("back_4") || `url(${back_img})`);
-  const { canvases, currentCanvasId, updateObjectProps } = useStore();
+  const { canvases, currentCanvasId, updateObjectProps, chromokeyBackgroundImage } = useStore();
   const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
   usePageNavigation();
   const canvasRef = useRef(null);
@@ -52,11 +52,11 @@ export default function PrintPage({ images, design }) {
     const canvas = canvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext('2d');
-      drawMyCanvas(ctx, canvas, currentCanvas, false);
+      drawMyCanvas(ctx, canvas, currentCanvas, false, chromokeyBackgroundImage);
 
       // Второй вызов отрисовки через небольшой промежуток времени
       const timeoutId = setTimeout(() => {
-        drawMyCanvas(ctx, canvas, currentCanvas, false);
+        drawMyCanvas(ctx, canvas, currentCanvas, false, chromokeyBackgroundImage);
       }, 50); // Задержка в 50 миллисекунд (можно варьировать)
       // Очистка таймера, если компонент размонтируется
       const imageData = canvas.toDataURL('image/png');
@@ -66,23 +66,27 @@ export default function PrintPage({ images, design }) {
     }
   }, [images, design]);
 
+  const garbedCanvas = (currentCanvas) => {
+    currentCanvas.objects.forEach(object => {
+      if (object.type === 'image') {
+          if (object.numberImage === 1) {
+            updateObjectProps(currentCanvasId, object.id, { imgObject: null, src: '' });
+          }
+          if (object.numberImage === 2) {
+            updateObjectProps(currentCanvasId, object.id, { imgObject: null, src: '' });
+          }
+          if (object.numberImage === 3) {
+            updateObjectProps(currentCanvasId, object.id, { imgObject: null, src: '' });
+          }
+        }
+    })
+  }
+
   const handlePrint = async () => {
     const canvas = canvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext('2d');
-        currentCanvas.objects.forEach(object => {
-          if (object.type === 'image') {
-              if (object.numberImage === 1) {
-                updateObjectProps(currentCanvasId, object.id, { imgObject: null, src: '' });
-              }
-              if (object.numberImage === 2) {
-                updateObjectProps(currentCanvasId, object.id, { imgObject: null, src: '' });
-              }
-              if (object.numberImage === 3) {
-                updateObjectProps(currentCanvasId, object.id, { imgObject: null, src: '' });
-              }
-            }
-        })
+      garbedCanvas(currentCanvas);
       const imageData = canvasRef.current.toDataURL('image/png');
       const imageBase64 = imageData.replace(/^data:image\/(png|jpg);base64,/, '');
       setIsImage(imageBase64);
@@ -94,6 +98,11 @@ export default function PrintPage({ images, design }) {
     }
 
   };
+
+  const backPage = () => {
+    navigate('/capture');
+    garbedCanvas(currentCanvas);
+  }
 
   return (
     <div className="flex justify-center items-center">
@@ -124,7 +133,7 @@ export default function PrintPage({ images, design }) {
               </div>
             </div>
             <div className=' flex justify-start items-center w-full'>
-              <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={() => navigate('/capture')}>
+              <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={backPage}>
                 <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
               </button>
             </div>

@@ -13,6 +13,7 @@ import PrinterInfo from './admin/Printer.jsx';
 import TemplateEditor from './admin/TemplateEditor.jsx';
 import Timer from './admin/Timer.jsx';
 import Editor from './admin/Editor.jsx';
+import Chromakey from './admin/ChromaKey.jsx';
 
 import templateSimple from './assets/templateSimple.png';
 import templateRul from './assets/templateRul.png';
@@ -42,6 +43,7 @@ export default function App(){
         <>
           <Router>
             <Routes>
+              {/* <Route path="/" element={<MainPage />} /> */}
               <Route path="/" element={<MainPage active={showPopup} setLoading={setLoading} loading={loading} />}/>
               <Route path="/template" element={<TemplatePage onSelectDesign={setDesign} />} />
               <Route path="/capture" element={<CapturePage onCapture={setImages}/>} />
@@ -53,7 +55,7 @@ export default function App(){
               <Route path="/settings/timer" element={<Timer />} />
               <Route path="/settings/editor" element={<Editor isDarkMode={isDarkMode}/>} />
               <Route path="/settings/template-editor" element={<TemplateEditor isDarkMode={isDarkMode} />} />
-              {/* <Route path="/settings/statistic" element={<Statistic />} /> */}
+              <Route path="/settings/chromakey" element={<Chromakey />} />
             </Routes>
           </Router>
           {showPopup && (

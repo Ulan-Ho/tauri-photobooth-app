@@ -16,6 +16,8 @@ export default function AdminHeaders({ pageName, typePage }) {
             { typePage === 'touch' && <Fingerprint className="w-12 h-12 text-blue-600 dark:text-blue-400" /> }
             { typePage === 'template' && <Layout className='w-12 h-12 text-blue-600 dark:text-blue-400' /> }
             { typePage === 'editor' && <Brush className="w-12 h-12 text-blue-600 dark:text-blue-400" /> }
+            { typePage === 'chromakey' && <Brush className="w-12 h-12 text-blue-600 dark:text-blue-400" /> }
+
         </header>
     );
 }

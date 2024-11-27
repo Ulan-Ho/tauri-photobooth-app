@@ -501,6 +501,7 @@ const limitPositionWithinCanvas = (obj, canvasWidth, canvasHeight) => {
   obj.top = Math.max(0, Math.min(canvasHeight - obj.height, obj.top));
   return obj;
 };
+import back_img from '../assets/defaultImage.jpeg'; // Фоновое изображение
 
 const getPlaceholderColor = (numberImage) => {
   switch (numberImage) {
@@ -529,8 +530,8 @@ export const useStore = create(devtools((set) => ({
       id: 1,
       canvasProps: {
         name: 'Canvas 1',
-        available: false,
-        backgroundColor: '#ffffff',
+        available: true,
+        backgroundColor: 'blue',
         width: 1240,
         height: 1844,
         webpData: null
@@ -662,8 +663,8 @@ export const useStore = create(devtools((set) => ({
       id: 2,
       canvasProps: {
         name: 'Canvas 2',
-        available: false,
-        backgroundColor: '#ffffff',
+        available: true,
+        backgroundColor: 'yellow',
         width: 1240,
         height: 1844,
       },
@@ -794,8 +795,8 @@ export const useStore = create(devtools((set) => ({
       id: 3,
       canvasProps: {
         name: 'Canvas 3',
-        available: false,
-        backgroundColor: '#ffffff',
+        available: true,
+        backgroundColor: 'red',
         width: 1240,
         height: 1844,
       },
@@ -924,9 +925,32 @@ export const useStore = create(devtools((set) => ({
     },
   ],
 
-  updated: false,
+  updateStatus: false,
 
-  setUpdated: (value) => set({ updated: value }),
+  chromokeyStatus: true,
+
+  chromokeyBackgroundImage: {
+    // id: 9999999,
+    // type: 'image',
+    // numberImage: 1,
+    // left: 48,
+    // top: 48,
+    // width: 530,
+    // height: 490,
+    imgObject: null,
+    src: back_img,
+  },
+
+  setChromokeyStatus: (status) => set({ chromokeyStatus: status }),
+
+  setChromokeyBackgroundImage: (imageObject, imageSrc) => set({
+    chromokeyBackgroundImage: {
+      imageObject,
+      imageSrc,
+    },
+  }),
+
+  setUpdateStatus: (value) => set({ updateStatus: value }),
 
   error: null,  // Новое состояние для ошибок
 

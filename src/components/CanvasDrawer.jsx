@@ -1,3 +1,7 @@
+// import { useStore } from "../admin/store";
+
+// const { chromokeyBackgroundImage } = useStore();
+
 // Функция для рисования прямоугольника
 export const drawRectangle = (ctx, obj) => {
     setShadow(ctx, obj);
@@ -87,35 +91,57 @@ export const drawLine = (ctx, obj) => {
     if (obj.strokeWidth) setStroke(ctx, obj);
 };
 // Функция для рисования изображения
-export const drawImageInEditor = (ctx, obj) => {
-    if (!obj.imgObject) {
-        // Создаем и сохраняем объект изображения, если он еще не создан
-        obj.imgObject = new Image();
-        obj.imgObject.src = obj.src;
+export const drawCromakeyBackgroundImage = (ctx, obj, chromokeyBackgroundImage) => {
+    if (!chromokeyBackgroundImage || !chromokeyBackgroundImage.imgObject) {
+        chromokeyBackgroundImage.imgObject = new Image();
+        chromokeyBackgroundImage.imgObject.src = chromokeyBackgroundImage.src;
     }
 
-    // Отрисовка изображения после загрузки
-    obj.imgObject.onload = () => {
-        setShadow(ctx, obj);
-        ctx.drawImage(obj.imgObject, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
-        offShadow(ctx);
-        if (obj.strokeWidth) setStroke(ctx, obj);
+    const draw = () => {
+        const imgAspectRatio = chromokeyBackgroundImage.imgObject.width / chromokeyBackgroundImage.imgObject.height;
+        const objectAspectRatio = obj.width / obj.height;
+        let drawWidth, drawHeight, offsetX, offsetY;
+        // Рассчитываем размеры и смещение для "object-cover"
+        if (imgAspectRatio > objectAspectRatio) {
+            // Изображение шире объекта
+            drawWidth = obj.height * imgAspectRatio;
+            drawHeight = obj.height;
+            offsetX = -(drawWidth - obj.width) / 2;
+            offsetY = 0;
+        } else {
+            // Изображение выше объекта
+            drawWidth = obj.width;
+            drawHeight = obj.width / imgAspectRatio;
+            offsetX = 0;
+            offsetY = -(drawHeight - obj.height) / 2;
+        }
+        // Рисуем изображение с обрезкой
+        ctx.save(); // Сохраняем текущий контекст
+        ctx.translate(obj.x, obj.y); // Перемещаемся в позицию объекта
+        ctx.beginPath();
+        ctx.rect(-obj.width / 2, -obj.height / 2, obj.width, obj.height); // Ограничиваем область
+        ctx.clip(); // Применяем обрезку
+        ctx.drawImage(
+            chromokeyBackgroundImage.imgObject,
+            offsetX - obj.width / 2,
+            offsetY - obj.height / 2,
+            drawWidth,
+            drawHeight
+        );
+        ctx.restore();
     };
 
-    // Проверка, если изображение уже загружено, то сразу рисуем
-    if (obj.imgObject.complete) {
-        setShadow(ctx, obj);
-        if (obj.numberImage === 1) drawSquare(ctx, obj, 'red', 1);
-        if (obj.numberImage === 2) drawSquare(ctx, obj, 'blue', 2);
-        if (obj.numberImage === 3) drawSquare(ctx, obj, 'green', 3);
-
-        ctx.drawImage(obj.imgObject, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
-        offShadow(ctx);
-        if (obj.strokeWidth) setStroke(ctx, obj);
+    if (!chromokeyBackgroundImage.imgObject.complete) {
+        chromokeyBackgroundImage.imgObject.onload = draw;
+    } else {
+        draw();
     }
 };
+
+
+
 // Функция для рисования изображения в режиме выбора
-export const drawImages = (ctx, obj, bool) => {
+export const drawImages = (ctx, obj, bool, chromokeyBackgroundImage) => {
     if (!obj.imgObject) {
         // Создаем и сохраняем объект изображения, если он еще не создан
         obj.imgObject = new Image();
@@ -144,6 +170,7 @@ export const drawImages = (ctx, obj, bool) => {
     if (bool === false) {
         if (obj.numberImage === 1 || obj.numberImage === 2 || obj.numberImage === 3) {
             obj.imgObject.onload = () => {
+                drawCromakeyBackgroundImage(ctx, obj, chromokeyBackgroundImage);
                 // Пропорции изображения и объекта
                 const imgAspectRatio = obj.imgObject.width / obj.imgObject.height;
                 const objectAspectRatio = obj.width / obj.height;
@@ -170,7 +197,7 @@ export const drawImages = (ctx, obj, bool) => {
                 ctx.clip(); // Применяем обрезку
                 ctx.drawImage(
                     obj.imgObject,
-                    offsetX - obj.width / 2, // Смещение внутри объекта
+                    offsetX - obj.width / 2,
                     offsetY - obj.height / 2,
                     drawWidth,
                     drawHeight
@@ -236,7 +263,7 @@ export const setRotate = (ctx, obj) => {
     ctx.rotate((obj.rotate || 0) * Math.PI / 180);
 }
 
-export const drawMyCanvas = (ctx, canvas, currentCanvas, bool) => {
+export const drawMyCanvas = (ctx, canvas, currentCanvas, bool, chromokeyBackgroundImage) => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // Устанавливаем размеры холста
@@ -277,136 +304,13 @@ export const drawMyCanvas = (ctx, canvas, currentCanvas, bool) => {
                 drawLine(ctx, obj);
                 break;
             case 'image':
-                drawImages(ctx, obj, bool);
+                // drawCromakeyBackgroundImage(ctx, obj, chromokeyBackgroundImage);
+                drawImages(ctx, obj, bool, chromokeyBackgroundImage);
                 break;
             default:
                 break;
         }
 
-        ctx.restore();  // Восстанавливаем состояние контекста
-    });
-}
-
-export const drawCanvasForSelect = (ctx, canvas, currentCanvas) => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Устанавливаем размеры холста
-    canvas.width = currentCanvas.canvasProps.width;
-    canvas.height = currentCanvas.canvasProps.height;
-
-    // Задаем цвет фона
-    ctx.fillStyle = currentCanvas.canvasProps.backgroundColor;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const sortedObjects = [...currentCanvas.objects].sort((a, b) => a.zIndex - b.zIndex);
-
-    // Отрисовываем объекты
-    sortedObjects.forEach(obj => {
-        ctx.save();  // Сохраняем состояние контекста
-
-        ctx.globalAlpha = obj.opacity;
-        if (obj.type !== 'image') ctx.fillStyle = obj.fill;
-        setRotate(ctx, obj);
-
-        switch (obj.type) {
-            case 'rectangle':
-                drawRectangle(ctx, obj);
-                break;
-            case 'circle':
-                drawCircle(ctx, obj);
-                break;
-            case 'star':
-                drawStar(ctx, obj);
-                break;
-            case 'polygon':
-                drawPolygon(ctx, obj);
-                break;
-            case 'triangle':
-                drawTriangle(ctx, obj);
-                break;
-            case 'line':
-                drawLine(ctx, obj);
-                break;
-            case 'image':
-                drawImageForSelect(ctx, obj);
-                break;
-            default:
-                break;
-        }
-        ctx.restore();  // Восстанавливаем состояние контекста
-    });
-}
-
-
-//---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-export const drawCaptureImage = (ctx, obj, image, design) => {
-    const img = new Image();
-    img.src = image.url;
-
-    // Отрисовка изображения после загрузки
-    img.onload = () => {
-        setShadow(ctx, obj);
-        if (design === 'grayscale') {
-            ctx.filter = 'grayscale(100%)';
-        }
-        ctx.drawImage(img, obj.left, obj.top, obj.width, obj.height);
-        ctx.filter = 'none';
-        offShadow(ctx);
-        if (obj.strokeWidth) setStroke(ctx, obj);
-    };
-};
-
-
-
-export const drawCanvasCaptureImage = (ctx, canvas, currentCanvas, images, design) => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Устанавливаем размеры холста
-    canvas.width = currentCanvas.canvasProps.width;
-    canvas.height = currentCanvas.canvasProps.height;
-
-    // Задаем цвет фона
-    ctx.fillStyle = currentCanvas.canvasProps.backgroundColor;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const sortedObjects = [...currentCanvas.objects].sort((a, b) => a.zIndex - b.zIndex);
-
-    // Отрисовываем объекты
-    sortedObjects.forEach(obj => {
-        ctx.save();  // Сохраняем состояние контекста
-
-        ctx.globalAlpha = obj.opacity;
-        if (obj.type !== 'image') ctx.fillStyle = obj.fill;
-        setRotate(ctx, obj);
-
-        switch (obj.type) {
-            case 'rectangle':
-                drawRectangle(ctx, obj);
-                break;
-            case 'circle':
-                drawCircle(ctx, obj);
-                break;
-            case 'star':
-                drawStar(ctx, obj);
-                break;
-            case 'polygon':
-                drawPolygon(ctx, obj);
-                break;
-            case 'triangle':
-                drawTriangle(ctx, obj);
-                break;
-            case 'line':
-                drawLine(ctx, obj);
-                break;
-            case 'image':
-                if (obj.src !== '') drawImageInEditor(ctx, obj);
-                if (obj.numberImage === 1 && obj.src === '') drawCaptureImage(ctx, obj, images[0], design);
-                if (obj.numberImage === 2 && obj.src === '') drawCaptureImage(ctx, obj, images[1], design);
-                if (obj.numberImage === 3 && obj.src === '') drawCaptureImage(ctx, obj, images[2], design);
-                break;
-            default:
-                break;
-        }
         ctx.restore();  // Восстанавливаем состояние контекста
     });
 }
