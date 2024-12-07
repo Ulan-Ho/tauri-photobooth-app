@@ -21,6 +21,7 @@ import { listen } from '@tauri-apps/api/event';
 import PrinterPopup from './components/PrinterPopup.jsx';
 import { invoke } from '@tauri-apps/api';
 import { toast, ToastContainer } from 'react-toastify';
+import { useStore } from './admin/store.js';
 
 export default function App(){
   const [selectedPrinter, setSelectedPrinter] = useState(null);
@@ -29,6 +30,8 @@ export default function App(){
   const [images, setImages] = useState([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [loading, setLoading] = useState(false);
+  // const [cameraStatus, setCameraStatus] = useState(false);
+  // const [isLiveView, setIsLiveView] = useState(false);
 
   useEffect(() => {
     if(loading) setShowPopup(false);
@@ -67,6 +70,7 @@ export default function App(){
 
 export function usePageNavigation() {
   const navigate = useNavigate();
+  const { canvases, currentCanvasId, updateObjectProps, isLiveView, cameraStatus, updateCameraStatus, updateLiveViewStatus, chromokeyBackgroundImage, chromokeyStatus } = useStore();
 
   useEffect(() => {
     const unlisten = listen('navigate-to-page', (event) => {
@@ -79,9 +83,17 @@ export function usePageNavigation() {
       }
     });
 
+    const cameraStatusCheck = async () => {
+      if (cameraStatus) {
+        await invoke('end_camera');
+        updateCameraStatus(true);
+      }
+    }
+
+    // cameraStatusCheck();
     // Cleanup listener on component unmount
     return () => {
       unlisten.then((off) => off());
     };
-  }, [navigate]);
+  }, [navigate, cameraStatus]);
 }

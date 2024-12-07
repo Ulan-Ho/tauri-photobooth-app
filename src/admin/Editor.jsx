@@ -243,8 +243,8 @@ export default function Editor({ isDarkMode }) {
                         <img
                         onLoad={e => setDetails(e.currentTarget)}
                         style={{
-                            filter: `brightness(${state.brightness}%) grayscale(${state.grayscale}%) sepia(${state.sepia}%) saturate(${state.saturate}%) contrast(${state.contrast}%) hue-rotate(${state.hueRotate}deg)`,
-                            transform: `rotate(${state.rotate}deg) scale(${state.vertical},${state.horizontal})`,
+                            filter: `brightness(${state?.brightness}%) grayscale(${state?.grayscale}%) sepia(${state?.sepia}%) saturate(${state?.saturate}%) contrast(${state?.contrast}%) hue-rotate(${state?.hueRotate}deg)`,
+                            transform: `rotate(${state?.rotate}deg) scale(${state?.vertical},${state?.horizontal})`,
                             maxWidth: "100%",
                             maxHeight: "100%",
                             objectFit: "contain"
@@ -262,48 +262,48 @@ export default function Editor({ isDarkMode }) {
                 </div>
                 <div className="mt-4 flex justify-between items-center">
                     <label
-                    htmlFor="imageUpload"
-                    className="cursor-pointer px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors duration-300 flex items-center"
+                        htmlFor="imageUpload"
+                        className="cursor-pointer px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors duration-300 flex items-center"
                     >
-                    <ImageIcon className="w-5 h-5 mr-2" />
-                    Загрузить изображение
+                        <ImageIcon className="w-5 h-5 mr-2" />
+                        Загрузить изображение
                     </label>
                     <input
-                    type="file"
-                    id="imageUpload"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleImageUpload}
+                        type="file"
+                        id="imageUpload"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImageUpload}
                     />
                     <button
-                    onClick={cropImage}
-                    className="px-4 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors duration-300 flex items-center"
+                        onClick={cropImage}
+                        className="px-4 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors duration-300 flex items-center"
                     >
-                    <CropIcon className="w-5 h-5 mr-2" />
-                    Обрезать изображение
+                        <CropIcon className="w-5 h-5 mr-2" />
+                        Обрезать изображение
                     </button>
                     <button
-                    onClick={saveImage}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-colors duration-300 flex items-center"
+                        onClick={saveImage}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-colors duration-300 flex items-center"
                     >
                     <Move className="w-5 h-5 mr-2" />
-                    Сохранить изображение
+                        Сохранить изображение
                     </button>
                 </div>
                 </div>
                 <div className="w-1/3 bg-gray-100 dark:bg-gray-700 p-6 rounded-lg shadow-lg">
                 <div className="mb-6 flex justify-center">
                     <button
-                    onClick={() => setActiveTab("filters")}
-                    className={`px-4 py-2 rounded-l-full ${activeTab === "filters" ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-gray-100'} hover:bg-blue-700 transition-colors duration-300`}
+                        onClick={() => setActiveTab("filters")}
+                        className={`px-4 py-2 rounded-l-full ${activeTab === "filters" ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-gray-100'} hover:bg-blue-700 transition-colors duration-300`}
                     >
-                    Фильтры
+                        Фильтры
                     </button>
                     <button
-                    onClick={() => setActiveTab("transform")}
-                    className={`px-4 py-2 rounded-r-full ${activeTab === "transform" ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-gray-100'} hover:bg-blue-700 transition-colors duration-300`}
+                        onClick={() => setActiveTab("transform")}
+                        className={`px-4 py-2 rounded-r-full ${activeTab === "transform" ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-gray-100'} hover:bg-blue-700 transition-colors duration-300`}
                     >
-                    Трансформация
+                        Трансформация
                     </button>
                 </div>
                 {activeTab === "filters" && (
@@ -311,26 +311,26 @@ export default function Editor({ isDarkMode }) {
                     <div className="grid grid-cols-3 gap-2 mb-4">
                         {filterElements.map(el => (
                         <button
-                            key={el.name}
+                            key={el?.name}
                             onClick={() => setProperty(el)}
-                            className={`p-2 rounded ${property.name === el.name ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-gray-100'} hover:bg-blue-700 transition-colors duration-300 flex flex-col items-center`}
+                            className={`p-2 rounded ${property?.name === el?.name ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-gray-100'} hover:bg-blue-700 transition-colors duration-300 flex flex-col items-center`}
                         >
                             <el.icon className="w-6 h-6 mb-1" />
-                            {el.name}
+                            {el?.name}
                         </button>
                         ))}
                     </div>
                     <div className="mb-4">
-                        <label className="block mb-2 font-semibold">{property.name}</label>
+                        <label className="block mb-2 font-semibold">{property?.name}</label>
                         <input
                         type="range"
                         min="0"
-                        max={property.maxValue}
-                        value={state[property.name]}
+                        max={property?.maxValue}
+                        value={state[property?.name]}
                         onChange={handleSliderChange}
                         className="w-full appearance-none bg-gray-300 dark:bg-gray-600 h-2 rounded-full outline-none"
                         />
-                        <div className="text-right mt-1">{state[property.name]}</div>
+                        <div className="text-right mt-1">{state[property?.name]}</div>
                     </div>
                     </>
                 )}
@@ -355,11 +355,11 @@ export default function Editor({ isDarkMode }) {
                         <div className="flex justify-between">
                         {cropPresets.map(preset => (
                             <button
-                            key={preset.label}
-                            onClick={() => setAspect(preset.aspect)}
-                            className={`px-4 py-2 rounded ${aspect === preset.aspect ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-gray-100'} hover:bg-blue-700 transition-colors duration-300`}
+                            key={preset?.label}
+                            onClick={() => setAspect(preset?.aspect)}
+                            className={`px-4 py-2 rounded ${aspect === preset?.aspect ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-gray-100'} hover:bg-blue-700 transition-colors duration-300`}
                             >
-                            {preset.label}
+                            {preset?.label}
                             </button>
                         ))}
                         </div>
@@ -368,28 +368,28 @@ export default function Editor({ isDarkMode }) {
                 )}
                 <div className="flex justify-center gap-4 mt-6">
                     <button onClick={undo} className="p-2 bg-gray-200 dark:bg-gray-600 rounded-full hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors duration-300" disabled={historyIndex === 0}>
-                    <Undo className="w-6 h-6" />
+                        <Undo className="w-6 h-6" />
                     </button>
                     <button onClick={redo} className="p-2 bg-gray-200 dark:bg-gray-600 rounded-full hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors duration-300" disabled={historyIndex === history.length - 1}>
-                    <Redo className="w-6 h-6" />
+                        <Redo className="w-6 h-6" />
                     </button>
                 </div>
 
                 <div className="flex justify-center gap-4 mt-6">
-                    <button onClick={() => setWhyBg(1)} className="p-2 bg-gray-200 dark:bg-gray-600 rounded-full hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors duration-300">
+                    <button onClick={() => setWhyBg(1)} className={`py-1 px-3 bg-gray-200 dark:bg-gray-600 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors duration-300 ${whyBg === 1 ? 'bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-800 hover:bg-blue-800' : ''}`}>
                         first
                     </button>
-                    <button onClick={() => setWhyBg(2)} className="p-2 bg-gray-200 dark:bg-gray-600 rounded-full hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors duration-300">
+                    <button onClick={() => setWhyBg(2)} className={`py-1 px-3 bg-gray-200 dark:bg-gray-600 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors duration-300 ${whyBg === 2 ? 'bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-800 hover:bg-blue-800' : ''}`}>
                         second
                     </button>
-                    <button onClick={() => setWhyBg(3)} className="p-2 bg-gray-200 dark:bg-gray-600 rounded-full hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors duration-300">
+                    <button onClick={() => setWhyBg(3)} className={`py-1 px-3 bg-gray-200 dark:bg-gray-600 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors duration-300 ${whyBg === 3 ? 'bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-800 hover:bg-blue-800' : ''}`}>
                         three
                     </button>
-                    <button onClick={() => setWhyBg(4)} className="p-2 bg-gray-200 dark:bg-gray-600 rounded-full hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors duration-300">
+                    <button onClick={() => setWhyBg(4)} className={`py-1 px-3 bg-gray-200 dark:bg-gray-600 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors duration-300 ${whyBg === 4 ? 'bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-800 hover:bg-blue-800' : ''}`}>
                         four
                     </button>
                 </div>
-                <div>{whyBg}</div>
+                <input value={whyBg} className='mt-4 -ml-3 h-8 border border-gray-300 dark:border-gray-600 rounded-md w-11 pl-4 bg-white' disabled/>
                 </div>
             </div>
             <ToastContainer />

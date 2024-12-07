@@ -8,13 +8,13 @@ import { usePageNavigation } from "../App";
 import { invoke } from "@tauri-apps/api";
 import { listen } from "@tauri-apps/api/event";
 import { useStore } from "../admin/store";
-import ChromakeyTest from "../ChromaKeyTest";
-import image_beta from '../image_beta/IMG_6700.JPG'
+// import ChromakeyTest from "../ChromaKeyTest";
+// import image_beta from '../image_beta/IMG_6700.JPG'
 import { saveCanvasData, saveCanvasImage } from "../admin/TemplateEditor"
 import { drawMyCanvas } from "../components/CanvasDrawer";
 
 export default function MainPage({ active, loading, setLoading }) {
-    const { setCanvasData, updated, setUpdated, currentCanvasId, canvases } = useStore();
+    const { setCanvasData, updateStatus, setUpdated, currentCanvasId, canvases, switchCanvas } = useStore();
     // const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
     const [bgImage, setBgImage] = useState(localStorage.getItem("back_1") || `url(${back_img})`);
     const canvasRefForSelect = useRef(null);
@@ -42,29 +42,27 @@ export default function MainPage({ active, loading, setLoading }) {
 
     const fetchTemplate = async() => {
         try {
-            if (updated === false) {
+            if (updateStatus === false) {
                 const canvasArray = await invoke('load_all_canvas_data');
-                if (canvasArray.length > 0) {
-                    setCanvasData(canvasArray);
-                    setUpdated(true);
-                } else {
-                    const canvas = canvasRefForSelect.current;
-                    const ctx = canvas.getContext('2d');
-                    canvases.map(async (canva) => {
-                        if (canva) {
-                            drawMyCanvas(ctx, canvas, canva, false);
-                            drawMyCanvas(ctx, canvas, canva, false);
-                        }
-                        canva.objects.map((obj) => {
-                            if (obj.type === 'image' && ( obj.numberImage === 1 ||  obj.numberImage === 3  || obj.numberImage === 2  )) obj.imgObject = '';
-                            // console.log('nice')
-                        });
-                        canva.canvasProps.webpData = canvasRefForSelect.current.toDataURL('image/webp');
-                        saveCanvasData(canva.id, canva);
-                        saveCanvasImage(canva.id, canva, canvasRefForSelect);
-                    })
-                    toast.error('Канвасы не найдены');
-                }
+                switchCanvas(1); // Switch to the first canvas
+                setCanvasData(canvasArray);
+                console.log(canvasArray)
+                const canvas = canvasRefForSelect.current;
+                const ctx = canvas.getContext('2d');
+                canvases.map(async (canva) => {
+                    if (canva) {
+                        drawMyCanvas(ctx, canvas, canva, false);
+                        drawMyCanvas(ctx, canvas, canva, false);
+                    }
+                    canva.objects.map((obj) => {
+                        if (obj.type === 'image' && ( obj.numberImage === 1 ||  obj.numberImage === 3  || obj.numberImage === 2  )) obj.imgObject = '';
+                        // console.log('nice')
+                    });
+                    canva.canvasProps.webpData = canvasRefForSelect.current.toDataURL('image/webp');
+                    saveCanvasData(canva.id, canva);
+                    saveCanvasImage(canva.id, canva, canvasRefForSelect);
+                })
+                
             }
         } catch (err) {
             console.log(err);
@@ -84,8 +82,9 @@ export default function MainPage({ active, loading, setLoading }) {
 
     useEffect(() => {
         fetchTemplate();
+        fetchTemplate();
         loadingAppSettings();
-    }, [updated]);
+    }, [updateStatus]);
 
     return (
         <div className={`${active == true ? "pointer-events-none": "pointer-events-auto"} flex justify-center items-center`}>
@@ -96,7 +95,7 @@ export default function MainPage({ active, loading, setLoading }) {
                         <NavLink to='/template'><img src={main_icon} alt="camera icon" /></NavLink>
                         {/* <ChromakeyTest image={image_beta} backgroundImage={back_img} /> */}
                         <div style={word}>НАЧАТЬ ФОТОСЕССИЮ </div>
-                        {!updated && <canvas ref={canvasRefForSelect} style={{ width: '413.3px', height: '614.6px', display: 'none'}} />}
+                        {!updateStatus && <canvas ref={canvasRefForSelect} style={{ width: '413.3px', height: '614.6px', display: 'none'}} />}
 
                         {/* <NavLink to='/settings' className="text-black">Settings</NavLink> */}
                         {/* <div className="text-black">{appPath}</div> */}

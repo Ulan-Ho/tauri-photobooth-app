@@ -1,7 +1,7 @@
-#![cfg_attr(
-    all(not(debug_assertions), target_os = "windows"),
-    windows_subsystem = "windows"
-)]
+// #![cfg_attr(
+//     all(not(debug_assertions), target_os = "windows"),
+//     windows_subsystem = "windows"
+// )]
 
 //-------------------------------------------------------------------------------------------------
 // use tauri::AppHandle;
@@ -31,6 +31,7 @@ use chrono::{Local, NaiveTime};
 pub struct WorkHours {
     pub start: String,
     pub end: String,
+    pub is_always_active: bool,
 }
 
 type EdsError = c_int;
@@ -117,12 +118,29 @@ impl Camera {
     fn new() -> Result<Arc<Mutex<Self>>, u32> {
         unsafe {
             let err = EdsInitializeSDK();
+            println!("EdsInitializeSDK: {}", err);
             if err != 0 {
+                if err == 2 { // Убедитесь, что код ошибки 2 соответствует вашей логике
+                    println!("[WARNING] Camera busy or session error. Retrying...");
+                    // EdsCloseSession(camera_ref_in); // Закрытие на случай повторного открытия
+                    // EdsRelease(camera_ref_in);
+                    EdsTerminateSDK();
+                    // Используем ограничение на количество попыток вместо рекурсии
+                    // for _ in 0..3 {
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        if let Ok(camera) = Self::new() {
+                            camera.lock().unwrap().start_live_view().unwrap();
+
+                            return Ok(camera);
+                        }
+                    // }
+                }
                 return Err(err);
             }
 
             let mut camera_list: *mut c_void = std::ptr::null_mut();
             let err = EdsGetCameraList(&mut camera_list);
+            println!("EdsGetCameraList: {}", err);
             if err != 0 {
                 EdsTerminateSDK();
                 return Err(err);
@@ -138,6 +156,7 @@ impl Camera {
 
             let mut camera_ref_in: *mut c_void = std::ptr::null_mut();
             let err = EdsGetChildAtIndex(camera_list, 0, &mut camera_ref_in);
+            println!("EdsGetChildAtIndex: {}", err);
             EdsRelease(camera_list);
             if err != 0 {
                 EdsTerminateSDK();
@@ -145,7 +164,24 @@ impl Camera {
             }
 
             let err = EdsOpenSession(camera_ref_in);
+            println!("EdsOpenSession: {}", err);
             if err != 0 {
+                if err == 2 { // Убедитесь, что код ошибки 2 соответствует вашей логике
+                    println!("[WARNING] Camera busy or session error. Retrying...");
+                    // EdsCloseSession(camera_ref_in); // Закрытие на случай повторного открытия
+                    // EdsRelease(camera_ref_in);
+                    // EdsTerminateSDK();
+                    // if let Ok(camera) = Self::new() {
+                    //     return Ok(camera);
+                    // }
+                    // Используем ограничение на количество попыток вместо рекурсии
+                    // for _ in 0..3 {
+                    //     std::thread::sleep(std::time::Duration::from_secs(1));
+                    //     if let Ok(camera) = Self::new() {
+                    //         return Ok(camera);
+                    //     }
+                    // }
+                }
                 EdsRelease(camera_ref_in);
                 EdsTerminateSDK();
                 return Err(err);
@@ -186,19 +222,34 @@ impl Camera {
         0
     }
 
-    extern "C" fn handle_state_event(event: EdsStateEvent, _param: EdsUInt32, _context: *mut EdsVoid) -> EdsError {
-        // match event {
-        //     0x00000302 => {
-        //         println!("[INFO] Camera disconnected.");
-        //         Self::new().unwrap();
-        //     }
-        //     0x00000301 => {
-        //         println!("[INFO] Camera connected.");
-        //     }
-        //     _ => {
-        //         println!("[LOG] State event triggered: 0x{:X}", event);
-        //     }
-        // }
+    extern "C" fn handle_state_event(event: EdsStateEvent, _param: EdsUInt32, context: *mut EdsVoid) -> EdsError {
+        match event {
+            0x00000301 => {
+                let camera = unsafe { &mut *(context as *mut Camera) };
+                unsafe {
+                    EdsRelease(camera.camera_ref);
+                    EdsCloseSession(camera.camera_ref);
+                    EdsTerminateSDK();
+                }
+                // unsafe {
+                //     EdsRelease(camera.camera_ref);
+                //     EdsTerminateSDK();
+                // }
+                println!("[INFO] Camera disconnected.");
+            }
+            0x00000305 => {
+                let camera = unsafe { &mut *(context as *mut Camera) };
+                unsafe {
+                    EdsCloseSession(camera.camera_ref);
+                    EdsOpenSession(camera.camera_ref);
+                    // let _ = Self::capture_photo(camera);
+                }
+                println!("[INFO] Camera connected.");
+            }
+            _ => {
+                println!("[LOG] State event triggered: 0x{:X}", event);
+            }
+        }
         println!("[LOG] State event triggered: 0x{:X}", event);
 
         0
@@ -222,7 +273,7 @@ impl Camera {
                 eprintln!("[ERROR] Failed to set property event handler.");
                 // return Err(2);
             }
-            if EdsSetCameraStateEventHandler(self.camera_ref, 0x00000300, Self::handle_state_event, std::ptr::null_mut()) != 0 {
+            if EdsSetCameraStateEventHandler(self.camera_ref, 0x00000300, Self::handle_state_event, self as *const _ as *mut EdsVoid) != 0 {
                 eprintln!("[ERROR] Failed to set camera state event handler.");
                 // return Err(3);
             }
@@ -360,6 +411,9 @@ impl Camera {
             unsafe {
                 let mut device: u32 = 0;
                 let err = EdsGetPropertyData(self.camera_ref, 0x00000500, 0, size_of::<u32>() as u32, &mut device as *mut _ as *mut c_void);
+                if device == 2 {
+                    return Ok(());
+                }
                 if err != 0 {
                     return Err(err);
                 }
@@ -370,6 +424,7 @@ impl Camera {
                         return Err(err);
                     }
                 }
+                println!("{}", device);
             }
 
             println!("Live view started");
@@ -387,10 +442,11 @@ impl Camera {
                     self.camera_ref,
                     0x00000500,
                     0,
-                    std::mem::size_of::<u32>() as u32,
+                    size_of::<u32>() as u32,
                     &mut device as *mut _ as *mut c_void,
                 );
-                
+                println!("device: {}", device);
+                println!("err: {}", err);
                 if err != 0 {
                     println!("Failed to get current output device: {}", err);
                     return Err(err);
@@ -414,6 +470,7 @@ impl Camera {
                         println!("Failed to disable live view output device: {}", err);
                         return Err(err);
                     }
+                    EdsRelease(device as *mut c_void);
                 }
             }
             // Обновляем флаг состояния живого просмотра
@@ -426,14 +483,21 @@ impl Camera {
         }
     }
 
-    fn download_evf_image(&self) -> Result<String, String> {
+    fn download_evf_image(&mut self) -> Result<String, String> {
         unsafe {
             let mut stream: *mut c_void = std::ptr::null_mut();
             let mut evf_image: *mut c_void = std::ptr::null_mut();
             // thread::sleep(Duratiosn::from_millis(200));
             // Создаем поток памяти для хранения изображения
+            println!("{}", stream as u32);
             let err = EdsCreateMemoryStream(0, &mut stream);
             if err != 0 {
+                if err == 2 {
+                    EdsRelease(stream);
+                    EdsCloseSession(self.camera_ref); // Закрытие на случай повторного открытия
+                    EdsRelease(self.camera_ref);
+                    EdsTerminateSDK();
+                }
                 return Err(format!("Error creating memory stream: {}", err));
             }
             // Создаем ссылку на изображение live view (evf)
@@ -449,6 +513,21 @@ impl Camera {
                 EdsRelease(evf_image);
                 EdsRelease(stream);
                 // println!("Error downloading EVF image: {}", err);
+                if err == 97 {
+                    // let err = self::start_live_view();
+                    // let _err= self.stop_live_view();
+                    EdsCloseSession(self.camera_ref); // Закрытие на случай повторного открытия
+                    EdsRelease(self.camera_ref);
+                    EdsTerminateSDK();
+                    if let Ok(camera) = Self::new() {
+                        camera.lock().unwrap().start_live_view().unwrap();
+
+                        return Ok("Live view started successfully".into());
+                    }
+                    // if err.is_err() {
+                    //     return Err(format!("Error starting live view: {}", err.is_err()));
+                    // }
+                }
                 return Err(format!("Error downloading EVF image: {}", err));
             }
             // Получаем длину данных в потоке
@@ -611,6 +690,10 @@ fn stop_live_view(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -> R
 #[tauri::command]
 fn end_camera(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -> Result<String, String> {
     let mut camera = state.lock().unwrap();
+    if let Some(camera) = camera.as_ref() {
+        camera.lock().unwrap().stop_live_view()
+            .map_err(|e| format!("Failed to start live view: Error code {}", e))?;
+    }
     if let Some(camera) = camera.take() {
         drop(camera);
         Ok("Camera released successfully".into())
@@ -626,10 +709,15 @@ async fn main() {
     let setting_page = CustomMenuItem::new("setting_page".to_string(), "Настройки");
     let hide_menu = CustomMenuItem::new("hide_menu".to_string(), "Скрыть меню");
     let show_menu = CustomMenuItem::new("show_menu".to_string(), "Показать меню");
+    let enter_fullscreen = CustomMenuItem::new("enter_fullscreen".to_string(), "Войти в полноэкранный режим");
+    let exit_fullscreen = CustomMenuItem::new("exit_fullscreen".to_string(), "Выйти из полноэкранного режима");
+    
     let submenu = Submenu::new("Страницы", Menu::new().add_item(main_page.clone()).add_item(setting_page.clone()));
     let menu = Menu::new()
         .add_item(hide_menu.clone())
         .add_item(show_menu.clone())
+        .add_item(enter_fullscreen.clone())
+        .add_item(exit_fullscreen.clone())
         .add_submenu(submenu);
 
     // Используем Arc и Mutex для управления видимостью меню
@@ -658,46 +746,58 @@ async fn main() {
                         *visible = true;
                         window.menu_handle().show().unwrap();
                     }
+                    "enter_fullscreen" => {
+                        window.set_fullscreen(true).unwrap();
+                    }
+                    "exit_fullscreen" => {
+                        window.set_fullscreen(false).unwrap();
+                    }
                     _ => {}
                 }
             }
         })
         .setup({
             move |app| {
-            let handle = app.handle();
-            let handle_clone = handle.clone();
-            let window = handle.get_window("main").unwrap();
-            let menu_visible = menu_visible.clone();
+                let handle = app.handle();
+                let handle_clone = handle.clone();
+                let window = handle.get_window("main").unwrap();
+                let menu_visible = menu_visible.clone();
 
-            // Обработчик событий клавиатуры
-            thread::spawn(move || {
-                let mut last_check = Instant::now();
-                loop {
-                    if last_check.elapsed() >= Duration::from_millis(100) {
-                        let keys = DeviceState::new().get_keys();
-                        let mut visible = menu_visible.lock().unwrap(); // Захватываем блокировку
-                        if keys.contains(&Keycode::LControl) && keys.contains(&Keycode::LShift) && keys.contains(&Keycode::H) {
-                            // Меняем видимость меню на основе нажатых клавиш
-                            if *visible {
-                                window.menu_handle().hide().unwrap();
-                                *visible = false;
-                            } else {
-                                window.menu_handle().show().unwrap();
-                                *visible = true;
+                // Обработчик событий клавиатуры
+                thread::spawn(move || {
+                    let mut last_check = Instant::now();
+                    loop {
+                        if last_check.elapsed() >= Duration::from_millis(100) {
+                            let keys = DeviceState::new().get_keys();
+                            let mut visible = menu_visible.lock().unwrap(); // Захватываем блокировку
+                            if keys.contains(&Keycode::LControl) && keys.contains(&Keycode::LShift) && keys.contains(&Keycode::H) {
+                                // Меняем видимость меню на основе нажатых клавиш
+                                if *visible {
+                                    window.menu_handle().hide().unwrap();
+                                    *visible = false;
+                                } else {
+                                    window.menu_handle().show().unwrap();
+                                    *visible = true;
+                                }
                             }
+                            if keys.contains(&Keycode::LControl) && keys.contains(&Keycode::LShift) && keys.contains(&Keycode::F) {
+                                // Переключаем полноэкранный режим
+                                let is_fullscreen = window.is_fullscreen().unwrap_or(false);
+                                window.set_fullscreen(!is_fullscreen).unwrap();
+                            }
+                            last_check = Instant::now();
+                            drop(visible); // Освобождаем блокировку как можно скорее
                         }
-                        last_check = Instant::now();
-                        drop(visible); // Освобождаем блокировку как можно скорее
+                        thread::sleep(Duration::from_millis(50));
                     }
-                    thread::sleep(Duration::from_millis(50));
-                }
-            });
+                });
 
-//---------------------------------------------------Create directory---------------------------------------------------------------------
-            setting_dir(handle_clone);
+                // Инициализация директорий
+                setting_dir(handle_clone);
 
-            Ok(())
-        }})
+                Ok(())
+            }
+        })
         .invoke_handler(tauri::generate_handler![print_image, get_work_hours, set_work_hours, save_image, get_image, save_canvas_data, save_canvas_image, load_all_canvas_data, delete_canvas_image_and_data, load_all_canvas_images,
             load_available_canvas_data,
             initialize_camera,
@@ -709,12 +809,14 @@ async fn main() {
             get_printers,
             save_printers,
             update_selected_printer,
-            end_camera])
+            end_camera, save_background, get_background,
+            get_printer_full_information])
         .manage(Arc::new(Mutex::new(None::<Arc<Mutex<Camera>>>)))
         .manage(PrinterState::default())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
 
 #[tauri::command]
 fn print_image(image_data: String, state: State<PrinterState>) -> Result<(), String> {
@@ -777,8 +879,6 @@ Print-Image -PrinterName "{}" -FilePath {} -Scale 100 -PaperSize "6x4-Split (6x2
         escaped_file_path
     );
 
-    println!("PowerShell command: {}", command);
-
     // Передача функции в PowerShell
     let output = Command::new("powershell")
         .args(&["-Command", &command])
@@ -837,19 +937,18 @@ fn get_work_hours(app_handle: tauri::AppHandle) -> Result<WorkHours, String> {
 
     let file_content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
     let work_hours: WorkHours = serde_json::from_str(&file_content).map_err(|e| e.to_string())?;
-
     Ok(work_hours)
 }
 
 #[tauri::command]
-fn set_work_hours(app_handle: tauri::AppHandle, start: String, end: String) -> Result<(), String> {
+fn set_work_hours(app_handle: tauri::AppHandle, start: String, end: String, is_always_active: bool) -> Result<(), String> {
 
     let sleep_time  = NaiveTime::parse_from_str(&end, "%H:%M").map_err(|e| e.to_string())?;
     let wake_time  = NaiveTime::parse_from_str(&start, "%H:%M").map_err(|e| e.to_string())?;
     let data_dir = app_handle.path_resolver().app_data_dir()
         .ok_or("Failed to get app data directory")?;
     let file_path = data_dir.join("database/time/time.json");
-    let work_hours = WorkHours { start: start.clone(), end };
+    let work_hours = WorkHours { start: start.clone(), end: end.clone(), is_always_active: is_always_active.clone() };
     let file_content = serde_json::to_string(&work_hours).map_err(|e| e.to_string())?;
     fs::write(file_path, file_content).map_err(|e| e.to_string())?;
 
@@ -867,21 +966,23 @@ fn set_work_hours(app_handle: tauri::AppHandle, start: String, end: String) -> R
         (wake_time + chrono::Duration::hours(24) - now).num_seconds()
     };
     // Логируем оставшееся время
-    println!(
-        "Оставшееся время до сна: {} секунд ({} часов, {} минут)",
-        sleep_duration,
-        sleep_duration / 3600,
-        (sleep_duration % 3600) / 60
-    );
-    println!(
-        "Оставшееся время до пробуждения: {} секунд ({} часов, {} минут)",
-        wake_duration,
-        wake_duration / 3600,
-        (wake_duration % 3600) / 60
-    );
+    if !is_always_active {
+        println!(
+            "Оставшееся время до сна: {} секунд ({} часов, {} минут)",
+            sleep_duration,
+            sleep_duration / 3600,
+            (sleep_duration % 3600) / 60
+        );
+        println!(
+            "Оставшееся время до пробуждения: {} секунд ({} часов, {} минут)",
+            wake_duration,
+            wake_duration / 3600,
+            (wake_duration % 3600) / 60
+        );
+    }
     
     // Настраиваем таймер на вход в спящий режим
-    if !(sleep_time == wake_time) {
+    if !(sleep_time == wake_time) && !is_always_active {
         thread::spawn(move || {
             loop {
                 let current_time = Local::now().time();
@@ -898,7 +999,19 @@ fn set_work_hours(app_handle: tauri::AppHandle, start: String, end: String) -> R
         });
     let wake_time_formatted = wake_time.format("%H:%M:%S").to_string();
 
-    let ps_script = format!(
+    let ps_script;
+    let remote_script = r#"
+if (Get-ScheduledTask -TaskName "DailyWakeUpTask" -ErrorAction SilentlyContinue) {
+    Unregister-ScheduledTask -TaskName "DailyWakeUpTask" -Confirm:$false
+    Write-Output "Task removed successfully."
+} else {
+    Write-Output "Task does not exist."
+}
+"#;
+    if is_always_active {
+        ps_script = format!(r#"{}"#, remote_script);
+    } else {
+        ps_script = format!(
 r#"
 # Check if task already exists, if so, delete it
 if (Get-ScheduledTask -TaskName "DailyWakeUpTask" -ErrorAction SilentlyContinue) {{
@@ -959,19 +1072,18 @@ Register-ScheduledTask -Xml (Get-Content $taskXmlPath -Raw) -TaskName "DailyWake
 # Remove the temporary XML file
 Remove-Item $taskXmlPath -Force
 "#,
-        wake_time = wake_time_formatted
-    );
+            wake_time = wake_time_formatted
+        );
+    }
 
     // Execute PowerShell script
     let _output = Command::new("powershell")
-        .arg("-Command")
-        .arg(ps_script)
+        .args(&["-Command", &ps_script])
         .output()
         .map_err(|e| format!("Failed to execute PowerShell script: {}", e))?;
     };
     Ok(())
 }
-
 
 //---------------------------------------------------Setting App---------------------------------------------------------------------
 fn setting_dir(app_handle: tauri::AppHandle) {
@@ -979,7 +1091,7 @@ fn setting_dir(app_handle: tauri::AppHandle) {
 
     let base_path_clone = base_path.clone(); // Clone base_path for use in the async block
     tauri::async_runtime::spawn(async move {
-        let directories = vec!["database", "database/template", "database/time", "database/background", "database/images"];
+        let directories = vec!["database", "database/template", "database/time", "database/background", "database/images", "database/chromakey"];
         create_directories_if_not_exist(directories, &base_path_clone); // Use the cloned version
     });
     create_time_json_if_not_exist(&base_path);
@@ -1274,7 +1386,7 @@ fn load_available_canvas_data(app_handle: tauri::AppHandle) -> Result<Vec<Value>
     Ok(canvas_data)
 }
 
-//-------------------------------------------------Printer Information-------------------------------------------------------------------------------------
+//-------------------------------------------------Printer Connection and Change-------------------------------------------------------------------------------------
 #[derive(Serialize, Deserialize, Debug)]
 struct PrinterInfo {
     id: u32,
@@ -1291,7 +1403,7 @@ struct PrinterState {
 }
 
 use printers;
-use printers::printer::Printer;
+use printers::common::base::printer::Printer;
 
 #[tauri::command]
 fn get_printers() -> Result<Vec<PrinterInfo>, String> {
@@ -1347,4 +1459,58 @@ fn update_selected_printer(app_handle: tauri::AppHandle, state: State<PrinterSta
     let mut state = state.selected_printer.lock().unwrap();
     *state = Some(selected_printer);
     Ok(())
+}
+
+
+
+//-------------------------------------------------Printer Information-------------------------------------------------------------------------------------
+
+#[tauri::command]
+fn get_printer_full_information(state: State<PrinterState>) -> Result<Value, String> {
+
+    let state = state.selected_printer.lock().unwrap();
+    let printer_name = state.as_ref().map(|printer| printer.name.clone()).unwrap_or_default();
+
+    let command = format!(r#"Get-WmiObject Win32_Printer -Filter "Name = '{}'" | Select-Object * | ConvertTo-Json"#, printer_name);
+    
+    let output = Command::new("powershell")
+        .args(&["-Command", &command])
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if output.status.success() {
+        // Преобразуем stdout в строку
+        let printer_json = String::from_utf8_lossy(&output.stdout);
+        // Парсим строку JSON в объект serde_json::Value
+        let json: Value = serde_json::from_str(&printer_json).map_err(|e| e.to_string())?;
+        Ok(json)
+    } else {
+        // Если команда завершилась с ошибкой, возвращаем stderr как ошибку
+        let error = String::from_utf8_lossy(&output.stderr);
+        Err(error.into())
+    }
+}
+
+//-------------------------------------------------Chromokey-------------------------------------------------------------------------------------
+#[tauri::command]
+fn save_background(app_handle: tauri::AppHandle, image: String) -> Result<(), String> {
+    let base_path = app_handle.path_resolver().app_data_dir().unwrap();
+    let path = base_path.join("database/background/background.png");
+
+    // Сохраняем изображение как Base64
+    fs::write(path, image).map_err(|e| format!("Ошибка сохранения изображения: {}", e))?;
+    Ok(())
+}
+
+#[tauri::command]
+fn get_background(app_handle: tauri::AppHandle) -> Result<String, String> {
+    let base_path = app_handle.path_resolver().app_data_dir().unwrap();
+    let path = base_path.join("database/background/background.png");
+
+    if !path.exists() {
+        return Err("Фон не найден".to_string());
+    }
+
+    // Читаем изображение из файла
+    fs::read_to_string(path).map_err(|e| format!("Ошибка загрузки изображения: {}", e))
 }

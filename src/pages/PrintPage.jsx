@@ -16,19 +16,19 @@ import back_img from '../assets/defaultImage.jpeg';
 import { drawMyCanvas } from '../components/CanvasDrawer';
 import { useStore } from '../admin/store.js';
 
-import test_image_1 from '../image_beta/IMG_6700.JPG';
-import test_image_2 from '../image_beta/IMG_7107.JPG';
-import test_image_3 from '../image_beta/IMG_7111.JPG';
+// import test_image_1 from '../image_beta/IMG_6700.JPG';
+// import test_image_2 from '../image_beta/IMG_7107.JPG';
+// import test_image_3 from '../image_beta/IMG_7111.JPG';
 
 export default function PrintPage({ images, design }) {
   const [bgImage, setBgImage] = useState(localStorage.getItem("back_4") || `url(${back_img})`);
-  const { canvases, currentCanvasId, updateObjectProps, chromokeyBackgroundImage } = useStore();
+  const { canvases, currentCanvasId, updateObjectProps, chromokeyBackgroundImage, updateLiveViewStatus } = useStore();
   const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
   usePageNavigation();
   const canvasRef = useRef(null);
   const navigate = useNavigate();
   const [ isImage, setIsImage ] = useState(null);
-  const imgES = [test_image_1, test_image_2, test_image_3];
+  // const imgES = [test_image_1, test_image_2, test_image_3];
 
   useEffect(() => {
     const fetchImage = async () => {
@@ -52,11 +52,11 @@ export default function PrintPage({ images, design }) {
     const canvas = canvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext('2d');
-      drawMyCanvas(ctx, canvas, currentCanvas, false, chromokeyBackgroundImage);
+      drawMyCanvas(ctx, canvas, currentCanvas, false, chromokeyBackgroundImage, true);
 
       // Второй вызов отрисовки через небольшой промежуток времени
       const timeoutId = setTimeout(() => {
-        drawMyCanvas(ctx, canvas, currentCanvas, false, chromokeyBackgroundImage);
+        drawMyCanvas(ctx, canvas, currentCanvas, false, chromokeyBackgroundImage, true);
       }, 50); // Задержка в 50 миллисекунд (можно варьировать)
       // Очистка таймера, если компонент размонтируется
       const imageData = canvas.toDataURL('image/png');
@@ -99,9 +99,11 @@ export default function PrintPage({ images, design }) {
 
   };
 
-  const backPage = () => {
-    navigate('/capture');
+  const backPage = async () => {
     garbedCanvas(currentCanvas);
+    navigate('/capture');
+    await invoke('start_live_view');
+    updateLiveViewStatus(true);
   }
 
   return (
@@ -133,7 +135,7 @@ export default function PrintPage({ images, design }) {
               </div>
             </div>
             <div className=' flex justify-start items-center w-full'>
-              <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={backPage}>
+              <button className='w-36 h-20 flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={backPage}>
                 <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
               </button>
             </div>

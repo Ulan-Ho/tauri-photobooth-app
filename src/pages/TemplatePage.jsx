@@ -9,7 +9,7 @@ import { useStore } from '../admin/store.js';
 
 export default function TemplatePage({ onSelectDesign }) {
     const [bgImage, setBgImage] = useState(localStorage.getItem("back_2") || `url(${back_img})`);
-    const { canvases, switchCanvas, currentCanvasId } = useStore();
+    const { canvases, switchCanvas, currentCanvasId, cameraStatus, updateCameraStatus, updateLiveViewStatus } = useStore();
     const availableCanvases = canvases.filter((canvas) => canvas.canvasProps.available === true);
     const navigate = useNavigate();
     usePageNavigation();
@@ -40,9 +40,15 @@ export default function TemplatePage({ onSelectDesign }) {
         onSelectDesign(design);
     };
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (selectedDesign) navigate('/capture');
         else alert('Пожалуйста, выберите дизайн.');
+        if (!cameraStatus) {
+            await invoke('initialize_camera');
+            updateCameraStatus(true);
+        }
+        updateLiveViewStatus(true);
+        await invoke('start_live_view');
     };
 
     const prevSlide = () => {
@@ -65,7 +71,7 @@ export default function TemplatePage({ onSelectDesign }) {
                 <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
                     <div className='w-full flex flex-col gap-9 justify-center items-center'>
                         <b className='text-5xl'>ВЫБЕРИТЕ ШАБЛОН</b>
-                        <div className='flex flex-col w-full px-20'>
+                        <div className='flex flex-col w-full px-20 gap-16'>
                             <div className='flex items-center justify-center'>
                                 <img
                                     onClick={prevSlide}
@@ -73,7 +79,7 @@ export default function TemplatePage({ onSelectDesign }) {
                                     src={templateTriangle}
                                     alt="Previous"
                                 />
-                                <div className='relative items-center box_templ'>
+                                <div className='relative items-center my-1 box_templ py-200'>
                                     <div className='bg_mak'></div>
                                     <div className='absolute bottom-1 left-0 w-full h-full flex gap-6 justify-center items-center z-10'>
                                         <img
@@ -113,7 +119,7 @@ export default function TemplatePage({ onSelectDesign }) {
                                 />
                             </div>
                             <div className='flex justify-between items-center'>
-                                <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={() => navigate('/')}>
+                                <button className='w-36 h-20 flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={() => navigate('/')}>
                                     <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
                                 </button>
                                 <button
@@ -128,7 +134,7 @@ export default function TemplatePage({ onSelectDesign }) {
                                 >
                                     <p className='w-44 text-black text-2xl font-medium'>ЧЕРНО-БЕЛОЕ ФОТО</p>
                                 </button>
-                                <button className='cursor-pointer flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white text-2xl bg-red-700' onClick={handleNext}>
+                                <button className='w-36 h-20 cursor-pointer flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white text-2xl bg-red-700' onClick={handleNext}>
                                     ДАЛЕЕ <img className='w-5' src={templateTriangle} alt="Forward" />
                                 </button>
                             </div>

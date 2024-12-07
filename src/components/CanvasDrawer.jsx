@@ -91,57 +91,99 @@ export const drawLine = (ctx, obj) => {
     if (obj.strokeWidth) setStroke(ctx, obj);
 };
 // Функция для рисования изображения
-export const drawCromakeyBackgroundImage = (ctx, obj, chromokeyBackgroundImage) => {
+export const drawCromakeyBackgroundImage = (ctx, obj, chromokeyBackgroundImage, drawImage) => {
     if (!chromokeyBackgroundImage || !chromokeyBackgroundImage.imgObject) {
         chromokeyBackgroundImage.imgObject = new Image();
         chromokeyBackgroundImage.imgObject.src = chromokeyBackgroundImage.src;
     }
 
-    const draw = () => {
-        const imgAspectRatio = chromokeyBackgroundImage.imgObject.width / chromokeyBackgroundImage.imgObject.height;
-        const objectAspectRatio = obj.width / obj.height;
-        let drawWidth, drawHeight, offsetX, offsetY;
-        // Рассчитываем размеры и смещение для "object-cover"
-        if (imgAspectRatio > objectAspectRatio) {
-            // Изображение шире объекта
-            drawWidth = obj.height * imgAspectRatio;
-            drawHeight = obj.height;
-            offsetX = -(drawWidth - obj.width) / 2;
-            offsetY = 0;
-        } else {
-            // Изображение выше объекта
-            drawWidth = obj.width;
-            drawHeight = obj.width / imgAspectRatio;
-            offsetX = 0;
-            offsetY = -(drawHeight - obj.height) / 2;
+    if (drawImage) {
+        const draw = () => {
+            const imgAspectRatio = chromokeyBackgroundImage.imgObject.width / chromokeyBackgroundImage.imgObject.height;
+            const objectAspectRatio = obj.width / obj.height;
+            let drawWidth, drawHeight, offsetX, offsetY;
+            // Рассчитываем размеры и смещение для "object-cover"
+            if (imgAspectRatio > objectAspectRatio) {
+                // Изображение шире объекта
+                drawWidth = obj.height * imgAspectRatio;
+                drawHeight = obj.height;
+                offsetX = -(drawWidth - obj.width) / 2;
+                offsetY = 0;
+            } else {
+                // Изображение выше объекта
+                drawWidth = obj.width;
+                drawHeight = obj.width / imgAspectRatio;
+                offsetX = 0;
+                offsetY = -(drawHeight - obj.height) / 2;
+            }
+            // Рисуем изображение с обрезкой
+            ctx.save(); // Сохраняем текущий контекст
+            ctx.translate(obj.x, obj.y); // Перемещаемся в позицию объекта
+            ctx.beginPath();
+            // ctx.rect(-obj.width / 2, -obj.height / 2, obj.width, obj.height); // Ограничиваем область
+            // ctx.clip(); // Применяем обрезку
+            ctx.drawImage(
+                chromokeyBackgroundImage.imgObject,
+                offsetX,
+                offsetY,
+                drawWidth,
+                drawHeight
+            );
+            ctx.restore();
         }
-        // Рисуем изображение с обрезкой
-        ctx.save(); // Сохраняем текущий контекст
-        ctx.translate(obj.x, obj.y); // Перемещаемся в позицию объекта
-        ctx.beginPath();
-        ctx.rect(-obj.width / 2, -obj.height / 2, obj.width, obj.height); // Ограничиваем область
-        ctx.clip(); // Применяем обрезку
-        ctx.drawImage(
-            chromokeyBackgroundImage.imgObject,
-            offsetX - obj.width / 2,
-            offsetY - obj.height / 2,
-            drawWidth,
-            drawHeight
-        );
-        ctx.restore();
+        if (!chromokeyBackgroundImage.imgObject.complete) {
+            chromokeyBackgroundImage.imgObject.onload = draw;
+        } else {
+            draw();
+        }
+    } 
+    if (!drawImage) {
+        const draw = () => {
+            const imgAspectRatio = chromokeyBackgroundImage.imgObject.width / chromokeyBackgroundImage.imgObject.height;
+            const objectAspectRatio = obj.width / obj.height;
+            let drawWidth, drawHeight, offsetX, offsetY;
+            // Рассчитываем размеры и смещение для "object-cover"
+            if (imgAspectRatio > objectAspectRatio) {
+                // Изображение шире объекта
+                drawWidth = obj.height * imgAspectRatio;
+                drawHeight = obj.height;
+                offsetX = -(drawWidth - obj.width) / 2;
+                offsetY = 0;
+            } else {
+                // Изображение выше объекта
+                drawWidth = obj.width;
+                drawHeight = obj.width / imgAspectRatio;
+                offsetX = 0;
+                offsetY = -(drawHeight - obj.height) / 2;
+            }
+            // Рисуем изображение с обрезкой
+            ctx.save(); // Сохраняем текущий контекст
+            ctx.translate(obj.x, obj.y); // Перемещаемся в позицию объекта
+            ctx.beginPath();
+            ctx.rect(-obj.width / 2, -obj.height / 2, obj.width, obj.height); // Ограничиваем область
+            ctx.clip(); // Применяем обрезку
+            ctx.drawImage(
+                chromokeyBackgroundImage.imgObject,
+                offsetX - obj.width / 2,
+                offsetY - obj.height / 2,
+                drawWidth,
+                drawHeight
+            );
+            ctx.restore();
+        }
+        if (!chromokeyBackgroundImage.imgObject.complete) {
+            chromokeyBackgroundImage.imgObject.onload = draw;
+        } else {
+            draw();
+        }
     };
 
-    if (!chromokeyBackgroundImage.imgObject.complete) {
-        chromokeyBackgroundImage.imgObject.onload = draw;
-    } else {
-        draw();
-    }
 };
 
 
 
 // Функция для рисования изображения в режиме выбора
-export const drawImages = (ctx, obj, bool, chromokeyBackgroundImage) => {
+export const drawImages = (ctx, obj, bool, chromokeyBackgroundImage, backImage) => {
     if (!obj.imgObject) {
         // Создаем и сохраняем объект изображения, если он еще не создан
         obj.imgObject = new Image();
@@ -170,7 +212,7 @@ export const drawImages = (ctx, obj, bool, chromokeyBackgroundImage) => {
     if (bool === false) {
         if (obj.numberImage === 1 || obj.numberImage === 2 || obj.numberImage === 3) {
             obj.imgObject.onload = () => {
-                drawCromakeyBackgroundImage(ctx, obj, chromokeyBackgroundImage);
+                drawCromakeyBackgroundImage(ctx, obj, chromokeyBackgroundImage, backImage);
                 // Пропорции изображения и объекта
                 const imgAspectRatio = obj.imgObject.width / obj.imgObject.height;
                 const objectAspectRatio = obj.width / obj.height;
@@ -305,7 +347,7 @@ export const drawMyCanvas = (ctx, canvas, currentCanvas, bool, chromokeyBackgrou
                 break;
             case 'image':
                 // drawCromakeyBackgroundImage(ctx, obj, chromokeyBackgroundImage);
-                drawImages(ctx, obj, bool, chromokeyBackgroundImage);
+                drawImages(ctx, obj, bool, chromokeyBackgroundImage, false);
                 break;
             default:
                 break;

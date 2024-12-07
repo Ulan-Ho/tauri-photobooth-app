@@ -525,6 +525,13 @@ const updateCanvasProperty = (canvasId, propertyUpdates) => set((state) => ({
 }));
 
 export const useStore = create(devtools((set) => ({
+  cameraStatus: false,
+
+  isLiveView: false,
+
+  updateCameraStatus: (status) => set((state) => ({ cameraStatus: status })),
+  updateLiveViewStatus: (status) => set((state) => ({ isLiveView: status })),
+
   canvases: [
     {
       id: 1,
@@ -927,7 +934,7 @@ export const useStore = create(devtools((set) => ({
 
   updateStatus: false,
 
-  chromokeyStatus: true,
+  chromokeyStatus: false,
 
   chromokeyBackgroundImage: {
     // id: 9999999,
@@ -945,8 +952,8 @@ export const useStore = create(devtools((set) => ({
 
   setChromokeyBackgroundImage: (imageObject, imageSrc) => set({
     chromokeyBackgroundImage: {
-      imageObject,
-      imageSrc,
+      imgObject: imageObject,
+      src: imageSrc,
     },
   }),
 

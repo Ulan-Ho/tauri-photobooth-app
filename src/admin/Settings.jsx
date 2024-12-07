@@ -2,11 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Moon, Sun, Image, Layout, Fingerprint, Printer, Power, BarChart2 } from "lucide-react"
 import { usePageNavigation } from '../App';
+import { invoke } from '@tauri-apps/api/tauri';
+import { useStore } from './store';
 
 
 export default function Settings({ isDarkMode, setIsDarkMode }) {
-
     usePageNavigation();
+    const { chromokeyStatus, updateCameraStatus, updateLiveViewStatus, cameraStatus, isLiveView, chromokeyBackgroundImage, setChromokeyStatus, setChromokeyBackgroundImage } = useStore();
+
+    useEffect(() => {
+        const checkStatus = async() => {
+            if (isLiveView) {
+                await invoke('stop_live_view');
+                updateLiveViewStatus(false);
+            };
+        }
+
+
+        checkStatus()
+    }, [isLiveView, chromokeyStatus, updateCameraStatus])
 
     useEffect(() => {
         const root = window.document.documentElement;
@@ -20,6 +34,7 @@ export default function Settings({ isDarkMode, setIsDarkMode }) {
     const toggleTheme = () => {
         setIsDarkMode(!isDarkMode)
     }
+
 
 
     const settingsSections = [

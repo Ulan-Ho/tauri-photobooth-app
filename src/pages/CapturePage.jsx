@@ -1,47 +1,49 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { invoke } from '@tauri-apps/api/tauri';
-import { listen } from '@tauri-apps/api/event';
+// import { listen } from '@tauri-apps/api/event';
 import '../App.css';
 import templateTriangle from '../assets/templateTriangle.png';
 import cameraCapture from '../assets/cameraCapture.png';
 import { usePageNavigation } from '../App.jsx';
 import back_img from '../assets/defaultImage.jpeg';  // ПОМЕНЯТЬ НА СВОЙ ФОН
 import { useStore } from '../admin/store.js';
+import { drawCromakeyBackgroundImage, drawMyCanvas } from '../components/CanvasDrawer.jsx'
 
 // import test_image_1 from '../image_beta/IMG_6700.JPG';
 // import test_image_2 from '../image_beta/IMG_7107.JPG';
 // import test_image_3 from '../image_beta/IMG_7111.JPG';
 
-import test_image_1 from '../image_beta/image.png';
-import test_image_2 from '../image_beta/image_2.png';
-import test_image_3 from '../image_beta/image.png';
+// import test_image_1 from '../image_beta/image.png';
+// import test_image_2 from '../image_beta/image_2.png';
+// import test_image_3 from '../image_beta/image.png';
 
 
 import { toast } from 'react-toastify';
-import RemoveBackground from '../ChromaKeyTest.jsx';
-import * as bodyPix from "@tensorflow-models/body-pix";
-import "@tensorflow/tfjs";
+// import RemoveBackground from '../ChromaKeyTest.jsx';
+// import * as bodyPix from "@tensorflow-models/body-pix";
+// import "@tensorflow/tfjs";
 
 export default function CaptureScreen({ onCapture }) {
     const [bgImage, setBgImage] = useState(localStorage.getItem("back_3") || `url(${back_img})`);
-    const { canvases, currentCanvasId, updateObjectProps } = useStore();
+    const { canvases, currentCanvasId, updateObjectProps, isLiveView, cameraStatus, updateCameraStatus, updateLiveViewStatus, chromokeyBackgroundImage, chromokeyStatus } = useStore();
     const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
     const imagesLenght = currentCanvas.objects.filter(object => object.type === 'image' && object.src === '').reduce((max, obj) => Math.max(max, obj.numberImage), 0);
     usePageNavigation();
     const canvasRefDataImage = useRef(null);
+    const canvasRefMain = useRef(null);
+    const backgroundImageRef = useRef(null);
 
-    const [isCameraReady, setIsCameraReady] = useState(false);
+    const [isCameraReady, setIsCameraReady] = useState(true);
+
     const [capturedImage, setCapturedImage] = useState(null);
     const [countdown, setCountdown] = useState(3);
     const [isShooting, setIsShooting] = useState(false);
     const [images, setImages] = useState([]);
     const navigate = useNavigate();
     const [imageData, setImageData] = useState(null);
-    const [isLiveView, setIsLiveView] = useState(false);
     const [errCount, setErrCount] = useState(0);
     const canvasRef = useRef(null);
-    const [cameraStatus, setCameraStatus] = useState(false);
 
     useEffect(() => {
         const fetchImage = async () => {
@@ -61,152 +63,139 @@ export default function CaptureScreen({ onCapture }) {
         }
     }, []);
 
-    const startLiveView = async () => {
-        try {
-            const response = await invoke('start_live_view');
-            // console.log(response);
-            // setCaptureStatus(response);
-            setIsLiveView(true);
-        } catch (error) {
-            toast.error('Ошибка запуска live-view');
-            console.error('Failed to initialize camera:', error);
-            // setCaptureStatus(`Error: ${error.toString()}`);
-        }
-    };
+    const drawBackImage = useCallback(() => {
+        if (!chromokeyBackgroundImage.src) return;
+
+        const bgCanvas = backgroundImageRef.current;
+        const bgCtx = bgCanvas.getContext("2d");
+        bgCanvas.width = 600;
+        bgCanvas.height = 600;
+        drawCromakeyBackgroundImage(bgCtx, bgCanvas, chromokeyBackgroundImage, true)
+    }, [chromokeyStatus]);
+    
 
     useEffect(() => {
-        const initializeCamera = async () => {
-            try {
-                const response = await invoke('initialize_camera');
-                // console.log(response);
-                setCameraStatus(true);
-            } catch (error) {
-                console.error('Failed to initialize camera:', error);
-                await invoke('end_camera');
-                if (error === ' Failed to initialize camera: Error code 2') {
-                    const response = await invoke('initialize_camera');
-                    setCameraStatus(true);
+        drawBackImage();
+    }, [capturedImage]);
+
+    function rgbToHsv(r, g, b) {
+        r /= 255, g /= 255, b /= 255;
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h, s, v = max;
+    
+        const d = max - min;
+        s = max === 0 ? 0 : d / max;
+    
+        if (max === min) {
+            h = 0; // achromatic
+        } else {
+            switch (max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+            }
+            h /= 6;
+        }
+    
+        return [h * 360, s, v];
+    }
+
+    const processVideoFrames = useCallback((base64Image) => {
+        const canvas = canvasRefMain.current;
+        const ctx = canvas.getContext("2d");
+
+        const image = new Image();
+        image.src = base64Image;
+
+        image.onload = () => {
+            canvas.width = 600;
+            canvas.height = 600;
+            const canvasAspect = canvas.width / canvas.height;
+            const imageAspect = image.width / image.height;
+            let drawWidth, drawHeight, offsetX, offsetY;
+
+            // Рассчитываем размеры и смещения для "object-cover"
+            if (imageAspect > canvasAspect) {
+                // Изображение шире, чем канвас
+                drawWidth = canvas.height * imageAspect;
+                drawHeight = canvas.height;
+                offsetX = (canvas.width - drawWidth) / 2;
+                offsetY = 0;
+            } else {
+                // Изображение выше, чем канвас
+                drawWidth = canvas.width;
+                drawHeight = canvas.width / imageAspect;
+                offsetX = 0;
+                offsetY = (canvas.height - drawHeight) / 2;
+            }
+            // ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // ctx.drawImage(backgroundImageRef.current, 0, 0, canvas.width, canvas.height);
+            ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
+
+            if (chromokeyStatus) {
+                const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = frame.data;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const [h, s, v] = rgbToHsv(data[i], data[i + 1], data[i + 2]);
+                    if (h >= 70 && h <= 160 && s > 0.3 && v > 0.15) {
+                        data[i + 3] = 0; // Установка прозрачности
+                    }
                 }
-                // // toast.error('Ошибка инициализации камеры');
-                // setCameraStatus(`Error: ${error.toString()}`);
+
+                ctx.putImageData(frame, 0, 0);
             }
         };
 
-        if (!cameraStatus) {
-            initializeCamera();
-        }
-        if(!isLiveView) {
-            setIsCameraReady(true)
-            startLiveView();
-        }
-    }, [isCameraReady, cameraStatus]);
+        image.onerror = (err) => console.error('Ошибка загрузки изображения:', err);
+    }, [chromokeyStatus]);
 
     useEffect(() => {
-        const updateLiveView = async () => {
+        if (!isLiveView) return;
+
+        const interval = setInterval(async () => {
             try {
-                const base64Image = await invoke('download_ev_image_command'); // Вызываем backend для получения нового кадра
-              // setImage(`data:image/jpeg;base64,${base64Image}`);
-                setImageData(base64Image);
+                const base64Image = await invoke('download_ev_image_command');
+                processVideoFrames(base64Image);
             } catch (err) {
-                // toast.error('Ошибка получения нового кадра');
-                console.error('Failed to fetch image:', err);
-                if (err === 'Failed to fetch image: Error code 2' || err === 'Camera not initialized.') {
-                    setCameraStatus(false);
-                }
+                console.error('Ошибка загрузки кадра:', err);
             }
-        };
-        let interval;
-        if (isLiveView) {
-            interval = setInterval(updateLiveView, 80); // Обновляем изображение каждые 50 мс
-        }
+        }, 100);
+
         return () => clearInterval(interval);
-    }, [isLiveView]);
-
-
-
-    // useEffect(() => {
-    //     const processImage = async () => {
-    //       if (!imageData) return;
-    
-    //       const canvas = canvasRefDataImage.current;
-    //       const ctx = canvas.getContext("2d");
-    //       const img = new Image();
-    
-    //       img.onload = async () => {
-    //         // Размер канваса и отображения
-    //         const targetWidth = 530;
-    //         const targetHeight = 530;
-    
-    //         // Устанавливаем фактическое разрешение канваса
-    //         canvas.width = targetWidth;
-    //         canvas.height = targetHeight;
-    
-    //         // Масштабируем изображение до целевого размера
-    //         const scale = Math.min(targetWidth / img.width, targetHeight / img.height);
-    //         const offsetX = (targetWidth - img.width * scale) / 2;
-    //         const offsetY = (targetHeight - img.height * scale) / 2;
-    
-    //         ctx.clearRect(0, 0, canvas.width, canvas.height);
-    //         ctx.drawImage(
-    //           img,
-    //           0,
-    //           0,
-    //           img.width,
-    //           img.height,
-    //           offsetX,
-    //           offsetY,
-    //           img.width * scale,
-    //           img.height * scale
-    //         );
-    
-    //         // Загружаем модель BodyPix
-    //         const net = await bodyPix.load();
-    //         const segmentation = await net.segmentPerson(canvas, {
-    //           flipHorizontal: false,
-    //           internalResolution: "full",
-    //           segmentationThreshold: 0.7, // Порог для сегментации
-    //         });
-    
-    //         const { data: mask } = segmentation;
-    //         const imageDataCa = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    //         const pixel = imageDataCa.data;
-    
-    //         // Удаляем фон, устанавливая прозрачность для пикселей, не принадлежащих человеку
-    //         for (let i = 0; i < pixel.length; i += 4) {
-    //           const shouldHide = mask[i / 4] === 0; // Если маска равна 0, это фон
-    //           if (shouldHide) {
-    //             pixel[i + 3] = 0; // Устанавливаем альфа-канал в 0
-    //           }
-    //         }
-    
-    //         ctx.putImageData(imageDataCa, 0, 0);
-    //       };
-    
-    //       img.src = imageData;
-    
-    //       const capture = canvas.toDataURL('image/png');
-    //       setImageData(capture);
-    //     };
-    
-    //     processImage();
-    // }, [imageData]);
-
+    }, [isLiveView, processVideoFrames]);
 
 
 
     // Функция для захвата фото через Tauri
     const capture = useCallback(async () => {
         try {
-            // await invoke('stop_live_view'); // Остановка live view
-            // setIsLiveView(!isLiveView);
-            // const capture = await invoke('capture_photo_as'); // Вызов команды на съемку фото
+            updateLiveViewStatus(false);
+            const capture = await invoke('capture_photo_as'); // Вызов команды на съемку фото
             // console.log(capture);
-            // const base64Image = await invoke('get_captured_image'); // Вызываем backend для получения нового кадра
-            if (images.length + 1 === 1) setCapturedImage(test_image_1);
-            if (images.length + 1 === 2) setCapturedImage(test_image_2);
-            if (images.length + 1 === 3) setCapturedImage(test_image_3);
+            const base64Image = await invoke('get_captured_image'); // Вызываем backend для получения нового кадра
+            
+            const canvas = canvasRefMain.current;
+            // const ctx = canvas.getContext("2d");
+            // const bgCanvas = backgroundImageRef.current;
+            // // const bgCtx = ;
+            // bgCanvas.width = 530;
+            // bgCanvas.height = 530;
+            // drawCromakeyBackgroundImage(bgCanvas.getContext("2d"), bgCanvas, chromokeyBackgroundImage, true)
+            // // Отрисовываем фон
+            // if (backgroundImageRef.current) {
+            //     ctx.drawImage(backgroundImageRef.current, 0, 0, canvas.width, canvas.height);
+            // }
+    
+            // Отрисовываем кадр
+            processVideoFrames(`data:image/jpeg;base64,${base64Image}`);
+            
+            // if (images.length + 1 === 1) setCapturedImage(test_image_1);
+            // if (images.length + 1 === 2) setCapturedImage(test_image_2);
+            // if (images.length + 1 === 3) setCapturedImage(test_image_3);
             // setCapturedImage(`data:image/jpeg;base64,${base64Image}`);
-            // startLiveView();
+            const image = canvas.toDataURL("image/png");
+            setCapturedImage(image);
             setIsShooting(false);
         } catch (err) {
             console.log("Ошибка захвата фото:", err);
@@ -218,9 +207,9 @@ export default function CaptureScreen({ onCapture }) {
     const startCountdown = useCallback(() => {
         // navigate('/print');
         if(!isLiveView) {
-            setIsCameraReady(true)
+            updateLiveViewStatus(true)
         }
-        startLiveView();
+        // startLiveView();
         setIsShooting(true);
         let timer = 3;
         setCountdown(timer);
@@ -240,12 +229,13 @@ export default function CaptureScreen({ onCapture }) {
 
     // Сохранение фото
     const savePhoto = useCallback( async () => {
-        startLiveView();
+        // startLiveView();
         const newImage = {
             id: new Date().getTime(),
             name: `photo-${new Date().getTime()}`,
             url: capturedImage
         };
+        updateLiveViewStatus(true);
         setImages(prevImages => [...prevImages, newImage]);
         setCapturedImage(null);
 
@@ -255,23 +245,23 @@ export default function CaptureScreen({ onCapture }) {
             onCapture([...images, newImage]);
             navigate('/print');
             await invoke('stop_live_view');
+            updateLiveViewStatus(false);
         }
     }, [capturedImage, images, navigate, onCapture, startCountdown, imagesLenght]);
 
     // Пересъемка фото
     const reshootPhoto = useCallback(() => {
-        startLiveView();
+        updateLiveViewStatus(true);
         setCapturedImage(null);
         startCountdown();
     }, [startCountdown]);
 
-    useEffect(() => {
+    const updateImageCapture = useCallback(() => {
         const canvas = canvasRef.current;
         if (canvas) {
             const ctx = canvas.getContext('2d');
             currentCanvas.objects.forEach(object => {
-                if (object.type === 'image') {
-                    console.log(images.length)
+                    // console.log(images.length)
                     if (object.numberImage === 1 && images.length === 0) {
                         updateObjectProps(currentCanvasId, object.id, { src: capturedImage });
                     }
@@ -281,10 +271,51 @@ export default function CaptureScreen({ onCapture }) {
                     if (object.numberImage === 3 && images.length === 2) {
                         updateObjectProps(currentCanvasId, object.id, { src: capturedImage });
                     }
-                }
             })
         }
+    }, [capturedImage, images]);
+
+    useEffect(() => {
+        updateImageCapture();
     }, [capturedImage]);
+
+    const garbedCanvas = (currentCanvas) => {
+        currentCanvas.objects.forEach(object => {
+            if (object.type === 'image') {
+                if (object.numberImage === 1) {
+                    updateObjectProps(currentCanvasId, object.id, { imgObject: null, src: '' });
+                }
+                if (object.numberImage === 2) {
+                    updateObjectProps(currentCanvasId, object.id, { imgObject: null, src: '' });
+                }
+                if (object.numberImage === 3) {
+                    updateObjectProps(currentCanvasId, object.id, { imgObject: null, src: '' });
+                }
+            }
+        })
+    }
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            drawMyCanvas(ctx, canvas, currentCanvas, false, chromokeyBackgroundImage, true);
+            const timeoutId = setTimeout(() => {
+                drawMyCanvas(ctx, canvas, currentCanvas, false, chromokeyBackgroundImage, true);
+              }, 50); // Задержка в 50 миллисекунд (можно варьировать)
+              // Очистка таймера, если компонент размонтируется
+            const imageData = canvas.toDataURL('image/png');
+            return () => clearTimeout(timeoutId);
+        }
+    }, [images]);
+
+    const handleBack = async () => {
+        setImages([]);
+        garbedCanvas(currentCanvas);
+        navigate('/template');
+        await invoke('stop_live_view');
+        updateLiveViewStatus(false);
+    }
 
     return (
         <div className="flex justify-center items-center">
@@ -292,7 +323,7 @@ export default function CaptureScreen({ onCapture }) {
                 <div className='back-img'></div>
                 <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
                     <div className='flex w-screen justify-center items-center'>
-                        <canvas ref={canvasRef} width={1280} height={1024} style={{ display: 'none' }} />
+                        <canvas ref={canvasRef} width={1280} height={1024} style={{ width: '200px', height: '400px' }} className='absolute top-64 left-20'/>
                         <div className='flex flex-col gap-12 items-center px-20 w-full'>
                             <div className='text-5xl items-center text-center'>
                                 ЧТОБЫ СОЗДАТЬ ФОТО, <br /> НАЖМИТЕ НА КНОПКУ ПОД РАМКОЙ
@@ -305,9 +336,12 @@ export default function CaptureScreen({ onCapture }) {
                                 )}
                                 {!capturedImage ? (
                                     <div className='flex flex-col items-center w-full gap-10'>
-                                        <div className='border-solid border-2 capture-container rounded-md' style={{ width: 530, height: 530, position: 'relative' }}>
+                                        <div className='border-solid border-2 capture-container rounded-md' style={{ width: 603, height: 603, position: 'relative' }}>
                                             {isCameraReady && (
-                                                <img src={imageData} className='object-cover' style={{ width: 530, height: 530, position: 'relative' }}/>
+                                                <div style={{ width: 600, height: 600, position: 'relative' }}>
+                                                    <canvas className='rounded-md' ref={backgroundImageRef} width="600" height="600" style={{ position: 'absolute', zIndex: 1, display: chromokeyStatus === true ? 'block' : 'none' }} />
+                                                    <canvas className='rounded-md' ref={canvasRefMain} width="600" height="600" style={{ position: 'absolute', zIndex: 2 }} />
+                                                </div>
                                             )}
                                             {isCameraReady && isShooting && (
                                                 <div style={{
@@ -318,14 +352,15 @@ export default function CaptureScreen({ onCapture }) {
                                                     fontSize: '100px',
                                                     fontWeight: 'bold',
                                                     color: 'white',
-                                                    textShadow: '2px 2px 10px rgba(0, 0, 0, 0.7)'
+                                                    textShadow: '2px 2px 10px rgba(0, 0, 0, 0.7)',
+                                                    zIndex: 3
                                                 }}>
                                                     {countdown}
                                                 </div>
                                             )}
                                         </div>
                                         <div className='h-40 flex justify-between items-center w-full'>
-                                            <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={() => navigate('/template')}>
+                                            <button className='w-36 h-20 flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700'  onClick={handleBack}>
                                                 <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
                                             </button>
                                             <div className='flex justify-center items-center'>
@@ -335,7 +370,7 @@ export default function CaptureScreen({ onCapture }) {
                                                     </button>
                                                 )}
                                             </div>
-                                            <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' style={{ visibility: 'hidden' }}>
+                                            <button className='w-36 h-20 flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' style={{ visibility: 'hidden' }}>
                                                 <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
                                             </button>
                                         </div>
@@ -343,9 +378,10 @@ export default function CaptureScreen({ onCapture }) {
                                 ) : (
                                     <div className='flex flex-col items-center w-full gap-10'>
                                         {/* <img src={capturedImage} className='object-cover' style={{ width: 530, height: 530, position: 'relative' }} /> */}
-                                        <RemoveBackground image={capturedImage} setCaptured={setCapturedImage} alt='Captured' style={{ width: 530, height: 530, position: 'relative' }} className='border-solid border-2 capture-container rounded-md object-cover' />
+                                        <canvas ref={backgroundImageRef} width="600" height="600" style={{ position: 'absolute', zIndex: 1, display: chromokeyStatus === true ? 'block' : 'none' }} />
+                                        <img src={capturedImage} alt='Captured' style={{ width: 603, height: 603, position: 'relative', zIndex: 2 }} className='border-solid border-2 capture-container rounded-md object-cover' />
                                         <div className='h-40 flex justify-between items-center w-full'>
-                                            <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={() => navigate('/template')}>
+                                            <button className='w-36 h-20 flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={handleBack}>
                                                 <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
                                             </button>
                                             <div className='flex justify-around items-center gap-20'>
@@ -356,7 +392,7 @@ export default function CaptureScreen({ onCapture }) {
                                                     <span className='text-5xl '>ДА</span><br />НРАВИТСЯ ФОТО
                                                 </button>
                                             </div>
-                                            <button className='flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' style={{ visibility: 'hidden' }}>
+                                            <button className='w-36 h-20 flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' style={{ visibility: 'hidden' }} onClick={handleBack}>
                                                 <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
                                             </button>
                                         </div>

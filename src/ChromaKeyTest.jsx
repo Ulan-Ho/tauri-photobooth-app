@@ -179,9 +179,9 @@
 //   useEffect(() => {
 //     const loadBodyPix = async () => {
 //       const net = await bodyPix.load({
-//         architecture: "ResNet50", // Более точная модель
-//         // architecture: "MobileNetV1", // Более быстрая модель
-//         // multiplier: 0.75,
+//         // architecture: "ResNet50", // Более точная модель
+//         architecture: "MobileNetV1", // Более быстрая модель
+//         multiplier: 0.75,
 //         outputStride: 16,
 //         quantBytes: 2,
 //       });
@@ -209,8 +209,8 @@
 //       const processFrame = async () => {
 //         const segmentation = await net.segmentPerson(video, {
 //           flipHorizontal: false,
-//         //   internalResolution: "medium", // Используем полное разрешение для более точной обработки
-//           internalResolution: "full", // Используем полное разрешение для более точной обработки
+//           internalResolution: "medium", // Используем полное разрешение для более точной обработки
+//           // internalResolution: "full", // Используем полное разрешение для более точной обработки
 //           segmentationThreshold: 0.7, // Более низкий порог для более широкого захвата частей тела
 //         });
 
@@ -265,6 +265,88 @@
 // };
 
 // export default HumanSegmentation;
+
+
+
+
+// import React, { useRef, useEffect } from "react";
+// import backgroundUrl from "./images.png";
+// const SimpleChromakey = () => {
+//   const videoRef = useRef(null);
+//   const canvasRef = useRef(null);
+//   const backgroundImageRef = useRef(null);
+
+//   useEffect(() => {
+//     const startChromakey = async () => {
+//       try {
+//         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+//         const video = videoRef.current;
+
+//         video.srcObject = stream;
+//         video.play();
+
+//         video.onloadeddata = () => {
+//           processVideoFrames();
+//         };
+//       } catch (err) {
+//         console.error("Ошибка доступа к камере", err);
+//       }
+//     };
+
+//     const processVideoFrames = () => {
+//       const video = videoRef.current;
+//       const canvas = canvasRef.current;
+//       const ctx = canvas.getContext("2d");
+//       const background = backgroundImageRef.current;
+
+//       canvas.width = video.videoWidth;
+//       canvas.height = video.videoHeight;
+
+//       const processFrame = () => {
+//         // ctx.clearRect(0, 0, canvas.width, canvas.height); // Очищаем canvas
+//         ctx.drawImage(video, 0, 0, canvas.width, canvas.height); // Рисуем видео поверх
+//         ctx.drawImage(background, 0, 0, canvas.width, canvas.height); // Рисуем фон
+
+//         const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+//         const data = frame.data;
+
+//         // Убираем зеленый фон
+//         for (let i = 0; i < data.length; i += 4) {
+//           const r = data[i]; // Красный
+//           const g = data[i + 1]; // Зеленый
+//           const b = data[i + 2]; // Синий
+
+//           // Если пиксель близок к зеленому цвету, делаем его прозрачным
+//           if (g > 100 && r < 100 && b < 100) {
+//             data[i + 3] = 0; // Альфа-канал в 0
+//           }
+//         }
+
+//         ctx.putImageData(frame, 0, 0); // Обновляем canvas
+//         requestAnimationFrame(processFrame); // Обрабатываем следующий кадр
+//       };
+
+//       processFrame();
+//     };
+
+//     startChromakey();
+//   }, []);
+
+//   return (
+//     <div>
+//       <video ref={videoRef} style={{ display: "none" }} />
+//       <canvas ref={canvasRef} />
+//       <img
+//         ref={backgroundImageRef}
+//         src={backgroundUrl} // URL изображения фона
+//         alt="Background"
+//         style={{ display: "none" }}
+//       />
+//     </div>
+//   );
+// };
+
+// export default SimpleChromakey;
 
 
 
@@ -625,16 +707,16 @@
 
 
 
-import React, { useRef, useEffect } from "react";
-import * as bodyPix from "@tensorflow-models/body-pix";
-import "@tensorflow/tfjs";
-import image_back from "./assets/defaultImage.jpeg"
-import { useStore } from "./admin/store";
-import { drawCromakeyBackgroundImage } from "./components/CanvasDrawer";
-import back_img from './assets/defaultImage.jpeg';
-const PhotoBackgroundRemover = ({ image, setCaptured }) => {
-  const { chromokeyBackgroundImage } = useStore();
-  const canvasRef = useRef(null);
+// import React, { useRef, useEffect } from "react";
+// import * as bodyPix from "@tensorflow-models/body-pix";
+// import "@tensorflow/tfjs";
+// import image_back from "./assets/defaultImage.jpeg"
+// import { useStore } from "./admin/store";
+// import { drawCromakeyBackgroundImage } from "./components/CanvasDrawer";
+// import back_img from './assets/defaultImage.jpeg';
+// const PhotoBackgroundRemover = ({ image, setCaptured }) => {
+//   const { chromokeyBackgroundImage } = useStore();
+//   const canvasRef = useRef(null);
 
   // useEffect(() => {
   //   const processImage = async () => {
@@ -760,122 +842,122 @@ const PhotoBackgroundRemover = ({ image, setCaptured }) => {
   //   processImage();
   // }, []);
 
-  useEffect(() => {
-    const processChromaKey = () => {
-      if (!image) {
-        console.error("Изображение не передано");
-        return;
-      }
+//   useEffect(() => {
+//     const processChromaKey = () => {
+//       if (!image) {
+//         console.error("Изображение не передано");
+//         return;
+//       }
   
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+//       const canvas = canvasRef.current;
+//       const ctx = canvas.getContext("2d", { willReadFrequently: true });
   
-      const img = new Image();
-      const backgroundImg = new Image();
+//       const img = new Image();
+//       const backgroundImg = new Image();
   
-      // Укажите путь к изображениям
-      img.src = image;
-      backgroundImg.src = chromokeyBackgroundImage.src;
+//       // Укажите путь к изображениям
+//       img.src = image;
+//       backgroundImg.src = chromokeyBackgroundImage.src;
   
-      img.onload = () => {
-        console.log("Основное изображение загружено:", img.src);
+//       img.onload = () => {
+//         console.log("Основное изображение загружено:", img.src);
   
-        // Настраиваем размеры холста
-        canvas.width = img.width;
-        canvas.height = img.height;
+//         // Настраиваем размеры холста
+//         canvas.width = img.width;
+//         canvas.height = img.height;
   
-        // Рисуем фон
-        backgroundImg.onload = () => {
-          ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
+//         // Рисуем фон
+//         backgroundImg.onload = () => {
+//           ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
   
-          // Рисуем основное изображение
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+//           // Рисуем основное изображение
+//           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
   
-          // Удаляем зеленый фон
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const pixel = imageData.data;
+//           // Удаляем зеленый фон
+//           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+//           const pixel = imageData.data;
   
-          for (let i = 0; i < pixel.length; i += 4) {
-            const r = pixel[i]; // Красный канал
-            const g = pixel[i + 1]; // Зеленый канал
-            const b = pixel[i + 2]; // Синий канал
+//           for (let i = 0; i < pixel.length; i += 4) {
+//             const r = pixel[i]; // Красный канал
+//             const g = pixel[i + 1]; // Зеленый канал
+//             const b = pixel[i + 2]; // Синий канал
   
-            // Проверяем, является ли пиксель зеленым
-            if (isGreenPixel(r, g, b)) {
-              pixel[i + 3] = 0; // Устанавливаем прозрачность
-            }
-          }
+//             // Проверяем, является ли пиксель зеленым
+//             if (isGreenPixel(r, g, b)) {
+//               pixel[i + 3] = 0; // Устанавливаем прозрачность
+//             }
+//           }
   
-          ctx.putImageData(imageData, 0, 0);
+//           ctx.putImageData(imageData, 0, 0);
   
-          // Сохраняем результат
-          setCaptured(canvas.toDataURL("image/png"));
-        };
-      };
+//           // Сохраняем результат
+//           setCaptured(canvas.toDataURL("image/png"));
+//         };
+//       };
   
-      img.onerror = () => {
-        console.error("Не удалось загрузить изображение:", img.src);
-      };
+//       img.onerror = () => {
+//         console.error("Не удалось загрузить изображение:", img.src);
+//       };
   
-      backgroundImg.onerror = () => {
-        console.error("Не удалось загрузить фон:", backgroundImg.src);
-      };
-    };
+//       backgroundImg.onerror = () => {
+//         console.error("Не удалось загрузить фон:", backgroundImg.src);
+//       };
+//     };
   
-    processChromaKey();
-  }, [image, chromokeyBackgroundImage]);
-  const isGreenPixel = (r, g, b) => {
-    // Перевод RGB в HSV
-    const rNorm = r / 255;
-    const gNorm = g / 255;
-    const bNorm = b / 255;
+//     processChromaKey();
+//   }, [image, chromokeyBackgroundImage]);
+//   const isGreenPixel = (r, g, b) => {
+//     // Перевод RGB в HSV
+//     const rNorm = r / 255;
+//     const gNorm = g / 255;
+//     const bNorm = b / 255;
   
-    const max = Math.max(rNorm, gNorm, bNorm);
-    const min = Math.min(rNorm, gNorm, bNorm);
-    const delta = max - min;
+//     const max = Math.max(rNorm, gNorm, bNorm);
+//     const min = Math.min(rNorm, gNorm, bNorm);
+//     const delta = max - min;
   
-    let hue = 0;
-    if (delta !== 0) {
-      if (max === rNorm) {
-        hue = ((gNorm - bNorm) / delta) % 6;
-      } else if (max === gNorm) {
-        hue = (bNorm - rNorm) / delta + 2;
-      } else {
-        hue = (rNorm - gNorm) / delta + 4;
-      }
-      hue *= 60;
-      if (hue < 0) hue += 360;
-    }
+//     let hue = 0;
+//     if (delta !== 0) {
+//       if (max === rNorm) {
+//         hue = ((gNorm - bNorm) / delta) % 6;
+//       } else if (max === gNorm) {
+//         hue = (bNorm - rNorm) / delta + 2;
+//       } else {
+//         hue = (rNorm - gNorm) / delta + 4;
+//       }
+//       hue *= 60;
+//       if (hue < 0) hue += 360;
+//     }
   
-    const saturation = max === 0 ? 0 : delta / max;
-    const value = max;
+//     const saturation = max === 0 ? 0 : delta / max;
+//     const value = max;
   
-    // Проверка на зелёный оттенок
-    return hue >= 60 && hue <= 180 && saturation > 0.4 && value > 0.2;
-  };
+//     // Проверка на зелёный оттенок
+//     return hue >= 60 && hue <= 180 && saturation > 0.4 && value > 0.2;
+//   };
   
   
-  return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        width: "530px",
-        height: "530px",
-        display: "block",
-        // backgroundImage: `url(${image_back})`,
-        // backgroundSize: "cover",
-        // backgroundPosition: "center",
-        // backgroundRepeat: "no-repeat",
-        // position: "relative",
-        // zIndex: -1,
-        // cursor: "pointer",
-      }}
-      className="border-solid border-2 capture-container rounded-md object-cover"
-    />
-  );
-};
+//   return (
+//     <canvas
+//       ref={canvasRef}
+//       style={{
+//         width: "530px",
+//         height: "530px",
+//         display: "block",
+//         // backgroundImage: `url(${image_back})`,
+//         // backgroundSize: "cover",
+//         // backgroundPosition: "center",
+//         // backgroundRepeat: "no-repeat",
+//         // position: "relative",
+//         // zIndex: -1,
+//         // cursor: "pointer",
+//       }}
+//       className="border-solid border-2 capture-container rounded-md object-cover"
+//     />
+//   );
+// };
 
-export default PhotoBackgroundRemover;
+// export default PhotoBackgroundRemover;
 
 
 
