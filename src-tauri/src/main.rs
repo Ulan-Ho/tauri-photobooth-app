@@ -810,7 +810,8 @@ async fn main() {
             save_printers,
             update_selected_printer,
             end_camera, save_background, get_background,
-            get_printer_full_information])
+            get_printer_full_information,
+            get_image_name])
         .manage(Arc::new(Mutex::new(None::<Arc<Mutex<Camera>>>)))
         .manage(PrinterState::default())
         .run(tauri::generate_context!())
@@ -928,6 +929,22 @@ fn get_image(app_handle: tauri::AppHandle, image_name: String) -> Result<String,
     }
 }
 
+#[tauri::command]
+fn get_image_name(app_handle: tauri::AppHandle, image_name: String) -> Result<String, String> {
+    // Определяем путь к изображению
+    let mut path = app_handle.path_resolver()
+        .app_data_dir()
+        .ok_or("Failed to resolve app cache directory")?;
+    
+    path.push(format!("database/background/{}", image_name));
+
+    println!("Путь к изображению: {:?}", path);
+    let path_str = path
+        .to_str()
+        .ok_or("Failed to convert path to string")?
+        .to_string();
+    Ok(path_str)
+}
 
 //------------------------------------------Timer---------------------------------------------------------------
 #[tauri::command]

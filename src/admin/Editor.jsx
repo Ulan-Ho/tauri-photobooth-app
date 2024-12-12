@@ -46,7 +46,9 @@ const props = {
 export default function Editor({ isDarkMode }) {
 
     usePageNavigation();
-
+    const [whyBg, setWhyBg] = useState(1);
+    // const [bgImage, setBgImage] = useState(localStorage.getItem(`back_${whyBg}`));
+    
     const [property, setProperty] = useState(filterElements[0]);
     const [details, setDetails] = useState(null);
     const [crop, setCrop] = useState({
@@ -82,7 +84,42 @@ export default function Editor({ isDarkMode }) {
         horizontal: 1
     });
     const [activeTab, setActiveTab] = useState("filters");
-    const [whyBg, setWhyBg] = useState(1);
+
+    // useEffect(() => {
+    //     const newBgImage = localStorage.getItem(`back_${whyBg}`);
+    //     // const image = await invoke('get_image', { imageName: '${whyBg}_bg.jpeg' });
+    //     // const url_image = `url(data:image/jpeg;base64,${image})`;
+    //     // setBgImage(url_image);
+    //     console.log("back_${whyBg}");
+    //     setBgImage(newBgImage);
+    //   }, [whyBg]);
+
+    useEffect(() => {
+        const fetchImage = async () => {
+            try {
+                const image = await invoke('get_image', { imageName: `${whyBg}_bg.jpeg`});
+                const url_image = `data:image/jpeg;base64,${image}`;
+                const newState = {
+                    ...state,
+                    image: url_image,
+                    brightness: 100,
+                    grayscale: 0,
+                    sepia: 0,
+                    saturate: 100,
+                    contrast: 100,
+                    hueRotate: 0,
+                    rotate: 0,
+                    vertical: 1,
+                    horizontal: 1
+                    };
+                setState(newState);
+                updateHistory(newState);
+            } catch (err) {
+                console.log(err);
+            }
+        };
+        fetchImage();
+    }, [whyBg]);
 
     useEffect(() => {
         const root = window.document.documentElement;
