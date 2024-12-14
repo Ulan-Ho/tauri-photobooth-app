@@ -33,6 +33,7 @@ export default function CaptureScreen({ onCapture }) {
     const canvasRefDataImage = useRef(null);
     const canvasRefMain = useRef(null);
     const backgroundImageRef = useRef(null);
+    const intervalRef = useRef(null); // Хранение ссылки на интервал
 
     const [isCameraReady, setIsCameraReady] = useState(true);
 
@@ -215,13 +216,14 @@ export default function CaptureScreen({ onCapture }) {
         setCountdown(timer);
         // const cerRes = cer + 1;
         // setCer(cerRes);
-        const intervalId = setInterval(() => {
+        intervalRef.current = setInterval(() => {
             timer -= 1;
             setCountdown(timer);
 
             if (timer <= 0) {
                 // stop
-                clearInterval(intervalId);
+                clearInterval(intervalRef.current);
+                intervalRef.current = null;
                 capture();
             }
         }, 1000);
@@ -260,20 +262,33 @@ export default function CaptureScreen({ onCapture }) {
         const canvas = canvasRef.current;
         if (canvas) {
             const ctx = canvas.getContext('2d');
+            
             currentCanvas.objects.forEach(object => {
                     // console.log(images.length)
+                    // console.log(object.numberImage)
+                    const objectID = object.id;
+                    console.log({objectID})
+                    console.log(images.length);
+                    // images.map((img) => {
+                    //     const id = img.id;
+                    //     console.log({id})
+                    // });
+
                     if (object.numberImage === 1 && images.length === 0) {
+                        updateObjectProps(currentCanvasId, object.id, { imgObject: null, src: '' });
                         updateObjectProps(currentCanvasId, object.id, { src: capturedImage });
                     }
                     if (object.numberImage === 2 && images.length === 1) {
+                        updateObjectProps(currentCanvasId, object.id, { imgObject: null, src: '' });
                         updateObjectProps(currentCanvasId, object.id, { src: capturedImage });
                     }
                     if (object.numberImage === 3 && images.length === 2) {
+                        updateObjectProps(currentCanvasId, object.id, { imgObject: null, src: '' });
                         updateObjectProps(currentCanvasId, object.id, { src: capturedImage });
                     }
             })
         }
-    }, [capturedImage, images]);
+    }, [capturedImage, images.length]);
 
     useEffect(() => {
         updateImageCapture();
@@ -282,6 +297,7 @@ export default function CaptureScreen({ onCapture }) {
     const garbedCanvas = (currentCanvas) => {
         currentCanvas.objects.forEach(object => {
             if (object.type === 'image') {
+                console.log(object.numberImage)
                 if (object.numberImage === 1) {
                     updateObjectProps(currentCanvasId, object.id, { imgObject: null, src: '' });
                 }
@@ -310,6 +326,11 @@ export default function CaptureScreen({ onCapture }) {
     }, [images]);
 
     const handleBack = async () => {
+        // Очищаем интервал, если он существует
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null; // Сбрасываем ссылку на интервал
+        }
         setImages([]);
         garbedCanvas(currentCanvas);
         navigate('/template');
@@ -323,7 +344,7 @@ export default function CaptureScreen({ onCapture }) {
                 <div className='back-img'></div>
                 <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
                     <div className='flex w-screen justify-center items-center'>
-                        <canvas ref={canvasRef} width={1280} height={1024} style={{ width: '200px', height: '400px' }} className='absolute top-64 left-20'/>
+                        <canvas ref={canvasRef} width={1280} height={1024} style={{ width: '270px', height: '400px' }} className='absolute top-64 left-10'/>
                         <div className='flex flex-col gap-12 items-center px-20 w-full'>
                             <div className='text-5xl items-center text-center'>
                                 ЧТОБЫ СОЗДАТЬ ФОТО, <br /> НАЖМИТЕ НА КНОПКУ ПОД РАМКОЙ
