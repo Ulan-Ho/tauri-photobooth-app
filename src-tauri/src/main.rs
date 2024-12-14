@@ -1015,6 +1015,7 @@ fn set_work_hours(app_handle: tauri::AppHandle, start: String, end: String, is_a
                 thread::sleep(Duration::from_secs(30));
             }
         });
+    }
     let wake_time_formatted = wake_time.format("%H:%M:%S").to_string();
 
     let ps_script;
@@ -1026,9 +1027,6 @@ if (Get-ScheduledTask -TaskName "DailyWakeUpTask" -ErrorAction SilentlyContinue)
     Write-Output "Task does not exist."
 }
 "#;
-    if is_always_active {
-        ps_script = format!(r#"{}"#, remote_script);
-    } else {
         ps_script = format!(
 r#"
 # Check if task already exists, if so, delete it
@@ -1092,14 +1090,30 @@ Remove-Item $taskXmlPath -Force
 "#,
             wake_time = wake_time_formatted
         );
-    }
+    // else if (sleep_time == wake_time){
+    //     let command = r#"Unregister-ScheduledTask -TaskName "DailyWakeUpTask" -Confirm:$false"#;
+
+    // // Вызов PowerShell с указанной командой
+    // let output = Command::new("powershell")
+    //     .arg("-Command")
+    //     .arg(command)
+    //     .output()
+    //     .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
+    // }
 
     // Execute PowerShell script
+    if is_always_active{
+        let _output = Command::new("powershell")
+        .args(&["-Command", &remote_script])
+        .output()
+        .map_err(|e| format!("Failed to execute PowerShell script: {}", e))?;
+    }
+    else{
     let _output = Command::new("powershell")
         .args(&["-Command", &ps_script])
         .output()
         .map_err(|e| format!("Failed to execute PowerShell script: {}", e))?;
-    };
+    }
     Ok(())
 }
 
