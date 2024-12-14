@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from "react";
+import React, { useRef, useEffect, useCallback, useState } from "react";
 import AdminShell from "../components/AdminShell";
 import { useStore } from "./store";
 import { SaveIcon, ArrowBigUpDash } from "lucide-react";
@@ -14,6 +14,8 @@ export default function Chromakey() {
     const { chromokeyStatus, updateCameraStatus, updateLiveViewStatus, cameraStatus, isLiveView, chromokeyBackgroundImage, setChromokeyStatus, setChromokeyBackgroundImage } = useStore();
     const canvasRef = useRef(null);
     const backgroundImageRef = useRef(null);
+    const [chromokeyColor, setChromokeyColor] = useState('#00ff00'); // По умолчанию зеленый
+
     usePageNavigation();
 
     useEffect(() => {
@@ -64,10 +66,21 @@ export default function Chromakey() {
             if (chromokeyStatus) {
                 const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 const data = frame.data;
+                const [r, g, b] = hexToRgb(chromokeyColor); 
+                console.log('Цвет хромакея:', r, g, b);
+                console.log(chromokeyColor);
+
+                const tolerance = 50;  // Уровень погрешности для цветового сравнения
 
                 for (let i = 0; i < data.length; i += 4) {
-                    const r = data[i], g = data[i + 1], b = data[i + 2];
-                    if (g > 100 && r < 100 && b < 100) data[i + 3] = 0;
+                    const pr = data[i];     // Красный компонент пикселя
+                    const pg = data[i + 1]; // Зеленый компонент пикселя
+                    const pb = data[i + 2]; // Синий компонент пикселя
+
+                    // Проверка, находится ли цвет пикселя в пределах погрешности
+                    if (Math.abs(pr - r) < tolerance && Math.abs(pg - g) < tolerance && Math.abs(pb - b) < tolerance) {
+                        data[i + 3] = 0; // Убираем пиксели этого цвета (делаем их прозрачными)
+                    }
                 }
 
                 ctx.putImageData(frame, 0, 0);
@@ -75,7 +88,19 @@ export default function Chromakey() {
         };
 
         image.onerror = (err) => console.error('Ошибка загрузки изображения:', err);
-    }, [chromokeyStatus]);
+    }, [chromokeyStatus, chromokeyColor]);
+
+    const hexToRgb = (hex) => {
+        const match = /^#([a-fA-F0-9]{6})$/.exec(hex);
+        console.log(match);
+        if (!match) return null;
+    
+        const r = parseInt(match[1].substr(0, 2), 16);
+        const g = parseInt(match[1].substr(2, 2), 16);
+        const b = parseInt(match[1].substr(4, 2), 16);
+    
+        return [r, g, b];
+    };
 
     useEffect(() => {
         if (!isLiveView) return;
@@ -184,6 +209,16 @@ export default function Chromakey() {
                         <button className="flex bg-green-500 text-white p-2 rounded-lg" onClick={saveBackground}><SaveIcon />Сохранить фон</button>
                         <button className="flex bg-yellow-500 text-white p-2 rounded-lg" onClick={updateBackground}><ArrowBigUpDash />Обновить</button>
                     </div>
+                    <div className="flex flex-row items-center justify-start gap-2">
+                        <label htmlFor="chromakey-color">Выберите цвет для хромакея:</label>
+                        <input 
+                            type="color" 
+                            id="chromakey-color"
+                            value={chromokeyColor} 
+                            onChange={(e) => setChromokeyColor(e.target.value)}
+                        />
+                    </div>
+
 
                 </div>
             </div>

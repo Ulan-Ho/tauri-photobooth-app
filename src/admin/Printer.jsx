@@ -17,6 +17,18 @@ export default function PrinterInfo({ isDarkMode }) {
 
     const [printerData, setPrinterData] = useState();
 
+    async function openPrinterSettings() {
+      
+        try {
+          const process = invoke('open_printer_information');
+        //   await process.execute();
+          console.log(process);
+          console.log('Settings window opened');
+        } catch (err) {
+          console.error('Failed to open printer settings:', err);
+        }
+    }
+
     useEffect(() => {
         const get_printer = async () => {
             try {
@@ -110,7 +122,13 @@ export default function PrinterInfo({ isDarkMode }) {
                 </div>
             </div>
 
-            <div className="mt-8 flex justify-end">
+            <div className="mt-8 flex justify-between">
+                <button>
+                    <span 
+                        onClick={() => openPrinterSettings(printerData?.Name)}
+                        className="px-6 py-3 rounded-lg text-xl bg-blue-600 hover:bg-blue-700 text-white transition-colors duration-300"
+                    >Открыть настройки принтера</span>
+                </button>
                 <Link 
                     to="/settings"
                     className="px-6 py-3 rounded-lg text-xl bg-blue-600 hover:bg-blue-700 text-white transition-colors duration-300"

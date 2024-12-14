@@ -274,20 +274,21 @@ export default function Editor({ isDarkMode }) {
         <AdminShell props={props} >
             <div className="flex gap-8">
                 <div className="w-2/3">
-                <div className="aspect-[4/3] bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden shadow-lg">
+                <div className="aspect-[4/3] flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden shadow-lg">
                     {state.image ? (
-                    <ReactCrop crop={crop} aspect={getAspectRatio(aspect)} onChange={c => setCrop(c)}>
+                    <ReactCrop crop={crop} aspect={getAspectRatio(aspect)} onChange={c => setCrop(c)} className="w-full h-full flex items-center justify-center object-center object-contain">
                         <img
-                        onLoad={e => setDetails(e.currentTarget)}
-                        style={{
-                            filter: `brightness(${state?.brightness}%) grayscale(${state?.grayscale}%) sepia(${state?.sepia}%) saturate(${state?.saturate}%) contrast(${state?.contrast}%) hue-rotate(${state?.hueRotate}deg)`,
-                            transform: `rotate(${state?.rotate}deg) scale(${state?.vertical},${state?.horizontal})`,
-                            maxWidth: "100%",
-                            maxHeight: "100%",
-                            objectFit: "contain"
-                        }}
-                        src={state.image}
-                        alt="Редактируемое изображение"
+                            onLoad={e => setDetails(e.currentTarget)}
+                            style={{
+                                filter: `brightness(${state?.brightness}%) grayscale(${state?.grayscale}%) sepia(${state?.sepia}%) saturate(${state?.saturate}%) contrast(${state?.contrast}%) hue-rotate(${state?.hueRotate}deg)`,
+                                transform: `rotate(${state?.rotate}deg) scale(${state?.vertical},${state?.horizontal})`,
+                                width: "100%",
+                                height: "100%",
+                                // objectFit: "contain", // Или 'cover', если нужно заполнить всю область
+                            }}
+                            src={state.image}
+                            alt="Редактируемое изображение"
+                            className="w-full h-full object-center object-cover"
                         />
                     </ReactCrop>
                     ) : (

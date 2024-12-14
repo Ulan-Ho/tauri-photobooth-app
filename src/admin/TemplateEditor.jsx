@@ -72,6 +72,7 @@ export default function TemplateEditor() {
     const addShape = (shapeType) => {
         const newShape = {
             id: Date.now(),
+            nameObject: 'Фигура ' + shapeType,
             type: shapeType,
             left: 100,
             top: 100,
@@ -102,6 +103,7 @@ export default function TemplateEditor() {
         // if (existingImage) return; // Пропускаем, если изображение уже существует
         const newImage = {
             id: Date.now(),
+            nameObject: 'Фото ' + Date.now(),
             type: 'image',
             // fill: 'rgba(0, 0, 0, 0)', // Прозрачный фон для изображения
             src: imageSrc,
@@ -120,6 +122,7 @@ export default function TemplateEditor() {
     const addPhotoPlaceholder = () => {
         const photoPlaceholder = {
             id: Date.now(),
+            nameObject: 'Placeholder ' + Date.now(),
             type: 'image',
             left: 48,
             top: 48,
@@ -386,12 +389,20 @@ export default function TemplateEditor() {
                                         <p>Объекты</p>
                                         <div className='flex flex-col overflow-auto h-24 gap-1 border rounded-md bg-gray-150 p-1'>
                                             {currentCanvas.objects.map((obj) => (
-                                                <button key={obj.id} onClick={() => setSelectedObjectId(obj.id)} className={selectedObjectId === obj.id ? 'bg-blue-500 text-white rounded-md ' : 'flex justify-start'}>{obj.type === 'image' && obj.src === '' ? 'Фото: ' : 'Объект:'} {obj.id}</button>
+                                                <button key={obj.id} onClick={() => setSelectedObjectId(obj.id)} className={selectedObjectId === obj.id ? 'bg-blue-500 text-white rounded-md ' : 'flex justify-start'}>{obj?.nameObject || 'Измените название'}</button>
                                             ))}
                                         </div>
                                     </div>
                                     <ObjectProperties setSelectedObjectId={setSelectedObjectId} selectedObjectId={selectedObjectId} currentCanvas={currentCanvas} updateObject={updateObject}/>
-                                    <button onClick={() => removeShape()}><Trash2 /></button>
+                                    <div className='flex justify-between px-2'>
+                                        <button onClick={() => removeShape()}><Trash2 /></button>
+                                        <input type="text"
+                                            value={currentCanvas?.objects.find(obj => obj.id === selectedObjectId)?.nameObject || ''}
+                                            onChange={(e) => updateObject(selectedObjectId, { nameObject: e.target.value })}
+                                            className='h-8 px-2 border border-gray-300 dark:border-gray-600 rounded-md w-40'
+                                        />
+                                    </div>
+
                                 </div>
                             )}
                             {activeTab === 'canvas' && (

@@ -546,6 +546,7 @@ export const useStore = create(devtools((set) => ({
       objects: [
         {
           id: 1,
+          nameObject: 'Placeholder 1',
           type: 'image',
           numberImage: 1,
           left: 48,
@@ -566,6 +567,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 2,
+          nameObject: 'Placeholder 2',
           type: 'image',
           numberImage: 1,
           left: 663,
@@ -586,6 +588,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 3,
+          nameObject: 'Placeholder 3',
           type: 'image',
           numberImage: 2,
           left: 48,
@@ -606,6 +609,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 4,
+          nameObject: 'Placeholder 4',
           type: 'image',
           numberImage: 2,
           left: 663,
@@ -626,6 +630,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 5,
+          nameObject: 'Placeholder 5',
           type: 'image',
           numberImage: 3,
           left: 48,
@@ -646,6 +651,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 6,
+          nameObject: 'Placeholder 6',
           type: 'image',
           numberImage: 3,
           left: 663,
@@ -678,6 +684,7 @@ export const useStore = create(devtools((set) => ({
       objects: [
         {
           id: 1,
+          nameobject: 'Placeholder 1',
           type: 'image',
           numberImage: 1,
           left: 48,
@@ -698,6 +705,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 2,
+          nameobject: 'Placeholder 2',
           type: 'image',
           numberImage: 1,
           left: 663,
@@ -718,6 +726,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 3,
+          nameobject: 'Placeholder 3',
           type: 'image',
           numberImage: 2,
           left: 48,
@@ -738,6 +747,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 4,
+          nameobject: 'Placeholder 4',
           type: 'image',
           numberImage: 2,
           left: 663,
@@ -758,6 +768,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 5,
+          nameobject: 'Placeholder 5',
           type: 'image',
           numberImage: 3,
           left: 48,
@@ -778,6 +789,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 6,
+          nameobject: 'Placeholder 6',
           type: 'image',
           numberImage: 3,
           left: 663,
@@ -810,6 +822,7 @@ export const useStore = create(devtools((set) => ({
       objects: [
         {
           id: 1,
+          nameobject: 'Placeholder 1',
           type: 'image',
           numberImage: 1,
           left: 48,
@@ -830,6 +843,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 2,
+          nameobject: 'Placeholder 2',
           type: 'image',
           numberImage: 1,
           left: 663,
@@ -850,6 +864,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 3,
+          nameobject: 'Placeholder 3',
           type: 'image',
           numberImage: 2,
           left: 48,
@@ -870,6 +885,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 4,
+          nameobject: 'Placeholder 4',
           type: 'image',
           numberImage: 2,
           left: 663,
@@ -890,6 +906,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 5,
+          nameobject: 'Placeholder 5',
           type: 'image',
           numberImage: 3,
           left: 48,
@@ -910,6 +927,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 6,
+          nameobject: 'Placeholder 6',
           type: 'image',
           numberImage: 3,
           left: 663,
@@ -993,7 +1011,7 @@ export const useStore = create(devtools((set) => ({
       {
         id: Date.now(),
         canvasProps: {
-          name: 'New Canvas',
+          nameObject: 'New Canvas',
           available: false,
           backgroundColor: '#ffffff',
           width: 1240,
@@ -1002,6 +1020,7 @@ export const useStore = create(devtools((set) => ({
         objects: [
           {
             id: 1,
+            nameObject: 'Placeholder 1',
             type: 'image',
             numberImage: 1,
             left: 48,
@@ -1022,6 +1041,7 @@ export const useStore = create(devtools((set) => ({
           },
           {
             id: 2,
+            nameObject: 'Placeholder 2',
             type: 'image',
             numberImage: 1,
             left: 663,
@@ -1042,6 +1062,7 @@ export const useStore = create(devtools((set) => ({
           },
           {
             id: 3,
+            nameObject: 'Placeholder 3',
             type: 'image',
             numberImage: 2,
             left: 48,
@@ -1062,6 +1083,7 @@ export const useStore = create(devtools((set) => ({
           },
           {
             id: 4,
+            nameObject: 'Placeholder 4',
             type: 'image',
             numberImage: 2,
             left: 663,
@@ -1082,6 +1104,7 @@ export const useStore = create(devtools((set) => ({
           },
           {
             id: 5,
+            nameObject: 'Placeholder 5',
             type: 'image',
             numberImage: 3,
             left: 48,
@@ -1102,6 +1125,7 @@ export const useStore = create(devtools((set) => ({
           },
           {
             id: 6,
+            nameObject: 'Placeholder 6',
             type: 'image',
             numberImage: 3,
             left: 663,
@@ -1188,6 +1212,7 @@ export const useStore = create(devtools((set) => ({
                     ...canvas.objects,
                     {
                         id: Date.now(), // Уникальный ID для нового объекта
+                        nameObject: 'Image', // Название объекта
                         type: 'image',
                         imageSrc: imageSrc,
                         x: 0, // Начальные координаты по X

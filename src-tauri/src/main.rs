@@ -811,7 +811,8 @@ async fn main() {
             update_selected_printer,
             end_camera, save_background, get_background,
             get_printer_full_information,
-            get_image_name])
+            get_image_name,
+            open_printer_information])
         .manage(Arc::new(Mutex::new(None::<Arc<Mutex<Camera>>>)))
         .manage(PrinterState::default())
         .run(tauri::generate_context!())
@@ -1506,6 +1507,26 @@ fn get_printer_full_information(state: State<PrinterState>) -> Result<Value, Str
         let error = String::from_utf8_lossy(&output.stderr);
         Err(error.into())
     }
+}
+
+#[tauri::command]
+fn open_printer_information(state: State<PrinterState>) -> Result<(), String> {
+    let printer_name = {
+        let state = state.selected_printer.lock().unwrap();
+        state
+            .as_ref()
+            .map(|printer| printer.name.clone())
+            .ok_or_else(|| "Принтер не выбран".to_string())?
+    };
+
+    let _command = Command::new("rundll32")
+        .arg("printui.dll,PrintUIEntry")
+        .arg("/e")
+        .arg("/n")
+        .arg(printer_name)
+        .spawn();
+
+    Ok(())
 }
 
 //-------------------------------------------------Chromokey-------------------------------------------------------------------------------------
