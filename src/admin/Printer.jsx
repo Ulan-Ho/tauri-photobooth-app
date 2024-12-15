@@ -28,7 +28,14 @@ export default function PrinterInfo({ isDarkMode }) {
           console.error('Failed to open printer settings:', err);
         }
     }
-
+    
+    async function openPrinterStatus() {
+        try {
+            invoke('open_printer_status');
+        } catch (err) {
+            console.error('Failed to open printer status:', err);
+        }
+    }
     useEffect(() => {
         const get_printer = async () => {
             try {
@@ -128,6 +135,12 @@ export default function PrinterInfo({ isDarkMode }) {
                         onClick={() => openPrinterSettings(printerData?.Name)}
                         className="px-6 py-3 rounded-lg text-xl bg-blue-600 hover:bg-blue-700 text-white transition-colors duration-300"
                     >Открыть настройки принтера</span>
+                </button>
+                <button>
+                    <span
+                        onClick={() => openPrinterStatus()}
+                        className="px-6 py-3 rounded-lg text-xl bg-blue-600 hover:bg-blue-700 text-white transition-colors duration-300"
+                    >Окрыть статус принтеров</span>
                 </button>
                 <Link 
                     to="/settings"
