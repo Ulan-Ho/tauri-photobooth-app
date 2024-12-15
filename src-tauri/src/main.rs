@@ -1,7 +1,7 @@
-// #![cfg_attr(
-//     all(not(debug_assertions), target_os = "windows"),
-//     windows_subsystem = "windows"
-// )]
+#![cfg_attr(
+    all(not(debug_assertions), target_os = "windows"),
+    windows_subsystem = "windows"
+)]
 
 //-------------------------------------------------------------------------------------------------
 // use tauri::AppHandle;
@@ -10,7 +10,7 @@ use std::ffi::CString;
 use device_query::{DeviceQuery, DeviceState, Keycode};
 use std::result::Result;
 use std::sync::{Arc, Mutex};
-use tauri::{CustomMenuItem, Menu, Submenu, Manager};
+use tauri::{CustomMenuItem, Menu, Manager};
 use std::time::{Duration, Instant};
 use std::{fs, thread};
 use base64::prelude::*;
@@ -712,13 +712,13 @@ async fn main() {
     let enter_fullscreen = CustomMenuItem::new("enter_fullscreen".to_string(), "Войти в полноэкранный режим");
     let exit_fullscreen = CustomMenuItem::new("exit_fullscreen".to_string(), "Выйти из полноэкранного режима");
     
-    let submenu = Submenu::new("Страницы", Menu::new().add_item(main_page.clone()).add_item(setting_page.clone()));
     let menu = Menu::new()
         .add_item(hide_menu.clone())
         .add_item(show_menu.clone())
         .add_item(enter_fullscreen.clone())
         .add_item(exit_fullscreen.clone())
-        .add_submenu(submenu);
+        .add_item(main_page.clone())
+        .add_item(setting_page.clone());
 
     // Используем Arc и Mutex для управления видимостью меню
     let menu_visible = Arc::new(Mutex::new(true));
@@ -1349,6 +1349,11 @@ fn load_all_canvas_data(app_handle: tauri::AppHandle) -> Result<Vec<Value>, Stri
                 }
             }
         }
+    }
+
+
+    if canvas_data.is_empty() {
+        return Ok(vec![]);
     }
 
     Ok(canvas_data)

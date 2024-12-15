@@ -45,6 +45,10 @@ export default function MainPage({ active, loading, setLoading }) {
         try {
             if (updateStatus === false) {
                 const canvasArray = await invoke('load_all_canvas_data');
+                if (!canvasArray || canvasArray.length === 0) {
+                    console.log("No templates found. Exiting function.");
+                    return; // Завершаем выполнение функции, если массив пустой
+                }
                 switchCanvas(1); // Switch to the first canvas
                 setCanvasData(canvasArray);
                 const canvas = canvasRefForSelect.current;
