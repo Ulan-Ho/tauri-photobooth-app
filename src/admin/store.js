@@ -962,9 +962,11 @@ export const useStore = create(devtools((set) => ({
     // top: 48,
     // width: 530,
     // height: 490,
-    imgObject: null,
+    imgObject: '',
     src: back_img,
   },
+
+  chromokeyColor: '#00ff00',
 
   setChromokeyStatus: (status) => set({ chromokeyStatus: status }),
 
@@ -974,6 +976,8 @@ export const useStore = create(devtools((set) => ({
       src: imageSrc,
     },
   }),
+
+  setChromokeyColor: (color) => set({ chromokeyColor: color }),
 
   setUpdateStatus: (value) => set({ updateStatus: value }),
 
@@ -1011,7 +1015,7 @@ export const useStore = create(devtools((set) => ({
       {
         id: Date.now(),
         canvasProps: {
-          nameObject: 'New Canvas',
+          name: 'New Canvas',
           available: false,
           backgroundColor: '#ffffff',
           width: 1240,

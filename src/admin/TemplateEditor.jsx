@@ -4,10 +4,11 @@ import { useStore } from './store';
 import { Plus, Save, Square, Circle, Triangle, Minus, Trash2, Star, Octagon, FileImage, SaveIcon, ArrowBigUpDash } from "lucide-react";
 import ObjectProperties from '../components/ObjectProperties';
 import { useFetcher } from 'react-router-dom';
-import { usePageNavigation } from '../App';
+import { usePageNavigation } from '../hooks/usePageNavigation.js';
 import { toast, ToastContainer } from 'react-toastify';
 import { invoke } from '@tauri-apps/api';
 import { drawMyCanvas } from '../components/CanvasDrawer';
+import { saveCanvasData, saveCanvasImage } from '../utils/canvasUtils';
 
 const props = {
     page: 'Редактор Шаблонов',
@@ -387,7 +388,7 @@ export default function TemplateEditor() {
                                 <div className='flex flex-col gap-4'>
                                     <div className='px-2 gap-x-2 gap-y-4'>
                                         <p>Объекты</p>
-                                        <div className='flex flex-col overflow-auto h-24 gap-1 border rounded-md bg-gray-150 p-1'>
+                                        <div className='flex flex-col overflow-auto h-48 gap-1 border rounded-md bg-gray-150 p-1'>
                                             {currentCanvas.objects.map((obj) => (
                                                 <button key={obj.id} onClick={() => setSelectedObjectId(obj.id)} className={selectedObjectId === obj.id ? 'bg-blue-500 text-white rounded-md ' : 'flex justify-start'}>{obj?.nameObject || 'Измените название'}</button>
                                             ))}
@@ -484,37 +485,4 @@ export default function TemplateEditor() {
             <ToastContainer className="absolute" />
         </AdminShell>
     );
-}
-
-export async function saveCanvasData(canvasId, canvasData) {
-    try {
-        await invoke('save_canvas_data', {
-            canvasId: String(canvasId), // ID холста
-            data: JSON.stringify(canvasData), // Данные холста в формате JSON
-            available: canvasData.canvasProps.available,
-        });
-        console.log('Canvas data saved successfully.');
-    } catch (error) {
-        console.error('Failed to save canvas data:', error);
-    }
-}
-
-export async function saveCanvasImage(canvasId, canvasData, canvasRef) {
-    try {
-        const imageDataUrl = canvasRef.current.toDataURL('image/png');
-
-        // Убираем префикс data:image/png;base64, чтобы передать только base64
-        const imageBase64 = imageDataUrl.replace(/^data:image\/(png|jpg);base64,/, '');
-
-        // Отправляем на бэк
-        await invoke('save_canvas_image', {
-            canvasId: String(canvasId),
-            base64Image: imageBase64,
-            available: canvasData.canvasProps.available,
-        });
-        toast.success('Изображение сохранено');
-        console.log('Canvas image saved successfully.');
-        } catch (error) {
-        console.error('Failed to save canvas image:', error);
-    }
 }

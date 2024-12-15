@@ -4,17 +4,18 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import bg_screen from "../components/images_for_template/Макет.png";
 import templateTriangle from '../assets/templateTriangle.png';
-import { useNavigate  } from 'react-router-dom';
+import { useNavigate, NavLink } from 'react-router-dom';
 import lev from "../components/images_for_template/левое.png";
 import pre from "../components/images_for_template/правое.png";
 import left_word from "../components/images_for_template/word_left.png";
 import right_word from "../components/images_for_template/word_right.png";
 import rulSrc from "../components/images_for_template/rule.png";
 import printer from "../assets/printer.png";
-import { usePageNavigation } from '../App.jsx';
+import { usePageNavigation } from '../hooks/usePageNavigation.js';
 import back_img from '../assets/defaultImage.jpeg';
 import { drawMyCanvas } from '../components/CanvasDrawer';
 import { useStore } from '../admin/store.js';
+import { Settings } from "lucide-react"
 
 // import test_image_1 from '../image_beta/IMG_6700.JPG';
 // import test_image_2 from '../image_beta/IMG_7107.JPG';
@@ -112,6 +113,9 @@ export default function PrintPage({ images, design }) {
         <div className='back-img'></div>
         <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
           <div className="w-full flex flex-col gap-9 justify-center items-center px-20">
+            <NavLink to='/settings' className="absolute left-10 top-10 z-10 opacity-0 hover:opacity-100">
+                <Settings size={30} /> {/* Отображаем иконку шестеренки */}
+            </NavLink>
             <div className='flex flex-col gap-3'>
               <button className='h-9 flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' style={{ visibility: 'hidden' }}>
                 <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД

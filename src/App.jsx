@@ -14,14 +14,8 @@ import TemplateEditor from './admin/TemplateEditor.jsx';
 import Timer from './admin/Timer.jsx';
 import Editor from './admin/Editor.jsx';
 import Chromakey from './admin/ChromaKey.jsx';
-
-import templateSimple from './assets/templateSimple.png';
-import templateRul from './assets/templateRul.png';
-import { listen } from '@tauri-apps/api/event';
 import PrinterPopup from './components/PrinterPopup.jsx';
-import { invoke } from '@tauri-apps/api';
-import { toast, ToastContainer } from 'react-toastify';
-import { useStore } from './admin/store.js';
+import { usePageNavigation } from './hooks/usePageNavigation.js';
 
 export default function App(){
   const [selectedPrinter, setSelectedPrinter] = useState(null);
@@ -67,33 +61,3 @@ export default function App(){
         </>
       )
 };
-
-export function usePageNavigation() {
-  const navigate = useNavigate();
-  const { canvases, currentCanvasId, updateObjectProps, isLiveView, cameraStatus, updateCameraStatus, updateLiveViewStatus, chromokeyBackgroundImage, chromokeyStatus } = useStore();
-
-  useEffect(() => {
-    const unlisten = listen('navigate-to-page', (event) => {
-      const targetPage = event.payload;
-
-      if (targetPage === 'main_page') {
-        navigate('/'); // React Router navigation to main page
-      } else if (targetPage === 'setting_page') {
-        navigate('/settings'); // React Router navigation to settings page
-      }
-    });
-
-    const cameraStatusCheck = async () => {
-      if (cameraStatus) {
-        await invoke('end_camera');
-        updateCameraStatus(true);
-      }
-    }
-
-    // cameraStatusCheck();
-    // Cleanup listener on component unmount
-    return () => {
-      unlisten.then((off) => off());
-    };
-  }, [navigate, cameraStatus]);
-}

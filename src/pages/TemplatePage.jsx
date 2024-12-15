@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../App.css';
 import templateTriangle from '../assets/templateTriangle.png';
-import { usePageNavigation } from '../App.jsx';
+import { usePageNavigation } from '../hooks/usePageNavigation.js';
 import back_img from '../assets/defaultImage.jpeg';
 import { invoke } from "@tauri-apps/api/tauri"
 import { useStore } from '../admin/store.js';

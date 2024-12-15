@@ -1,7 +1,3 @@
-// import { useStore } from "../admin/store";
-
-// const { chromokeyBackgroundImage } = useStore();
-
 // Функция для рисования прямоугольника
 export const drawRectangle = (ctx, obj) => {
     setShadow(ctx, obj);

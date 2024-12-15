@@ -1,17 +1,18 @@
-import { NavLink, resolvePath, useNavigate } from "react-router-dom";
+import { Link, NavLink, resolvePath, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from 'react';
 import '../App.css';
 import main_icon from '../assets/main_icon.png';
 import back_img from '../assets/defaultImage.jpeg';
 import { toast,ToastContainer } from "react-toastify";
-import { usePageNavigation } from "../App";
+import { usePageNavigation } from '../hooks/usePageNavigation.js';
 import { invoke } from "@tauri-apps/api";
 import { listen } from "@tauri-apps/api/event";
 import { useStore } from "../admin/store";
 // import ChromakeyTest from "../ChromaKeyTest";
 // import image_beta from '../image_beta/IMG_6700.JPG'
-import { saveCanvasData, saveCanvasImage } from "../admin/TemplateEditor"
+import { saveCanvasData, saveCanvasImage } from "../utils/canvasUtils";
 import { drawMyCanvas } from "../components/CanvasDrawer";
+import { Settings } from "lucide-react"
 
 export default function MainPage({ active, loading, setLoading }) {
     const { setCanvasData, updateStatus, setUpdated, currentCanvasId, canvases, switchCanvas } = useStore();
@@ -46,7 +47,6 @@ export default function MainPage({ active, loading, setLoading }) {
                 const canvasArray = await invoke('load_all_canvas_data');
                 switchCanvas(1); // Switch to the first canvas
                 setCanvasData(canvasArray);
-                console.log(canvasArray)
                 const canvas = canvasRefForSelect.current;
                 const ctx = canvas.getContext('2d');
                 canvases.map(async (canva) => {
@@ -56,7 +56,6 @@ export default function MainPage({ active, loading, setLoading }) {
                     }
                     canva.objects.map((obj) => {
                         if (obj.type === 'image' && ( obj.numberImage === 1 ||  obj.numberImage === 3  || obj.numberImage === 2  )) obj.imgObject = '';
-                        // console.log('nice')
                     });
                     canva.canvasProps.webpData = canvasRefForSelect.current.toDataURL('image/webp');
                     saveCanvasData(canva.id, canva);
@@ -92,6 +91,9 @@ export default function MainPage({ active, loading, setLoading }) {
                 <div className='back-img'></div>
                 <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
                     <div className="flex flex-col">
+                        <NavLink to='/settings' className="absolute left-10 top-10 z-10 opacity-0 hover:opacity-100">
+                            <Settings size={30} /> {/* Отображаем иконку шестеренки */}
+                        </NavLink>
                         <NavLink to='/template'><img src={main_icon} alt="camera icon" /></NavLink>
                         {/* <ChromakeyTest image={image_beta} backgroundImage={back_img} /> */}
                         <div style={word}>НАЧАТЬ ФОТОСЕССИЮ </div>

@@ -5,16 +5,16 @@ import { SaveIcon, ArrowBigUpDash } from "lucide-react";
 import backgroundUrl from "../assets/defaultImage.jpeg";
 import { invoke } from '@tauri-apps/api/tauri';
 import { ToastContainer } from "react-toastify";
-import { usePageNavigation } from '../App.jsx';
+import { usePageNavigation } from '../hooks/usePageNavigation.js';
 import { drawCromakeyBackgroundImage } from '../components/CanvasDrawer.jsx'
 
 const props = { page: 'Chromakey', type: 'chromakey' };
 
 export default function Chromakey() {
-    const { chromokeyStatus, updateCameraStatus, updateLiveViewStatus, cameraStatus, isLiveView, chromokeyBackgroundImage, setChromokeyStatus, setChromokeyBackgroundImage } = useStore();
+    const { chromokeyColor, setChromokeyColor, chromokeyStatus, updateCameraStatus, updateLiveViewStatus, cameraStatus, isLiveView, chromokeyBackgroundImage, setChromokeyStatus, setChromokeyBackgroundImage } = useStore();
     const canvasRef = useRef(null);
     const backgroundImageRef = useRef(null);
-    const [chromokeyColor, setChromokeyColor] = useState('#00ff00'); // По умолчанию зеленый
+    // const [chromokeyColor, setChromokeyColor] = useState('#00ff00'); // По умолчанию зеленый
 
     usePageNavigation();
 

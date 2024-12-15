@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Fingerprint, ArrowLeft } from "lucide-react"
-import { usePageNavigation } from '../App';
+import { usePageNavigation } from '../hooks/usePageNavigation.js';
 import AdminShell from '../components/AdminShell';
 
 const props = {

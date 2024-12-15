@@ -5,7 +5,7 @@ import { invoke } from '@tauri-apps/api/tauri';
 import '../App.css';
 import templateTriangle from '../assets/templateTriangle.png';
 import cameraCapture from '../assets/cameraCapture.png';
-import { usePageNavigation } from '../App.jsx';
+import { usePageNavigation } from '../hooks/usePageNavigation.js';
 import back_img from '../assets/defaultImage.jpeg';  // ПОМЕНЯТЬ НА СВОЙ ФОН
 import { useStore } from '../admin/store.js';
 import { drawCromakeyBackgroundImage, drawMyCanvas } from '../components/CanvasDrawer.jsx'
@@ -26,7 +26,7 @@ import { toast } from 'react-toastify';
 
 export default function CaptureScreen({ onCapture }) {
     const [bgImage, setBgImage] = useState(localStorage.getItem("back_3") || `url(${back_img})`);
-    const { canvases, currentCanvasId, updateObjectProps, isLiveView, cameraStatus, updateCameraStatus, updateLiveViewStatus, chromokeyBackgroundImage, chromokeyStatus } = useStore();
+    const { chromokeyColor, setChromokeyColor, canvases, currentCanvasId, updateObjectProps, isLiveView, cameraStatus, updateCameraStatus, updateLiveViewStatus, chromokeyBackgroundImage, chromokeyStatus } = useStore();
     const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
     const imagesLenght = currentCanvas.objects.filter(object => object.type === 'image' && object.src === '').reduce((max, obj) => Math.max(max, obj.numberImage), 0);
     usePageNavigation();
@@ -79,40 +79,19 @@ export default function CaptureScreen({ onCapture }) {
         drawBackImage();
     }, [capturedImage]);
 
-    function rgbToHsv(r, g, b) {
-        r /= 255, g /= 255, b /= 255;
-        const max = Math.max(r, g, b), min = Math.min(r, g, b);
-        let h, s, v = max;
-    
-        const d = max - min;
-        s = max === 0 ? 0 : d / max;
-    
-        if (max === min) {
-            h = 0; // achromatic
-        } else {
-            switch (max) {
-                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-                case g: h = (b - r) / d + 2; break;
-                case b: h = (r - g) / d + 4; break;
-            }
-            h /= 6;
-        }
-    
-        return [h * 360, s, v];
-    }
-
     const processVideoFrames = useCallback((base64Image) => {
-        const canvas = canvasRefMain.current;
+        const canvas = canvasRef.current;
         const ctx = canvas.getContext("2d");
 
         const image = new Image();
         image.src = base64Image;
 
         image.onload = () => {
-            canvas.width = 600;
-            canvas.height = 600;
+            canvas.width = 530;
+            canvas.height = 530;
             const canvasAspect = canvas.width / canvas.height;
             const imageAspect = image.width / image.height;
+
             let drawWidth, drawHeight, offsetX, offsetY;
 
             // Рассчитываем размеры и смещения для "object-cover"
@@ -129,18 +108,27 @@ export default function CaptureScreen({ onCapture }) {
                 offsetX = 0;
                 offsetY = (canvas.height - drawHeight) / 2;
             }
-            // ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             // ctx.drawImage(backgroundImageRef.current, 0, 0, canvas.width, canvas.height);
             ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
 
             if (chromokeyStatus) {
                 const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 const data = frame.data;
+                const [r, g, b] = hexToRgb(chromokeyColor); 
+                console.log('Цвет хромакея:', r, g, b);
+                console.log(chromokeyColor);
+
+                const tolerance = 50;  // Уровень погрешности для цветового сравнения
 
                 for (let i = 0; i < data.length; i += 4) {
-                    const [h, s, v] = rgbToHsv(data[i], data[i + 1], data[i + 2]);
-                    if (h >= 70 && h <= 160 && s > 0.3 && v > 0.15) {
-                        data[i + 3] = 0; // Установка прозрачности
+                    const pr = data[i];     // Красный компонент пикселя
+                    const pg = data[i + 1]; // Зеленый компонент пикселя
+                    const pb = data[i + 2]; // Синий компонент пикселя
+
+                    // Проверка, находится ли цвет пикселя в пределах погрешности
+                    if (Math.abs(pr - r) < tolerance && Math.abs(pg - g) < tolerance && Math.abs(pb - b) < tolerance) {
+                        data[i + 3] = 0; // Убираем пиксели этого цвета (делаем их прозрачными)
                     }
                 }
 
@@ -149,7 +137,19 @@ export default function CaptureScreen({ onCapture }) {
         };
 
         image.onerror = (err) => console.error('Ошибка загрузки изображения:', err);
-    }, [chromokeyStatus]);
+    }, [chromokeyStatus, chromokeyColor]);
+
+    const hexToRgb = (hex) => {
+        const match = /^#([a-fA-F0-9]{6})$/.exec(hex);
+        console.log(match);
+        if (!match) return null;
+    
+        const r = parseInt(match[1].substr(0, 2), 16);
+        const g = parseInt(match[1].substr(2, 2), 16);
+        const b = parseInt(match[1].substr(4, 2), 16);
+    
+        return [r, g, b];
+    };
 
     useEffect(() => {
         if (!isLiveView) return;

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Printer, ArrowLeft } from "lucide-react"
-import { usePageNavigation } from '../App';
+import { usePageNavigation } from '../hooks/usePageNavigation.js';
 import { invoke } from '@tauri-apps/api';
 import { toast, ToastContainer } from 'react-toastify';
 import AdminShell from '../components/AdminShell';

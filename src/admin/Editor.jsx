@@ -19,7 +19,7 @@ import {
 import { Link } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/tauri";
 import { toast, ToastContainer } from "react-toastify";
-import { usePageNavigation } from "../App";
+import { usePageNavigation } from '../hooks/usePageNavigation.js';
 import { emit } from '@tauri-apps/api/event';
 import AdminShell from "../components/AdminShell";
 
