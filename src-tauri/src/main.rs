@@ -812,7 +812,8 @@ async fn main() {
             end_camera, save_background, get_background,
             get_printer_full_information,
             get_image_name,
-            open_printer_information])
+            open_printer_information,
+            open_printer_status])
         .manage(Arc::new(Mutex::new(None::<Arc<Mutex<Camera>>>)))
         .manage(PrinterState::default())
         .run(tauri::generate_context!())
@@ -1027,7 +1028,7 @@ if (Get-ScheduledTask -TaskName "DailyWakeUpTask" -ErrorAction SilentlyContinue)
     Write-Output "Task does not exist."
 }
 "#;
-        ps_script = format!(
+    ps_script = format!(
 r#"
 # Check if task already exists, if so, delete it
 if (Get-ScheduledTask -TaskName "DailyWakeUpTask" -ErrorAction SilentlyContinue) {{
@@ -1109,10 +1110,10 @@ Remove-Item $taskXmlPath -Force
         .map_err(|e| format!("Failed to execute PowerShell script: {}", e))?;
     }
     else{
-    let _output = Command::new("powershell")
+        let _output = Command::new("powershell")
         .args(&["-Command", &ps_script])
         .output()
-        .map_err(|e| format!("Failed to execute PowerShell script: {}", e))?;
+        .map_err(|e| format!("Failed to execute PowerShell script: {}", e))?;    
     }
     Ok(())
 }
@@ -1541,6 +1542,21 @@ fn open_printer_information(state: State<PrinterState>) -> Result<(), String> {
         .spawn();
 
     Ok(())
+}
+
+#[tauri::command]
+fn open_printer_status() -> Result<(), String> {
+    let output = Command::new("cmd")
+        .args(&["/C", "start ms-settings:printers"]) // Отправляем команду в командную строку
+        .output()
+        .map_err(|e| format!("Failed to execute command: {}", e))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Error: {}", stderr))
+    }
 }
 
 //-------------------------------------------------Chromokey-------------------------------------------------------------------------------------
