@@ -546,7 +546,7 @@ export const useStore = create(devtools((set) => ({
       objects: [
         {
           id: 1,
-          nameObject: 'Placeholder 1',
+          nameObject: 'Фото 1',
           type: 'image',
           numberImage: 1,
           left: 48,
@@ -567,7 +567,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 2,
-          nameObject: 'Placeholder 2',
+          nameObject: 'Фото 2',
           type: 'image',
           numberImage: 1,
           left: 663,
@@ -588,7 +588,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 3,
-          nameObject: 'Placeholder 3',
+          nameObject: 'Фото 3',
           type: 'image',
           numberImage: 2,
           left: 48,
@@ -609,7 +609,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 4,
-          nameObject: 'Placeholder 4',
+          nameObject: 'Фото 4',
           type: 'image',
           numberImage: 2,
           left: 663,
@@ -630,7 +630,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 5,
-          nameObject: 'Placeholder 5',
+          nameObject: 'Фото 5',
           type: 'image',
           numberImage: 3,
           left: 48,
@@ -651,7 +651,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 6,
-          nameObject: 'Placeholder 6',
+          nameObject: 'Фото 6',
           type: 'image',
           numberImage: 3,
           left: 663,
@@ -684,7 +684,7 @@ export const useStore = create(devtools((set) => ({
       objects: [
         {
           id: 1,
-          nameobject: 'Placeholder 1',
+          nameobject: 'Фото 1',
           type: 'image',
           numberImage: 1,
           left: 48,
@@ -705,7 +705,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 2,
-          nameobject: 'Placeholder 2',
+          nameobject: 'Фото 2',
           type: 'image',
           numberImage: 1,
           left: 663,
@@ -726,7 +726,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 3,
-          nameobject: 'Placeholder 3',
+          nameobject: 'Фото 3',
           type: 'image',
           numberImage: 2,
           left: 48,
@@ -747,7 +747,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 4,
-          nameobject: 'Placeholder 4',
+          nameobject: 'Фото 4',
           type: 'image',
           numberImage: 2,
           left: 663,
@@ -768,7 +768,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 5,
-          nameobject: 'Placeholder 5',
+          nameobject: 'Фото 5',
           type: 'image',
           numberImage: 3,
           left: 48,
@@ -789,7 +789,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 6,
-          nameobject: 'Placeholder 6',
+          nameobject: 'Фото 6',
           type: 'image',
           numberImage: 3,
           left: 663,
@@ -822,7 +822,7 @@ export const useStore = create(devtools((set) => ({
       objects: [
         {
           id: 1,
-          nameobject: 'Placeholder 1',
+          nameobject: 'Фото 1',
           type: 'image',
           numberImage: 1,
           left: 48,
@@ -843,7 +843,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 2,
-          nameobject: 'Placeholder 2',
+          nameobject: 'Фото 2',
           type: 'image',
           numberImage: 1,
           left: 663,
@@ -864,7 +864,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 3,
-          nameobject: 'Placeholder 3',
+          nameobject: 'Фото 3',
           type: 'image',
           numberImage: 2,
           left: 48,
@@ -885,7 +885,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 4,
-          nameobject: 'Placeholder 4',
+          nameobject: 'Фото 4',
           type: 'image',
           numberImage: 2,
           left: 663,
@@ -906,7 +906,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 5,
-          nameobject: 'Placeholder 5',
+          nameobject: 'Фото 5',
           type: 'image',
           numberImage: 3,
           left: 48,
@@ -927,7 +927,7 @@ export const useStore = create(devtools((set) => ({
         },
         {
           id: 6,
-          nameobject: 'Placeholder 6',
+          nameobject: 'Фото 6',
           type: 'image',
           numberImage: 3,
           left: 663,
@@ -1024,7 +1024,7 @@ export const useStore = create(devtools((set) => ({
         objects: [
           {
             id: 1,
-            nameObject: 'Placeholder 1',
+            nameObject: 'Фото 1',
             type: 'image',
             numberImage: 1,
             left: 48,
@@ -1045,7 +1045,7 @@ export const useStore = create(devtools((set) => ({
           },
           {
             id: 2,
-            nameObject: 'Placeholder 2',
+            nameObject: 'Фото 2',
             type: 'image',
             numberImage: 1,
             left: 663,
@@ -1066,7 +1066,7 @@ export const useStore = create(devtools((set) => ({
           },
           {
             id: 3,
-            nameObject: 'Placeholder 3',
+            nameObject: 'Фото 3',
             type: 'image',
             numberImage: 2,
             left: 48,
@@ -1087,7 +1087,7 @@ export const useStore = create(devtools((set) => ({
           },
           {
             id: 4,
-            nameObject: 'Placeholder 4',
+            nameObject: 'Фото 4',
             type: 'image',
             numberImage: 2,
             left: 663,
@@ -1108,7 +1108,7 @@ export const useStore = create(devtools((set) => ({
           },
           {
             id: 5,
-            nameObject: 'Placeholder 5',
+            nameObject: 'Фото 5',
             type: 'image',
             numberImage: 3,
             left: 48,
@@ -1129,7 +1129,7 @@ export const useStore = create(devtools((set) => ({
           },
           {
             id: 6,
-            nameObject: 'Placeholder 6',
+            nameObject: 'Фото 6',
             type: 'image',
             numberImage: 3,
             left: 663,

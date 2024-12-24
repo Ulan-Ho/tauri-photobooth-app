@@ -11,21 +11,28 @@ export default function ObjectProperties({ setSelectedObjectId, selectedObjectId
 
     if (!selectedObject) return null;
 
-    function clampRotation(angle) {
+    function clampRotation(number) {
         // Приводим угол к диапазону -360 до 360
-        if (angle < -360) {
-            return angle + 360;
+        if (number < -360) {
+            return number + 360;
         }
-        if (angle > 360) {
-            return angle - 360;
+        if (number > 360) {
+            return number - 360;
         }
-        return angle;
+        return number;
     }
-
     function updateRotation(selectedObjectId, rotationAmount) {
         const currentRotate = currentCanvas?.objects.find(obj => obj.id === selectedObjectId)?.rotate || 0;
         const newRotate = clampRotation(currentRotate + rotationAmount); // Применяем ограничение
         if (newRotate !== 360 && newRotate !== -360) updateObject(selectedObjectId, { rotate: newRotate });
+    }
+    function updateZ_index(selectedObjectId, zetIndex) {
+        const currentZindex = currentCanvas?.objects.find(obj => obj.id === selectedObjectId)?.zIndex || 0;
+        const newZindex = Number(currentZindex) + Number(zetIndex)
+        console.log(`Current Z-Index: ${currentZindex}, New Z-Index: ${newZindex}`);
+        if (newZindex > 0 && newZindex <= 20) {
+            updateObject(selectedObjectId, { zIndex: String(newZindex) }); // Обновляем объект
+        }
     }
 
     return (
@@ -70,7 +77,7 @@ export default function ObjectProperties({ setSelectedObjectId, selectedObjectId
                         className='h-8 px-2 border border-gray-300 dark:border-gray-600 rounded-md w-16'/>
                 </div>
                 {((selectedObject?.numberImage && selectedObject?.type !== 'image') || selectedObject?.type !== 'image') ? (
-                    <div className='flex gap-6 items-center col-span-2'>
+                    <div className='flex gap-6 items-center col-span-3'>
                         <p>Цвет заливки</p>
                         <input
                             className='h-8 border border-gray-300 dark:border-gray-600 rounded-md w-16'
@@ -81,20 +88,24 @@ export default function ObjectProperties({ setSelectedObjectId, selectedObjectId
                         />
                     </div>
                 ) : (
-                    <div className='flex gap-6 items-center col-span-2 text-center text-xs justify-center p-2 border border-gray-300 dark:border-gray-600 rounded-md'>
+                    <div className='flex gap-6 items-center col-span-3 text-center text-xs justify-center p-2 border border-gray-300 dark:border-gray-600 rounded-md'>
                         Фотографии не имеют заливку
                     </div>
                 )}
-                <div className='flex gap-4 items-center'>
-                    <p>Z</p>
+                    <p>Слой</p>
+                <div className='flex gap-4 items-center col-span-1' >
+                    <span className='w-2'></span>
                     <input
-                        className='h-8 px-2 border border-gray-300 dark:border-gray-600 rounded-md w-16'
-                        type="number"
+                        type='number'
                         min={0}
-                        max={10}
+                        max={20}
                         value={selectedObject.zIndex ?? 0}
                         onChange={(e) => updateObject(selectedObjectId, { zIndex: e.target.value })}
-                    />
+                        className='h-8 pl-2 border border-gray-300 dark:border-gray-600 rounded-md w-16'/>
+                </div>
+                <div className='grid grid-cols-2 gap-8 items-center justify-end'>
+                        <button onClick={() => updateZ_index(selectedObjectId, -1)} className='h-8 items-center bg-blue-500 text-white rounded-md w-14'>Назад</button>
+                        <button onClick={() => updateZ_index(selectedObjectId, 1)} className='h-8 items-center bg-red-500 text-white rounded-md w-14'>Вперед</button>
                 </div>
                 <p>Stroke</p>
                 <div className='flex gap-2 items-center justify-center'>

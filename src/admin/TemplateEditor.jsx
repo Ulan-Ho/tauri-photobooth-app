@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import AdminShell from '../components/AdminShell';
 import { useStore } from './store';
-import { Plus, Save, Square, Circle, Triangle, Minus, Trash2, Star, Octagon, FileImage, SaveIcon, ArrowBigUpDash } from "lucide-react";
+import { Plus, Save, Square, Circle, Triangle, Minus, Trash2, Star, Octagon, FileImage, SaveIcon, ArrowBigUpDash, X } from "lucide-react";
 import ObjectProperties from '../components/ObjectProperties';
 import { useFetcher } from 'react-router-dom';
 import { usePageNavigation } from '../hooks/usePageNavigation.js';
@@ -47,8 +47,8 @@ export default function TemplateEditor() {
         });
         if (clickedObjects.length > 0) {
             const topObject = clickedObjects.reduce((highest, obj) => {
-                return (highest.zIndex > obj.zIndex) ? highest : obj;
-            });
+                return (highest.zIndex > obj.zIndex) ? highest : obj;            
+            }); 
             setSelectedObjectId(topObject.id);
         } else {
             setSelectedObjectId(null);
@@ -57,6 +57,15 @@ export default function TemplateEditor() {
 
     const updateObject = (id, newProps) => {
         updateObjectProps(currentCanvasId, id, newProps);  // Триггерим обновление с новыми объектами
+    };
+
+    const fullPage = () => {
+        updateObject(selectedObjectId, {
+            left: 0,
+            top: 0,
+            width: 1240,
+            height: 1844
+        })
     };
 
     const removeShape = () => {
@@ -75,12 +84,12 @@ export default function TemplateEditor() {
             id: Date.now(),
             nameObject: 'Фигура ' + shapeType,
             type: shapeType,
-            left: 100,
-            top: 100,
+            left: 460,
+            top: 700,
             width: 300,
             height: 300,
             fill: '#ff0000',
-            zIndex: 2,
+            zIndex: 4,
             stroke: '#000000',
             strokeWidth: 0,
             rotate: 0,
@@ -104,7 +113,7 @@ export default function TemplateEditor() {
         // if (existingImage) return; // Пропускаем, если изображение уже существует
         const newImage = {
             id: Date.now(),
-            nameObject: 'Фото ' + Date.now(),
+            nameObject: 'Изображение ' + Date.now(),
             type: 'image',
             // fill: 'rgba(0, 0, 0, 0)', // Прозрачный фон для изображения
             src: imageSrc,
@@ -113,7 +122,7 @@ export default function TemplateEditor() {
             top: 50,
             width: imgWidth,
             height: imgHeight,
-            zIndex: 2,
+            zIndex: 4,
             rotate: 0,
             opacity: 1
         };
@@ -123,7 +132,7 @@ export default function TemplateEditor() {
     const addPhotoPlaceholder = () => {
         const photoPlaceholder = {
             id: Date.now(),
-            nameObject: 'Placeholder ' + Date.now(),
+            nameObject: 'Фото ' + Date.now(),
             type: 'image',
             left: 48,
             top: 48,
@@ -167,11 +176,56 @@ export default function TemplateEditor() {
         const ctxSel = canvasSel.getContext('2d');
         
         // console.log(currentCanvas.canvasProps)
+        const drawMarkers = (ctx, obj) => {
+            if (!obj) return;
+
+            const borderThickness = 8; // Толщина линии
+            const lineLength = obj.width / 2;
+            const topLineLength = obj.height / 2; // Длина линий на каждом углу
+
+            ctx.strokeStyle = 'black'; // Цвет линии
+            ctx.lineWidth = borderThickness;
+
+            // Линии сверху
+            ctx.beginPath();
+            ctx.moveTo(obj.left - 4, obj.top); // Верхний левый
+            ctx.lineTo(obj.left + lineLength, obj.top); // Верхний левый горизонтально
+            ctx.moveTo(obj.left, obj.top); // Верхний левый
+            ctx.lineTo(obj.left, obj.top + topLineLength); // Верхний левый вертикально
+
+            ctx.moveTo(obj.left + obj.width + 4, obj.top); // Верхний правый
+            ctx.lineTo(obj.left + obj.width - lineLength, obj.top); // Верхний правый горизонтально
+            ctx.moveTo(obj.left + obj.width, obj.top); // Верхний правый
+            ctx.lineTo(obj.left + obj.width, obj.top + topLineLength); // Верхний правый вертикально
+
+            // Линии снизу
+            ctx.moveTo(obj.left - 4, obj.top + obj.height); // Нижний левый
+            ctx.lineTo(obj.left + lineLength, obj.top + obj.height); // Нижний левый горизонтально
+            ctx.moveTo(obj.left, obj.top + obj.height); // Нижний левый
+            ctx.lineTo(obj.left, obj.top + obj.height - topLineLength); // Нижний левый вертикально
+
+            ctx.moveTo(obj.left + obj.width + 4, obj.top + obj.height); // Нижний правый
+            ctx.lineTo(obj.left + obj.width - lineLength, obj.top + obj.height); // Нижний правый горизонтально
+            ctx.moveTo(obj.left + obj.width, obj.top + obj.height); // Нижний правый
+            ctx.lineTo(obj.left + obj.width, obj.top + obj.height - topLineLength); // Нижний правый вертикально
+
+            ctx.stroke();
+        };
+    
         if (currentCanvas) {
+            // Рисуем основной холст
             drawMyCanvas(ctx, canvas, currentCanvas, true, chromokeyBackgroundImage);
             drawMyCanvas(ctxSel, canvasSel, currentCanvas, false, chromokeyBackgroundImage);
+    
+            // Выделяем объект, если он выбран
+            if (selectedObjectId) {
+                const selectedObject = currentCanvas.objects.find(obj => obj.id === selectedObjectId);
+                if (selectedObject) {
+                    drawMarkers(ctx, selectedObject);
+                }
+            }
         }
-    }, [currentCanvas]);
+    }, [currentCanvas, selectedObjectId]);
 
     const [isDragging, setIsDragging] = useState(false); // To check if we're dragging
     const [draggedObjectId, setDraggedObjectId] = useState(null); // To store which object is being dragged
@@ -201,6 +255,8 @@ export default function TemplateEditor() {
                 setIsDragging(true);
                 setDraggedObjectId(topObject.id);
                 setDragOffset({ x: x - topObject.left, y: y - topObject.top });
+            } else {
+                setSelectedObjectId(null);
             }
         };
 
@@ -257,8 +313,12 @@ export default function TemplateEditor() {
                     break;
                 case 'Delete':
                     removeObject(selectedObjectId);
+                    removeShape(selectedObjectId);
                     setSelectedObjectId(null);
                     break;
+                case 'Escape':
+                    removeObject(selectedObjectId);
+                    setSelectedObjectId(null);
                 default:
                     break;
             }
@@ -402,6 +462,11 @@ export default function TemplateEditor() {
                                             onChange={(e) => updateObject(selectedObjectId, { nameObject: e.target.value })}
                                             className='h-8 px-2 border border-gray-300 dark:border-gray-600 rounded-md w-40'
                                         />
+                                    </div>
+                                    <div className='flex justify-center px-2'>
+                                        <button onClick={() => fullPage()} className='border border-gray-300 rounded-md px-4 bg-blue-400'>
+                                            <p>На весь экран</p>
+                                        </button>
                                     </div>
 
                                 </div>

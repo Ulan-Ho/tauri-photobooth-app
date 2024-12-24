@@ -581,17 +581,30 @@ fn download_ev_image_command(state: tauri::State<'_, Arc<Mutex<Option<Arc<Mutex<
 }
 
 #[tauri::command]
-fn initialize_camera(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) -> Result<String, String> {
-    let camera = match Camera::new() {
-        Ok(camera) => camera,
-        Err(err) => return Err(format!("Failed to initialize camera: Error code {}", err)),
-    };
+fn initialize_camera(
+    state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>,
+) -> Result<String, String> {
+    let start_time = std::time::Instant::now();
+    let timeout = std::time::Duration::from_secs(10);
 
-    let mut state_lock = state.lock().unwrap();
-    *state_lock = Some(camera);
-
-    Ok("Camera initialized successfully".into())
+    loop {
+        match Camera::new() {
+            Ok(camera) => {
+                let mut state_lock = state.lock().unwrap();
+                *state_lock = Some(camera);
+                return Ok("Camera initialized successfully".into());
+            }
+            Err(_) => {
+                if start_time.elapsed() >= timeout {
+                    return Err("Камера не подключена".into());
+                }
+            }
+        }
+        // Небольшая задержка перед следующей попыткой проверки
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
 }
+
 
 // Tauri command for capturing a photo
 #[tauri::command]
@@ -708,14 +721,12 @@ async fn main() {
     let main_page = CustomMenuItem::new("main_page".to_string(), "Главная");
     let setting_page = CustomMenuItem::new("setting_page".to_string(), "Настройки");
     let hide_menu = CustomMenuItem::new("hide_menu".to_string(), "Скрыть меню");
-    let show_menu = CustomMenuItem::new("show_menu".to_string(), "Показать меню");
     let enter_fullscreen = CustomMenuItem::new("enter_fullscreen".to_string(), "Войти в полноэкранный режим");
     let exit_fullscreen = CustomMenuItem::new("exit_fullscreen".to_string(), "Выйти из полноэкранного режима");
     
     let submenu = Submenu::new("Страницы", Menu::new().add_item(main_page.clone()).add_item(setting_page.clone()));
     let menu = Menu::new()
         .add_item(hide_menu.clone())
-        .add_item(show_menu.clone())
         .add_item(enter_fullscreen.clone())
         .add_item(exit_fullscreen.clone())
         .add_submenu(submenu);
@@ -740,11 +751,6 @@ async fn main() {
                         let mut visible = menu_visible.lock().unwrap();
                         *visible = false;
                         window.menu_handle().hide().unwrap();
-                    }
-                    "show_menu" => {
-                        let mut visible = menu_visible.lock().unwrap();
-                        *visible = true;
-                        window.menu_handle().show().unwrap();
                     }
                     "enter_fullscreen" => {
                         window.set_fullscreen(true).unwrap();
@@ -1351,7 +1357,12 @@ fn load_all_canvas_data(app_handle: tauri::AppHandle) -> Result<Vec<Value>, Stri
         }
     }
 
+    if canvas_data.is_empty() {
+        return Ok(vec![]);
+    }
+
     Ok(canvas_data)
+
 }
 
 #[tauri::command]

@@ -81,6 +81,8 @@ export default function TemplatePage({ onSelectDesign }) {
                                 />
                                 <div className='relative items-center my-1 box_templ py-200'>
                                     <div className='bg_mak'></div>
+                                {availableCanvases.length > 1 ? (
+                                    // Галерея изображений
                                     <div className='absolute bottom-1 left-0 w-full h-full flex gap-6 justify-center items-center z-10'>
                                         <img
                                             src={availableCanvases[(currentIndex + 1 + availableCanvases.length) % availableCanvases.length].canvasProps.webpData}
@@ -94,22 +96,23 @@ export default function TemplatePage({ onSelectDesign }) {
                                             className="w-80 h-112 cursor-pointer border-4 border-blue-500"
                                         />
                                         <img
-                                            alt={availableCanvases[(currentIndex - 1 + availableCanvases.length) % availableCanvases.length].canvasProps.name}
                                             src={availableCanvases[(currentIndex - 1 + availableCanvases.length) % availableCanvases.length].canvasProps.webpData}
+                                            alt={availableCanvases[(currentIndex - 1 + availableCanvases.length) % availableCanvases.length].canvasProps.name}
                                             className="w-64 h-96 opacity-50 cursor-pointer"
                                             onClick={nextSlide}
                                         />
-                                        {/* {availableCanvases.map((canvas) => (
-                                            <div
-                                                key={canvas.id}
-                                                className={`p-1 border-4 ${currentCanvasId === canvas.id ? 'border-blue-500' : 'border-transparent'}`}
-                                                onClick={() => switchCanvas(canvas.id)}
-                                                style={{ cursor: 'pointer' }}
-                                            >
-                                                <img src={`${canvas.canvasProps.webpData}`} alt={canvas.id} style={{ width: '300px', height: '450px' }} />
-                                            </div>
-                                        ))} */}
                                     </div>
+                                ) : (
+                                    // Только одно изображение
+                                    <div className="absolute bottom-1 left-0 w-full h-full flex justify-center items-center z-10">
+                                        <img
+                                            src={availableCanvases[0].canvasProps.webpData}
+                                            alt={availableCanvases[0].canvasProps.name}
+                                            className="w-80 h-112 cursor-pointer border-4 border-blue-500"
+                                        />
+                                    </div>
+                                )}
+
                                 </div>
                                 <img
                                     className='h-24 cursor-pointer'

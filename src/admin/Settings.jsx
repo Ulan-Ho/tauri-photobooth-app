@@ -41,7 +41,7 @@ export default function Settings({ isDarkMode, setIsDarkMode }) {
         // { title: "Начало", description: "Начало", link: '/', icon: Image },
         { title: "Редактор главного фона", description: "Изменение фона всего приложения", link: '/settings/editor', icon: Image },
         { title: "Редактор шаблонов", description: "Управление шаблонами", link: '/settings/template-editor', icon: Layout },
-        { title: "Проверка экарана", description: "Настройка сенсорного экрана", link: '/settings/touchscreen', icon: Fingerprint },
+        { title: "Проверка экрана", description: "Настройка сенсорного экрана", link: '/settings/touchscreen', icon: Fingerprint },
         { title: "Проверка принтера", description: "Управление подключенным принтером", link: '/settings/printer', icon: Printer },
         { title: "Управление питанием", description: "Настройка энергосбережения", link: '/settings/timer', icon: Power },
         { title: "Cromakey", description: "Настройка зеленого фона", link: '/settings/chromakey', icon: Image },

@@ -19,6 +19,7 @@ export default function MainPage({ active, loading, setLoading }) {
     // const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
     const [bgImage, setBgImage] = useState(localStorage.getItem("back_1") || `url(${back_img})`);
     const canvasRefForSelect = useRef(null);
+    const navigate = useNavigate();
     usePageNavigation();
 
     useEffect(() => {
@@ -45,6 +46,10 @@ export default function MainPage({ active, loading, setLoading }) {
         try {
             if (updateStatus === false) {
                 const canvasArray = await invoke('load_all_canvas_data');
+                if (!canvasArray || canvasArray.length === 0) {
+                    console.log("No templates found. Exiting function.");
+                    return; // Завершаем выполнение функции, если массив пустой
+                }
                 switchCanvas(1); // Switch to the first canvas
                 setCanvasData(canvasArray);
                 const canvas = canvasRefForSelect.current;
@@ -96,7 +101,7 @@ export default function MainPage({ active, loading, setLoading }) {
                         </NavLink>
                         <NavLink to='/template'><img src={main_icon} alt="camera icon" /></NavLink>
                         {/* <ChromakeyTest image={image_beta} backgroundImage={back_img} /> */}
-                        <div style={word}>НАЧАТЬ ФОТОСЕССИЮ </div>
+                        <div style={word}><button onClick={() => navigate('/template')} >НАЧАТЬ ФОТОСЕССИЮ</button></div>
                         {!updateStatus && <canvas ref={canvasRefForSelect} style={{ width: '413.3px', height: '614.6px', display: 'none'}} />}
 
                         {/* <NavLink to='/settings' className="text-black">Settings</NavLink> */}

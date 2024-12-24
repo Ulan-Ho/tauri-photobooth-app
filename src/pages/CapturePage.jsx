@@ -160,6 +160,7 @@ export default function CaptureScreen({ onCapture }) {
                 processVideoFrames(base64Image);
             } catch (err) {
                 console.error('Ошибка загрузки кадра:', err);
+                toast.error('Проверьте камеру');
             }
         }, 100);
 
@@ -345,8 +346,8 @@ export default function CaptureScreen({ onCapture }) {
                 <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
                     <div className='flex w-screen justify-center items-center'>
                         <canvas ref={canvasRef} width={1280} height={1024} style={{ width: '270px', height: '400px' }} className='absolute top-64 left-10'/>
-                        <div className='flex flex-col gap-12 items-center px-20 w-full'>
-                            <div className='text-5xl items-center text-center'>
+                        <div className='flex flex-col gap-12 items-center px-20 w-full absolute left-20 top-28'>
+                            <div className='text-5xl items-center text-center absolute' style={{ top: '-110px'}}>
                                 ЧТОБЫ СОЗДАТЬ ФОТО, <br /> НАЖМИТЕ НА КНОПКУ ПОД РАМКОЙ
                             </div>
                             <div className='w-full'>
@@ -357,11 +358,11 @@ export default function CaptureScreen({ onCapture }) {
                                 )}
                                 {!capturedImage ? (
                                     <div className='flex flex-col items-center w-full gap-10'>
-                                        <div className='border-solid border-2 capture-container rounded-md' style={{ width: 603, height: 603, position: 'relative' }}>
+                                        <div className='border-solid border-2 capture-container rounded-md' style={{ width: 703, height: 703, position: 'relative' }}>
                                             {isCameraReady && (
-                                                <div style={{ width: 600, height: 600, position: 'relative' }}>
-                                                    <canvas className='rounded-md' ref={backgroundImageRef} width="600" height="600" style={{ position: 'absolute', zIndex: 1, display: chromokeyStatus === true ? 'block' : 'none' }} />
-                                                    <canvas className='rounded-md' ref={canvasRefMain} width="600" height="600" style={{ position: 'absolute', zIndex: 2 }} />
+                                                <div style={{ width: 700, height: 700, position: 'relative' }}>
+                                                    <canvas className='rounded-md' ref={backgroundImageRef} width="700" height="700" style={{ position: 'absolute', zIndex: 1, display: chromokeyStatus === true ? 'block' : 'none' }} />
+                                                    <canvas className='rounded-md' ref={canvasRefMain} width="700" height="700" style={{ position: 'absolute', zIndex: 2 }} />
                                                 </div>
                                             )}
                                             {isCameraReady && isShooting && (
@@ -399,8 +400,8 @@ export default function CaptureScreen({ onCapture }) {
                                 ) : (
                                     <div className='flex flex-col items-center w-full gap-10'>
                                         {/* <img src={capturedImage} className='object-cover' style={{ width: 530, height: 530, position: 'relative' }} /> */}
-                                        <canvas ref={backgroundImageRef} width="600" height="600" style={{ position: 'absolute', zIndex: 1, display: chromokeyStatus === true ? 'block' : 'none' }} />
-                                        <img src={capturedImage} alt='Captured' style={{ width: 603, height: 603, position: 'relative', zIndex: 2 }} className='border-solid border-2 capture-container rounded-md object-cover' />
+                                        <canvas ref={backgroundImageRef} width="700" height="700" style={{ position: 'absolute', zIndex: 1, display: chromokeyStatus === true ? 'block' : 'none' }} />
+                                        <img src={capturedImage} alt='Captured' style={{ width: 703, height: 703, position: 'relative', zIndex: 2 }} className='border-solid border-2 capture-container rounded-md object-cover' />
                                         <div className='h-40 flex justify-between items-center w-full'>
                                             <button className='w-36 h-20 flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={handleBack}>
                                                 <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
