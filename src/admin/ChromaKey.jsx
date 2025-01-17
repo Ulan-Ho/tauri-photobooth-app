@@ -11,10 +11,11 @@ import { drawCromakeyBackgroundImage } from '../components/CanvasDrawer.jsx'
 const props = { page: 'Chromakey', type: 'chromakey' };
 
 export default function Chromakey() {
-    const { chromokeyColor, setChromokeyColor, chromokeyStatus, updateCameraStatus, updateLiveViewStatus, cameraStatus, isLiveView, chromokeyBackgroundImage, setChromokeyStatus, setChromokeyBackgroundImage } = useStore();
+    const { chromokeyColor, setChromokeyColor, chromokeyStatus, updateCameraStatus, updateLiveViewStatus, cameraStatus, isLiveView, chromokeyBackgroundImage, setChromokeyStatus, setChromokeyBackgroundImage, counterCapturePhoto, setCounterCapturePhoto } = useStore();
     const canvasRef = useRef(null);
     const backgroundImageRef = useRef(null);
     // const [chromokeyColor, setChromokeyColor] = useState('#00ff00'); // По умолчанию зеленый
+    const [image, setImage] = useState(null);
 
     usePageNavigation();
 
@@ -148,18 +149,25 @@ export default function Chromakey() {
         reader.readAsDataURL(file);
     };
 
-    const saveBackground = async () => {
+    const saveChanged = async () => {
         try {
-            await invoke('save_background', { image: chromokeyBackgroundImage?.src });
-            console.log('Фон успешно сохранён');
+            await invoke('save_settings', { image: chromokeyBackgroundImage?.src, color: chromokeyColor, counter: counterCapturePhoto });
+            console.log('Изменения успешно сохраненый');
         } catch (err) {
             console.error('Ошибка сохранения фона:', err);
         }
     };
     
-    const updateBackground = async () => {
+    const updateSettings = async () => {
         try {
-            const background = await invoke('get_background');
+            const settings = await invoke('read_settings');
+
+            if (settings) {
+                setChromokeyColor(settings.chromakey_color);
+                setCounterCapturePhoto(settings.counter_capture_photo);
+            }
+            
+            const background = await invoke('get_background_chromakey');
             if (background) {
                 const imageObject = new Image();
                 imageObject.src = background;
@@ -173,12 +181,12 @@ export default function Chromakey() {
 
     return (
         <AdminShell props={props}>
-            <div className="flex h-full">
+            <div className="flex ">
                 <div className="relative w-3/5 h-full">
                     <canvas ref={backgroundImageRef} width="530" height="530" style={{ position: 'absolute', zIndex: 1, display: chromokeyStatus === true ? 'block' : 'none' }} />
                     <canvas ref={canvasRef} width="530" height="530" style={{ position: 'absolute', zIndex: 2 }} />
                 </div>
-                <div className="flex flex-col justify-between w-2/5" style={{ height: '530px' }}>
+                <div className="flex flex-col justify-between w-2/5 gap-4">
                     <div className="grid grid-cols-2 gap-x-2 gap-y-4">
                         <button className={`p-2 rounded-lg border ${isLiveView === true ? 'bg-blue-500' : 'bg-red-500'} text-white`} onClick={toggleLiveView}>Включить камеру</button>
                         <button className={`p-2 rounded-lg border ${chromokeyStatus === true ? 'bg-blue-500' : 'bg-red-500'} text-white`} onClick={() => setChromokeyStatus(!chromokeyStatus)}>Chromakey {chromokeyStatus === true ? 'включен' : 'выключен'}</button>
@@ -205,21 +213,31 @@ export default function Chromakey() {
                             </label>
                         </div>
                     </div>
-                    <div className="flex justify-between">
-                        <button className="flex bg-green-500 text-white p-2 rounded-lg" onClick={saveBackground}><SaveIcon />Сохранить фон</button>
-                        <button className="flex bg-yellow-500 text-white p-2 rounded-lg" onClick={updateBackground}><ArrowBigUpDash />Обновить</button>
-                    </div>
                     <div className="flex flex-row items-center justify-start gap-2">
                         <label htmlFor="chromakey-color">Выберите цвет для хромакея:</label>
                         <input 
                             type="color" 
                             id="chromakey-color"
                             value={chromokeyColor} 
-                            onChange={(e) => setChromokeyColor(e.target.value)}
+                            onChange={(e) => {setChromokeyColor(e.target.value)
+                                console.log(chromokeyColor)
+                            }}
                         />
                     </div>
-
-
+                    <div className='flex gap-4 items-center justify-start flex-row' >
+                        <span className=''>Счетчик перед фото</span>
+                        <input
+                            type='number'
+                            min={0}
+                            max={20}
+                            value={counterCapturePhoto ?? 0}
+                            onChange={(e) => setCounterCapturePhoto(Number(e.target.value))}
+                            className='h-8 pl-2 border border-gray-300 dark:border-gray-600 rounded-md w-16'/>
+                    </div>
+                    <div className="flex justify-between">
+                        <button className="flex bg-green-500 text-white p-2 rounded-lg" onClick={saveChanged}><SaveIcon />Сохранить изменения</button>
+                        <button className="flex bg-yellow-500 text-white p-2 rounded-lg" onClick={updateSettings}><ArrowBigUpDash />Обновить</button>
+                    </div>
                 </div>
             </div>
             <ToastContainer />

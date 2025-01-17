@@ -13,13 +13,15 @@ import { useStore } from "../admin/store";
 import { saveCanvasData, saveCanvasImage } from "../utils/canvasUtils";
 import { drawMyCanvas } from "../components/CanvasDrawer";
 import { Settings } from "lucide-react"
+import { set } from "lodash";
 
 export default function MainPage({ active, loading, setLoading }) {
-    const { setCanvasData, updateStatus, setUpdated, currentCanvasId, canvases, switchCanvas } = useStore();
-    // const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
+    const { setCanvasData, updateStatus, setUpdateStatus, currentCanvasId, canvases, switchCanvas, chromokeyBackgroundImage, setChromokeyColor, setCounterCapturePhoto, backgroundImage, chromokeyStatus, setBackgroundImage } = useStore();
+    const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
     const [bgImage, setBgImage] = useState(localStorage.getItem("back_1") || `url(${back_img})`);
     const canvasRefForSelect = useRef(null);
     const navigate = useNavigate();
+    // const [image, setImage] = useState('');
     usePageNavigation();
 
     useEffect(() => {
@@ -44,7 +46,14 @@ export default function MainPage({ active, loading, setLoading }) {
 
     const fetchTemplate = async() => {
         try {
+            // const base64Image = await invoke('get_last_saved_image');
+            // if (base64Image) {
+            //     const url_image = `url(data:image/jpeg;base64,${base64Image})`;
+            //     setImage(url_image);
+            // }
             if (updateStatus === false) {
+                const backgroundImageInBase64 = await invoke('get_background_image');
+                setBackgroundImage(backgroundImageInBase64);
                 const canvasArray = await invoke('load_all_canvas_data');
                 if (!canvasArray || canvasArray.length === 0) {
                     console.log("No templates found. Exiting function.");
@@ -54,19 +63,27 @@ export default function MainPage({ active, loading, setLoading }) {
                 setCanvasData(canvasArray);
                 const canvas = canvasRefForSelect.current;
                 const ctx = canvas.getContext('2d');
-                canvases.map(async (canva) => {
+                canvasArray.map(async (canva) => {
                     if (canva) {
-                        drawMyCanvas(ctx, canvas, canva, false);
-                        drawMyCanvas(ctx, canvas, canva, false);
+                        // drawMyCanvas(ctx, canvas, canva, false);
+                        drawMyCanvas(ctx, canvas, canva, false, chromokeyStatus === true ? chromokeyBackgroundImage : backgroundImage, false);
+                        drawMyCanvas(ctx, canvas, canva, false, chromokeyStatus === true ? chromokeyBackgroundImage : backgroundImage, false);
+                        // drawMyCanvas(ctx, canvas, canva, false);
                     }
                     canva.objects.map((obj) => {
-                        if (obj.type === 'image' && ( obj.numberImage === 1 ||  obj.numberImage === 3  || obj.numberImage === 2  )) obj.imgObject = '';
+                        if (( obj.numberImage === 1 ||  obj.numberImage === 3  || obj.numberImage === 2  )) obj.imgObject = '';
                     });
                     canva.canvasProps.webpData = canvasRefForSelect.current.toDataURL('image/webp');
-                    saveCanvasData(canva.id, canva);
-                    saveCanvasImage(canva.id, canva, canvasRefForSelect);
+                    // saveCanvasData(canva.id, canva);
+                    // saveCanvasImage(canva.id, canva, canvasRefForSelect);
                 })
-                
+                setUpdateStatus(true);
+            }
+            const settings = await invoke('read_settings');
+
+            if (settings) {
+                setChromokeyColor(settings.color);
+                setCounterCapturePhoto(settings.counter);
             }
         } catch (err) {
             console.log(err);
@@ -95,6 +112,7 @@ export default function MainPage({ active, loading, setLoading }) {
             <div className="select-none relative  bg-cover bg-center bg-no-repeat" style={{width: '1280px', height: '1024px', backgroundImage: bgImage}}>
                 <div className='back-img'></div>
                 <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
+                    {/* <img src={image} alt="" /> */}
                     <div className="flex flex-col">
                         <NavLink to='/settings' className="absolute left-10 top-10 z-10 opacity-0 hover:opacity-100">
                             <Settings size={30} /> {/* Отображаем иконку шестеренки */}
@@ -102,8 +120,8 @@ export default function MainPage({ active, loading, setLoading }) {
                         <NavLink to='/template'><img src={main_icon} alt="camera icon" /></NavLink>
                         {/* <ChromakeyTest image={image_beta} backgroundImage={back_img} /> */}
                         <div style={word}><button onClick={() => navigate('/template')} >НАЧАТЬ ФОТОСЕССИЮ</button></div>
-                        {!updateStatus && <canvas ref={canvasRefForSelect} style={{ width: '413.3px', height: '614.6px', display: 'none'}} />}
-
+                        {/* {!updateStatus && <canvas ref={canvasRefForSelect} style={{ width: '413.3px', height: '614.6px', display: 'none'}} />} */}
+                        <canvas ref={canvasRefForSelect} style={{ width: '413.3px', height: '614.6px', display: 'none'}} />
                         {/* <NavLink to='/settings' className="text-black">Settings</NavLink> */}
                         {/* <div className="text-black">{appPath}</div> */}
 

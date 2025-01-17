@@ -19,14 +19,14 @@ export default function TemplateEditor() {
 
     usePageNavigation();
 
-    const { addObject, setCanvasProps, canvases, currentCanvasId, updateObjectProps, removeObject, addCanvas, removeCanvas, switchCanvas, setCanvasData, updated, setUpdated, chromokeyBackgroundImage } = useStore();
+    const { addObject, setCanvasProps, canvases, currentCanvasId, updateObjectProps, removeObject, addCanvas, removeCanvas, switchCanvas, setCanvasData, updateStatus, setUpdateStatus, chromokeyBackgroundImage, backgroundImage, setBackgroundImage, chromokeyStatus } = useStore();
     const [activeTab, setActiveTab] = useState('shapes');
     const canvasRef = useRef(null);
     const canvasRefForSelect = useRef(null);
     const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
     const fileInputRef = useRef(null);
+    const fileInputRefForSelect = useRef(null);
     const [selectedObjectId, setSelectedObjectId] = useState(null);
-    if (updated === true) setUpdated(false);
 
     const handleObjectClick = (e) => {
         // Получаем координаты клика относительно холста
@@ -169,12 +169,76 @@ export default function TemplateEditor() {
         }
     };
 
+    const handleFullScreenImageUpload = (e) => {
+        const file = e.target.files[0];  // Получаем первый файл из input
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                        // addNewImage(event.target.result, img.width, img.height, img);  // Передаем base64 и реальные размеры изображения
+                        // imageSrc, imgWidth, imgHeight, imgObject
+                    const newImage = {
+                        id: Date.now(),
+                        nameObject: 'Изображение ' + Date.now(),
+                        type: 'image',
+                        // fill: 'rgba(0, 0, 0, 0)', // Прозрачный фон для изображения
+                        src: event.target.result,
+                        imgObject: img,
+                        left: 0,
+                        top: 0,
+                        width: 1240,
+                        height: 1844,
+                        zIndex: 2,
+                        rotate: 0,
+                        opacity: 1
+                    };
+                    addObject(currentCanvasId, newImage);
+                };
+            };
+            reader.readAsDataURL(file);  // Преобразуем файл в base64
+        }
+    };
+
     useEffect(() => {
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
         const canvasSel = canvasRefForSelect.current;
         const ctxSel = canvasSel.getContext('2d');
+        function drawDashedCenterLines(ctx, canvasWidth, canvasHeight, object) {
+            // Центр объекта
+            const objectCenterX = object.x + object.width / 2;
+            const objectCenterY = object.y + object.height / 2;
         
+            // Настройки для линий
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)'; // Полупрозрачный черный цвет
+            ctx.lineWidth = 10; // Толщина линии
+            ctx.setLineDash([50, 5]); // Пунктир: 5px линия, 5px пробел
+        
+            // Рисуем вертикальную линию через центр объекта
+            ctx.beginPath();
+            ctx.moveTo(objectCenterX, 0); // Начало линии сверху
+            ctx.lineTo(objectCenterX, canvasHeight); // Линия вниз до края холста
+            ctx.stroke();
+        
+            // Рисуем горизонтальную линию через центр объекта
+            // ctx.beginPath();
+            // ctx.moveTo(0, objectCenterY); // Начало линии слева
+            // ctx.lineTo(canvasWidth, objectCenterY); // Линия вправо до края холста
+            // ctx.stroke();
+        
+            // Сбрасываем пунктирный стиль для последующих линий
+            ctx.setLineDash([]);
+        }
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+
+        const object = { x: 0, y: 0, width: 1244, height: 1840 };
+
+
+        
+
         // console.log(currentCanvas.canvasProps)
         const drawMarkers = (ctx, obj) => {
             if (!obj) return;
@@ -214,9 +278,8 @@ export default function TemplateEditor() {
     
         if (currentCanvas) {
             // Рисуем основной холст
-            drawMyCanvas(ctx, canvas, currentCanvas, true, chromokeyBackgroundImage);
-            drawMyCanvas(ctxSel, canvasSel, currentCanvas, false, chromokeyBackgroundImage);
-    
+            drawMyCanvas(ctx, canvas, currentCanvas, true, chromokeyStatus === true ? chromokeyBackgroundImage : backgroundImage, false);
+            drawMyCanvas(ctxSel, canvasSel, currentCanvas, false, chromokeyStatus === true ? chromokeyBackgroundImage : backgroundImage, false);
             // Выделяем объект, если он выбран
             if (selectedObjectId) {
                 const selectedObject = currentCanvas.objects.find(obj => obj.id === selectedObjectId);
@@ -336,9 +399,10 @@ export default function TemplateEditor() {
     async function loadAllCanvasData() {
         try {
             const canvasArray = await invoke('load_all_canvas_data');
-            console.log(canvasArray[0].objects);
+            // console.log(canvasArray[0].objects);
             switchCanvas(1); // Switch to the first canvas
             setCanvasData(canvasArray); // Use the new function to update the canvases
+            setUpdateStatus(true);
             toast.success('Данные обновлены');
         } catch (error) {
             toast.error('Failed to load all canvas data:', error);
@@ -358,6 +422,7 @@ export default function TemplateEditor() {
                 available: currentCanvas.canvasProps.available
             });
             removeCanvas(currentCanvas.id);
+            if ( canvases.length === 1 ) switchCanvas(1);
             switchCanvas(currentCanvas.id - 1);
             setSelectedObjectId(null);
             toast.success('Холст удален');
@@ -382,6 +447,38 @@ export default function TemplateEditor() {
         }
     }
 
+    const handlePrint = async ( currentCanvasId ) => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            const imageData = canvasRef.current.toDataURL('image/png');
+            const imageBase64 = imageData.replace(/^data:image\/(png|jpg);base64,/, '');
+            toast('Printing...', { type: 'info' });
+            await invoke('print_image', { imageData: imageBase64 });
+        } else {
+            toast('No image available for printing', { type: 'warning' });
+        }
+    };
+
+    const handleBackgroundChange = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const imageSrc = e.target.result;
+            const imageObject = new Image();
+            imageObject.src = imageSrc;
+            // Обновляем состояние с новым изображением
+            setBackgroundImage(imageSrc);
+            // console.log(chromokeyBackgroundImage.scr);
+            await invoke('save_background_image_for_photo', { image: imageSrc});
+
+        };
+        reader.readAsDataURL(file);
+
+    };
+
     return (
         <AdminShell props={props}>
             <div className="flex flex-col">
@@ -389,7 +486,7 @@ export default function TemplateEditor() {
                     <div className="w-3/5">
                         <div className="flex justify-between items-center mb-4">
                             {/* Canvas or shapes will be rendered here */}
-                            <canvas ref={canvasRef} style={{ border: '1px solid black', width: '413.3px', height: '614.6px' }}
+                            <canvas ref={canvasRef} style={{ border: '1px solid black', width: currentCanvas.canvasProps.width / 3, height: currentCanvas.canvasProps.height / 3 }}
                                 onClick={(e) => handleObjectClick(e)}
                             />
                             <canvas ref={canvasRefForSelect} style={{ width: '413.3px', height: '614.6px', display: 'none'}} />
@@ -403,19 +500,19 @@ export default function TemplateEditor() {
                                     className={`p-1 ${activeTab === 'shapes' ? 'bg-white dark:bg-gray-500  rounded-md border' : ''}`}
                                     onClick={() => setActiveTab('shapes')}
                                 >
-                                    Фигуры
+                                    Фото рамки
                                 </button>
                                 <button
                                     className={`p-1 ${activeTab === 'properties' ? 'bg-white dark:bg-gray-500 rounded-md border' : ''}`}
                                     onClick={() => setActiveTab('properties')}
                                 >
-                                    Свойства
+                                    Размер
                                 </button>
                                 <button
                                     className={`p-1 ${activeTab === 'canvas' ? 'bg-white dark:bg-gray-500 rounded-md border' : ''}`}
                                     onClick={() => setActiveTab('canvas')}
                                 >
-                                    Холст
+                                    Шаблоны
                                 </button>
                             </div>
 
@@ -442,6 +539,38 @@ export default function TemplateEditor() {
                                     <button onClick={() => addPhotoPlaceholder()} className="bg-blue-500 text-white p-3 rounded-lg mt-3 flex justify-center">
                                         <Plus /> Добавить фото-заглушку
                                     </button>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRefForSelect}
+                                        accept="image/*"
+                                        onChange={handleFullScreenImageUpload}
+                                        style={{ display: 'none' }}  // Скрываем input
+                                    />
+                                    <button onClick={() => fileInputRefForSelect.current.click()} className="bg-blue-500 text-white p-3 rounded-lg mt-3 flex justify-center">
+                                        <FileImage /> Добавить шаблон на весь экран
+                                    </button>
+                                    <div
+                                        className="rounded-lg border flex justify-center items-center cursor-pointer col-span-2 w-fit h-fit mt-3"
+                                        style={{ overflow: 'hidden', background: '#f3f3f3' }}
+                                    >
+                                        <label style={{ width: '200px', height: '200px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                            {backgroundImage.src ? (
+                                                <img
+                                                    className="object-cover w-full h-full"
+                                                    src={backgroundImage.src}
+                                                    alt="Сохранённый фон"
+                                                />
+                                            ) : (
+                                                <p>Кликните для выбора фона</p>
+                                            )}
+                                            <input 
+                                                type="file" 
+                                                accept="image/*" 
+                                                onChange={handleBackgroundChange} 
+                                                className="hidden" // Скрываем input
+                                            />
+                                        </label>
+                                    </div>
                                 </div>
                             )}
                             {activeTab === 'properties' && (
@@ -463,19 +592,19 @@ export default function TemplateEditor() {
                                             className='h-8 px-2 border border-gray-300 dark:border-gray-600 rounded-md w-40'
                                         />
                                     </div>
-                                    <div className='flex justify-center px-2'>
+                                    {/* <div className='flex justify-center px-2'>
                                         <button onClick={() => fullPage()} className='border border-gray-300 rounded-md px-4 bg-blue-400'>
                                             <p>На весь экран</p>
                                         </button>
-                                    </div>
+                                    </div> */}
 
                                 </div>
                             )}
                             {activeTab === 'canvas' && (
                                 <div className='flex flex-col gap-4'>
                                     <div className='px-2 gap-x-2 gap-y-4'>
-                                        <p>Холсты</p>
-                                        <div className='flex flex-col overflow-auto h-48 gap-1 border rounded-md bg-gray-150 p-1'>
+                                        <p>Шаблоны</p>
+                                        <div className='flex flex-col overflow-auto min-h-24 max-h-48 gap-1 border rounded-md bg-gray-150 p-1'>
                                             {canvases.map((canvas) => (
                                                 <button key={canvas.id} onClick={() => switchCanvas(canvas.id)} className={currentCanvas.id === canvas.id ? 'bg-blue-500 text-white rounded-md ' : 'flex justify-start'}>{canvas.canvasProps.name}</button>
                                             ))}
@@ -496,6 +625,8 @@ export default function TemplateEditor() {
                                             <div className='flex gap-2 items-center justify-center'>
                                                 <label className='w-4 flex items-center justify-center'>W</label>
                                                 <input
+                                                    min={200}
+                                                    max={1240}
                                                     type='number'
                                                     onChange={(e) => setCanvasProps(currentCanvas.id, { width: e.target.value })}
                                                     value={currentCanvas.canvasProps.width}
@@ -504,6 +635,8 @@ export default function TemplateEditor() {
                                             <div className='flex gap-2 items-center justify-center'>
                                                 <label className='w-4 flex items-center justify-center'>H</label>
                                                 <input
+                                                    min={200}
+                                                    max={1844}
                                                     type='number'
                                                     onChange={(e) => setCanvasProps(currentCanvas.id, { height: e.target.value })}
                                                     value={currentCanvas.canvasProps.height}
@@ -538,6 +671,24 @@ export default function TemplateEditor() {
                                                     />
                                                 <p className='text-2xl'>Использовать Холст</p>
                                             </button>
+                                            <div className='flex gap-2 items-center col-span-3 flex-wrap '>
+                                                <button
+                                                    className={`flex items-center justify-evenly w-fit bg-blue-600 text-white p-2 rounded-lg`}
+                                                    onClick={() => handlePrint(currentCanvasId)}>
+                                                    <p className='text-sm'>Пробная печать</p>
+                                                </button>
+                                                <button
+                                                    className={`flex gap-2 items-center justify-evenly ${currentCanvas.canvasProps.dottedLine ? 'bg-green-500' : 'bg-red-500'} text-white p-2 rounded-lg`}
+                                                    onClick={() => setCanvasProps(currentCanvas.id, { dottedLine: !currentCanvas.canvasProps.dottedLine })}>
+                                                    <input
+                                                        type='checkbox'
+                                                        checked={currentCanvas.canvasProps.dottedLine}
+                                                        className='w-4 h-4'
+                                                        onChange={() => setCanvasProps(currentCanvas.id, { dottedLine: !currentCanvas.canvasProps.dottedLine })}
+                                                        />
+                                                    <p className='text-sm'>Пунктирной линии </p>
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

@@ -502,6 +502,7 @@ const limitPositionWithinCanvas = (obj, canvasWidth, canvasHeight) => {
   return obj;
 };
 import back_img from '../assets/defaultImage.jpeg'; // Фоновое изображение
+import { background } from '@chakra-ui/react';
 
 const getPlaceholderColor = (numberImage) => {
   switch (numberImage) {
@@ -529,8 +530,15 @@ export const useStore = create(devtools((set) => ({
 
   isLiveView: false,
 
-  updateCameraStatus: (status) => set((state) => ({ cameraStatus: status })),
-  updateLiveViewStatus: (status) => set((state) => ({ isLiveView: status })),
+  updateCameraStatus: (status) => set({ cameraStatus: status }),
+  updateLiveViewStatus: (status) => set({ isLiveView: status }),
+
+  backgroundImage: {
+    imgObject: '',
+    src: back_img,
+  },
+
+  setBackgroundImage: (src) => set({ backgroundImage: { imgObject: '', src } }),
 
   canvases: [
     {
@@ -538,7 +546,8 @@ export const useStore = create(devtools((set) => ({
       canvasProps: {
         name: 'Canvas 1',
         available: true,
-        backgroundColor: 'blue',
+        dottedLine: false,
+        backgroundColor: '#0000ff',
         width: 1240,
         height: 1844,
         webpData: null
@@ -677,7 +686,8 @@ export const useStore = create(devtools((set) => ({
       canvasProps: {
         name: 'Canvas 2',
         available: true,
-        backgroundColor: 'yellow',
+        dottedLine: true,
+        backgroundColor: '#ffff00',
         width: 1240,
         height: 1844,
       },
@@ -815,7 +825,8 @@ export const useStore = create(devtools((set) => ({
       canvasProps: {
         name: 'Canvas 3',
         available: true,
-        backgroundColor: 'red',
+        dottedLine: false,
+        backgroundColor: '#ff0000',
         width: 1240,
         height: 1844,
       },
@@ -968,6 +979,9 @@ export const useStore = create(devtools((set) => ({
 
   chromokeyColor: '#00ff00',
 
+
+  counterCapturePhoto: 3,
+
   setChromokeyStatus: (status) => set({ chromokeyStatus: status }),
 
   setChromokeyBackgroundImage: (imageObject, imageSrc) => set({
@@ -978,6 +992,8 @@ export const useStore = create(devtools((set) => ({
   }),
 
   setChromokeyColor: (color) => set({ chromokeyColor: color }),
+
+  setCounterCapturePhoto: (value) => set({ counterCapturePhoto: value }),
 
   setUpdateStatus: (value) => set({ updateStatus: value }),
 

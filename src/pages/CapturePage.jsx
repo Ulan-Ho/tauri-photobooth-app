@@ -26,7 +26,7 @@ import { toast } from 'react-toastify';
 
 export default function CaptureScreen({ onCapture }) {
     const [bgImage, setBgImage] = useState(localStorage.getItem("back_3") || `url(${back_img})`);
-    const { chromokeyColor, setChromokeyColor, canvases, currentCanvasId, updateObjectProps, isLiveView, cameraStatus, updateCameraStatus, updateLiveViewStatus, chromokeyBackgroundImage, chromokeyStatus } = useStore();
+    const { chromokeyColor, setChromokeyColor, canvases, currentCanvasId, updateObjectProps, isLiveView, cameraStatus, updateCameraStatus, updateLiveViewStatus, chromokeyBackgroundImage, chromokeyStatus, counterCapturePhoto } = useStore();
     const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
     const imagesLenght = currentCanvas.objects.filter(object => object.type === 'image' && object.src === '').reduce((max, obj) => Math.max(max, obj.numberImage), 0);
     usePageNavigation();
@@ -38,7 +38,7 @@ export default function CaptureScreen({ onCapture }) {
     const [isCameraReady, setIsCameraReady] = useState(true);
 
     const [capturedImage, setCapturedImage] = useState(null);
-    const [countdown, setCountdown] = useState(3);
+    const [countdown, setCountdown] = useState(counterCapturePhoto);
     const [isShooting, setIsShooting] = useState(false);
     const [images, setImages] = useState([]);
     const navigate = useNavigate();
@@ -316,9 +316,9 @@ export default function CaptureScreen({ onCapture }) {
         const canvas = canvasRef.current;
         if (canvas) {
             const ctx = canvas.getContext('2d');
-            drawMyCanvas(ctx, canvas, currentCanvas, false, chromokeyBackgroundImage, true);
+            drawMyCanvas(ctx, canvas, currentCanvas, true, chromokeyBackgroundImage, false);
             const timeoutId = setTimeout(() => {
-                drawMyCanvas(ctx, canvas, currentCanvas, false, chromokeyBackgroundImage, true);
+                drawMyCanvas(ctx, canvas, currentCanvas, true, chromokeyBackgroundImage, false);
               }, 50); // Задержка в 50 миллисекунд (можно варьировать)
               // Очистка таймера, если компонент размонтируется
             const imageData = canvas.toDataURL('image/png');

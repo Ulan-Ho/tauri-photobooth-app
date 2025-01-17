@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api';
+import { toast } from 'react-toastify';
 
 export async function saveCanvasData(canvasId, canvasData) {
     try {

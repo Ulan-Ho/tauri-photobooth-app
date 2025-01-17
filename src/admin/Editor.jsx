@@ -14,7 +14,8 @@ import {
     ArrowLeft,
     Sliders,
     Crop as CropIcon,
-    Move
+    Move,
+    RefreshCcwDot
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/tauri";
@@ -42,6 +43,8 @@ const props = {
     page: 'Редактор изображений',
     type: 'editor'
 }
+
+import defaultImage from "../assets/defaultImage.jpeg";
 
 export default function Editor({ isDarkMode }) {
 
@@ -72,7 +75,7 @@ export default function Editor({ isDarkMode }) {
     }]);
     const [historyIndex, setHistoryIndex] = useState(0);
     const [state, setState] = useState({
-        image: "",
+        image: defaultImage,
         brightness: 100,
         grayscale: 0,
         sepia: 0,
@@ -98,10 +101,11 @@ export default function Editor({ isDarkMode }) {
         const fetchImage = async () => {
             try {
                 const image = await invoke('get_image', { imageName: `${whyBg}_bg.jpeg`});
+                console.log(image);
                 const url_image = `data:image/jpeg;base64,${image}`;
                 const newState = {
                     ...state,
-                    image: url_image,
+                    image: url_image || defaultImage,
                     brightness: 100,
                     grayscale: 0,
                     sepia: 0,
@@ -115,6 +119,21 @@ export default function Editor({ isDarkMode }) {
                 setState(newState);
                 updateHistory(newState);
             } catch (err) {
+                const newState = {
+                    ...state,
+                    image: defaultImage,
+                    brightness: 100,
+                    grayscale: 0,
+                    sepia: 0,
+                    saturate: 100,
+                    contrast: 100,
+                    hueRotate: 0,
+                    rotate: 0,
+                    vertical: 1,
+                    horizontal: 1
+                    };
+                setState(newState);
+                updateHistory(newState);
                 console.log(err);
             }
         };
@@ -168,6 +187,33 @@ export default function Editor({ isDarkMode }) {
         setState(history[newIndex]);
         }
     };
+
+    const refreshCcwDot = async () => {
+        try {
+            const image = await invoke('delete_image', { imageName: `${whyBg}_bg.jpeg` });
+            // const url_image = `url(data:image/jpeg;base64,${image})`;
+            // setBgImage(url_image);
+            const newState = {
+                ...state,
+                image: defaultImage,
+                brightness: 100,
+                grayscale: 0,
+                sepia: 0,
+                saturate: 100,
+                contrast: 100,
+                hueRotate: 0,
+                rotate: 0,
+                vertical: 1,
+                horizontal: 1
+                };
+            setState(newState);
+            updateHistory(newState);
+            console.log(image)
+            localStorage.removeItem(`back_${whyBg}`);
+        } catch (err) {
+            console.log(err);
+        }
+    }
 
     const handleImageUpload = e => {
         if (e.target.files && e.target.files.length !== 0) {
@@ -411,20 +457,23 @@ export default function Editor({ isDarkMode }) {
                     <button onClick={redo} className="p-2 bg-gray-200 dark:bg-gray-600 rounded-full hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors duration-300" disabled={historyIndex === history.length - 1}>
                         <Redo className="w-6 h-6" />
                     </button>
+                    <button onClick={refreshCcwDot} className="p-2 bg-gray-200 dark:bg-gray-600 rounded-full hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors duration-300" disabled={historyIndex === 0}>
+                        <RefreshCcwDot className="w-6 h-6" />
+                    </button>
                 </div>
 
-                <div className="flex justify-center gap-4 mt-6">
+                <div className="grid-cols-2 grid justify-center gap-4 mt-6">
                     <button onClick={() => setWhyBg(1)} className={`py-1 px-3 bg-gray-200 dark:bg-gray-600 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors duration-300 ${whyBg === 1 ? 'bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-800 hover:bg-blue-800' : ''}`}>
-                        first
+                        Главная
                     </button>
                     <button onClick={() => setWhyBg(2)} className={`py-1 px-3 bg-gray-200 dark:bg-gray-600 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors duration-300 ${whyBg === 2 ? 'bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-800 hover:bg-blue-800' : ''}`}>
-                        second
+                        Шаблоны
                     </button>
                     <button onClick={() => setWhyBg(3)} className={`py-1 px-3 bg-gray-200 dark:bg-gray-600 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors duration-300 ${whyBg === 3 ? 'bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-800 hover:bg-blue-800' : ''}`}>
-                        three
+                        Фото
                     </button>
                     <button onClick={() => setWhyBg(4)} className={`py-1 px-3 bg-gray-200 dark:bg-gray-600 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors duration-300 ${whyBg === 4 ? 'bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-800 hover:bg-blue-800' : ''}`}>
-                        four
+                        Печать
                     </button>
                 </div>
                 <input value={whyBg} className='mt-4 -ml-3 h-8 border border-gray-300 dark:border-gray-600 rounded-md w-11 pl-4 bg-white' disabled/>

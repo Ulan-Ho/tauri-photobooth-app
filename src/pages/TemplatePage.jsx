@@ -7,14 +7,13 @@ import back_img from '../assets/defaultImage.jpeg';
 import { invoke } from "@tauri-apps/api/tauri"
 import { useStore } from '../admin/store.js';
 
-export default function TemplatePage({ onSelectDesign }) {
+export default function TemplatePage({ design, setDesign }) {
     const [bgImage, setBgImage] = useState(localStorage.getItem("back_2") || `url(${back_img})`);
     const { canvases, switchCanvas, currentCanvasId, cameraStatus, updateCameraStatus, updateLiveViewStatus } = useStore();
     const availableCanvases = canvases.filter((canvas) => canvas.canvasProps.available === true);
     const navigate = useNavigate();
     usePageNavigation();
 
-    const [selectedDesign, setSelectedDesign] = useState('color');
     const [currentIndex, setCurrentIndex] = useState(0);
 
     useEffect(() => {
@@ -35,13 +34,8 @@ export default function TemplatePage({ onSelectDesign }) {
         }
     },[]);
 
-    const handleDesignSelect = (design) => {
-        setSelectedDesign(design);
-        onSelectDesign(design);
-    };
-
     const handleNext = async () => {
-        if (selectedDesign) navigate('/capture');
+        if (design) navigate('/capture');
         else alert('Пожалуйста, выберите дизайн.');
         if (!cameraStatus) {
             await invoke('initialize_camera');
@@ -126,14 +120,14 @@ export default function TemplatePage({ onSelectDesign }) {
                                     <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
                                 </button>
                                 <button
-                                    onClick={() => handleDesignSelect('color')}
-                                    className={`border-2 rounded-3xl px-12 py-8 bg-white ${selectedDesign === 'color' ? 'ring-4 ring-blue-500' : ''}`}
+                                    onClick={() => setDesign(true)}
+                                    className={`border-2 rounded-3xl px-12 py-8 bg-white ${design  ? 'ring-4 ring-blue-500' : ''}`}
                                 >
                                     <p className='w-44 text-black text-2xl font-medium'>ЦВЕТНОЕ ФОТО</p>
                                 </button>
                                 <button
-                                    onClick={() => handleDesignSelect('grayscale')}
-                                    className={`border-2 rounded-3xl px-12 py-8 bg-white ${selectedDesign === 'grayscale' ? 'ring-4 ring-blue-500' : ''}`}
+                                    onClick={() => setDesign(false)}
+                                    className={`border-2 rounded-3xl px-12 py-8 bg-white ${ !design ? 'ring-4 ring-blue-500' : ''}`}
                                 >
                                     <p className='w-44 text-black text-2xl font-medium'>ЧЕРНО-БЕЛОЕ ФОТО</p>
                                 </button>

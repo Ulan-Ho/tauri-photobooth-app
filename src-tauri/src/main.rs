@@ -620,6 +620,58 @@ fn capture_photo_as(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) ->
         Err("Camera is not initialized".into())
     }
 }
+static mut LAST_SAVED_IMAGE: Option<PathBuf> = None;
+
+fn save_captured_image(image_data: String) -> Result<String, String> {
+    println!("Saving captured image...");
+
+    let current_date = Local::now().format("%Y-%m-%d").to_string();
+    let base_path = tauri::api::path::picture_dir()
+        .ok_or("Failed to resolve picture_dir")?;
+    let base_dir = base_path.join("photo_library");
+
+    let date_dir = base_dir.join(&current_date);
+    if !date_dir.exists() {
+        fs::create_dir_all(&date_dir).map_err(|err| format!("Failed to create directory: {}", err))?;
+    }
+
+    let timestamp = Local::now().format("%H-%M-%S").to_string();
+    let file_name = format!("photo_{}.jpg", timestamp);
+    let file_path = date_dir.join(file_name);
+
+    let decoded_image = BASE64_STANDARD
+        .decode(&image_data)
+        .map_err(|err| format!("Failed to decode image data: {}", err))?;
+    let mut file = File::create(&file_path).map_err(|err| format!("Failed to create file: {}", err))?;
+    file.write_all(&decoded_image)
+        .map_err(|err| format!("Failed to write image to file: {}", err))?;
+
+    println!("Image saved to {}", file_path.display());
+
+    // Сохраняем путь к последнему изображению
+    unsafe {
+        LAST_SAVED_IMAGE = Some(file_path.clone());
+    }
+
+    Ok(file_path.to_str().unwrap_or_default().to_string())
+}
+
+#[tauri::command]
+fn get_last_saved_image() -> Result<String, String> {
+    unsafe {
+        if let Some(last_image) = &LAST_SAVED_IMAGE {
+            println!("Returning last saved image: {}", last_image.display());
+
+            if let Ok(data) = fs::read(last_image) {
+                let base64_str = BASE64_STANDARD.encode(&data);
+                return Ok(base64_str);
+            } else {
+                return Err("Failed to read the last saved image.".to_string());
+            }
+        }
+    }
+    Err("No image has been saved yet.".to_string())
+}
 
 #[tauri::command]
 fn get_captured_image() -> Result<String, String> {
@@ -627,7 +679,8 @@ fn get_captured_image() -> Result<String, String> {
 
     // Путь к файлу captured_image.jpg
     let file_path = PathBuf::from(env::current_dir().map_err(|err| err.to_string())?)
-        .join("captured_image.jpg");
+        .join("мой_фото.jpg");
+    
 
     // Проверяем наличие файла каждые 1 секунду, максимум 30 секунд
     let max_attempts = 30;
@@ -647,7 +700,7 @@ fn get_captured_image() -> Result<String, String> {
         Ok(data) => {
             println!("Image data read successfully");
             let base64_str = BASE64_STANDARD.encode(&data);
-            
+            let _ = save_captured_image(base64_str.clone());
             // Удаляем файл после успешного чтения
             if file_path.exists() {
                 fs::remove_file(&file_path).map_err(|err| format!("Failed to delete file: {}", err))?;
@@ -811,15 +864,17 @@ async fn main() {
             start_live_view,
             download_ev_image_command,
             get_captured_image,
+            get_last_saved_image,
             stop_live_view,
             get_printers,
             save_printers,
             update_selected_printer,
-            end_camera, save_background, get_background,
+            end_camera, save_settings, read_settings, save_background_image_for_photo, get_background_chromakey, get_background_image,
             get_printer_full_information,
             get_image_name,
             open_printer_information,
-            open_printer_status])
+            open_printer_status,
+            delete_image])
         .manage(Arc::new(Mutex::new(None::<Arc<Mutex<Camera>>>)))
         .manage(PrinterState::default())
         .run(tauri::generate_context!())
@@ -925,8 +980,6 @@ fn get_image(app_handle: tauri::AppHandle, image_name: String) -> Result<String,
     
     path.push(format!("database/background/{}", image_name));
 
-    println!("Путь к изображению: {:?}", path);
-    // Читаем файл
     match fs::read(&path) {
         Ok(data) => {
             // Кодируем данные в строку Base64
@@ -944,7 +997,7 @@ fn get_image_name(app_handle: tauri::AppHandle, image_name: String) -> Result<St
         .app_data_dir()
         .ok_or("Failed to resolve app cache directory")?;
     
-    path.push(format!("database/background/{}", image_name));
+    path.push(format!("database\\background\\{}", image_name));
 
     println!("Путь к изображению: {:?}", path);
     let path_str = path
@@ -952,6 +1005,24 @@ fn get_image_name(app_handle: tauri::AppHandle, image_name: String) -> Result<St
         .ok_or("Failed to convert path to string")?
         .to_string();
     Ok(path_str)
+}
+
+#[tauri::command]
+fn delete_image(app_handle: tauri::AppHandle, image_name: String) -> Result<String, String> {
+    // Определяем путь к изображению
+    let mut path = app_handle.path_resolver()
+        .app_data_dir()
+        .ok_or("Failed to resolve app data directory")?;
+    
+    path.push(format!("database/background/{}", image_name));
+
+    println!("Путь к изображению для удаления: {:?}", path);
+
+    // Пытаемся удалить файл
+    match fs::remove_file(&path) {
+        Ok(()) => Ok(format!("Image {} deleted successfully", image_name)),
+        Err(e) => Err(format!("Failed to delete image: {}", e)), // Обрабатываем ошибку
+    }
 }
 
 //------------------------------------------Timer---------------------------------------------------------------
@@ -1130,7 +1201,7 @@ fn setting_dir(app_handle: tauri::AppHandle) {
 
     let base_path_clone = base_path.clone(); // Clone base_path for use in the async block
     tauri::async_runtime::spawn(async move {
-        let directories = vec!["database", "database/template", "database/time", "database/background", "database/images", "database/chromakey"];
+        let directories = vec!["database", "database/template", "database/time", "database/background", "database/images", "database/settings"];
         create_directories_if_not_exist(directories, &base_path_clone); // Use the cloned version
     });
     create_time_json_if_not_exist(&base_path);
@@ -1357,10 +1428,6 @@ fn load_all_canvas_data(app_handle: tauri::AppHandle) -> Result<Vec<Value>, Stri
         }
     }
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 72aae1949038d8d1ea99441d149183d3addc1322
     if canvas_data.is_empty() {
         return Ok(vec![]);
     }
@@ -1575,20 +1642,84 @@ fn open_printer_status() -> Result<(), String> {
 }
 
 //-------------------------------------------------Chromokey-------------------------------------------------------------------------------------
-#[tauri::command]
-fn save_background(app_handle: tauri::AppHandle, image: String) -> Result<(), String> {
-    let base_path = app_handle.path_resolver().app_data_dir().unwrap();
-    let path = base_path.join("database/background/background.png");
 
+#[derive(Serialize, Deserialize, Debug)]
+struct ChromakeyData {
+    chromakey_image_path: String,
+    chromakey_color: String,
+    counter_capture_photo: u32,
+}
+
+#[tauri::command]
+fn save_settings(app_handle: tauri::AppHandle, image: String, color: String, counter: u32) -> Result<(), String> {
+    let base_path = app_handle.path_resolver().app_data_dir().unwrap();
+    let path = base_path.join("database\\settings\\chromoketImage.png");
     // Сохраняем изображение как Base64
-    fs::write(path, image).map_err(|e| format!("Ошибка сохранения изображения: {}", e))?;
+    fs::write(path.clone(), image).map_err(|e| format!("Ошибка сохранения изображения: {}", e))?;
+
+    let chromakey_data = ChromakeyData {
+        chromakey_image_path: path.to_str().unwrap_or_default().to_string(),
+        chromakey_color: color.to_string(),
+        counter_capture_photo: counter,
+    };
+
+    let json_data = serde_json::to_string_pretty(&chromakey_data).map_err(|e| e.to_string())?;
+
+    let json_path = base_path.join("database/settings/chromakey.json");
+
+    let mut json_file = File::create(json_path).map_err(|e| e.to_string())?;
+    
+    json_file.write_all(json_data.as_bytes()).map_err(|e| e.to_string())?;
+    
     Ok(())
 }
 
 #[tauri::command]
-fn get_background(app_handle: tauri::AppHandle) -> Result<String, String> {
+fn read_settings(app_handle: tauri::AppHandle) -> Result<ChromakeyData, String> {
+    // Определяем путь к файлу JSON
     let base_path = app_handle.path_resolver().app_data_dir().unwrap();
-    let path = base_path.join("database/background/background.png");
+    let json_path = base_path.join("database/settings/chromakey.json");
+
+    // Проверяем, существует ли файл
+    if !json_path.exists() {
+        return Err("Файл настроек не найден.".to_string());
+    }
+
+    // Читаем файл
+    let json_content = fs::read_to_string(json_path).map_err(|e| format!("Ошибка чтения файла: {}", e))?;
+
+    // Десериализуем JSON в структуру ChromakeyData
+    let chromakey_data: ChromakeyData =
+        serde_json::from_str(&json_content).map_err(|e| format!("Ошибка парсинга JSON: {}", e))?;
+
+    Ok(chromakey_data)
+}
+
+#[tauri::command]
+fn save_background_image_for_photo(app_handle: tauri::AppHandle, image: String) -> Result<(), String> {
+    let base_path = app_handle.path_resolver().app_data_dir().unwrap();
+    let path = base_path.join("database\\settings\\backgroundImage.png");
+    fs::write(path.clone(), image).map_err(|e| format!("Ошибка сохранения изображения: {}", e))?;
+    Ok(())
+}
+
+#[tauri::command]
+fn get_background_image(app_handle: tauri::AppHandle) -> Result<String, String> {
+    let base_path = app_handle.path_resolver().app_data_dir().unwrap();
+    let path = base_path.join("database\\settings\\backgroundImage.png");
+
+    if !path.exists() {
+        return Err("Фон не найден".to_string());
+    }
+
+    // Читаем изображение из файла
+    fs::read_to_string(path).map_err(|e| format!("Ошибка загрузки изображения: {}", e))
+}
+
+#[tauri::command]
+fn get_background_chromakey(app_handle: tauri::AppHandle) -> Result<String, String> {
+    let base_path = app_handle.path_resolver().app_data_dir().unwrap();
+    let path = base_path.join("database\\settings\\chromokeyImage.png");
 
     if !path.exists() {
         return Err("Фон не найден".to_string());

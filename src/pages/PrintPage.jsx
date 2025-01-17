@@ -53,11 +53,11 @@ export default function PrintPage({ images, design }) {
     const canvas = canvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext('2d');
-      drawMyCanvas(ctx, canvas, currentCanvas, false, chromokeyBackgroundImage, true);
+      drawMyCanvas(ctx, canvas, currentCanvas, false, chromokeyBackgroundImage, design);
 
       // Второй вызов отрисовки через небольшой промежуток времени
       const timeoutId = setTimeout(() => {
-        drawMyCanvas(ctx, canvas, currentCanvas, false, chromokeyBackgroundImage, true);
+        drawMyCanvas(ctx, canvas, currentCanvas, false, chromokeyBackgroundImage, design);
       }, 50); // Задержка в 50 миллисекунд (можно варьировать)
       // Очистка таймера, если компонент размонтируется
       const imageData = canvas.toDataURL('image/png');
@@ -97,7 +97,6 @@ export default function PrintPage({ images, design }) {
     } else {
       toast('No image available for printing', { type: 'warning' });
     }
-
   };
 
   const backPage = async () => {

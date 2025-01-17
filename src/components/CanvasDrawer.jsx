@@ -301,17 +301,51 @@ export const setRotate = (ctx, obj) => {
     ctx.rotate((obj.rotate || 0) * Math.PI / 180);
 }
 
-export const drawMyCanvas = (ctx, canvas, currentCanvas, bool, chromokeyBackgroundImage) => {
+function drawDashedCenterLines(ctx, canvasWidth, canvasHeight, object) {
+    // Центр объекта
+    const objectCenterX = object.x + object.width / 2;
+    const objectCenterY = object.y + object.height / 2;
+
+    // Настройки для линий
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)'; // Полупрозрачный черный цвет
+    ctx.lineWidth = 5; // Толщина линии
+    ctx.setLineDash([50, 10]); // Пунктир: 5px линия, 5px пробел
+
+    // Рисуем вертикальную линию через центр объекта
+    ctx.beginPath();
+    ctx.moveTo(objectCenterX, 0); // Начало линии сверху
+    ctx.lineTo(objectCenterX, canvasHeight); // Линия вниз до края холста
+    ctx.stroke();
+
+    // Рисуем горизонтальную линию через центр объекта
+    // ctx.beginPath();
+    // ctx.moveTo(0, objectCenterY); // Начало линии слева
+    // ctx.lineTo(canvasWidth, objectCenterY); // Линия вправо до края холста
+    // ctx.stroke();
+
+    // Сбрасываем пунктирный стиль для последующих линий
+    ctx.setLineDash([]);
+}
+
+export const drawMyCanvas = (ctx, canvas, currentCanvas, bool, chromokeyBackgroundImage, design) => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // Устанавливаем размеры холста
     canvas.width = currentCanvas.canvasProps.width;
     canvas.height = currentCanvas.canvasProps.height;
 
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
+
+    const object = { x: 0, y: 0, width: 1244, height: 1840 };
+
     // Задаем цвет фона
     ctx.fillStyle = currentCanvas.canvasProps.backgroundColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    if (design) ctx.filter = 'grayscale(1)'
+    else ctx.filter = 'grayscale(0)'
+    
     const sortedObjects = [...currentCanvas.objects].sort((a, b) => a.zIndex - b.zIndex);
 
     // Отрисовываем объекты
@@ -351,4 +385,7 @@ export const drawMyCanvas = (ctx, canvas, currentCanvas, bool, chromokeyBackgrou
 
         ctx.restore();  // Восстанавливаем состояние контекста
     });
+
+    if (currentCanvas.canvasProps.dottedLine) drawDashedCenterLines(ctx, canvasWidth, canvasHeight, object);
+
 }

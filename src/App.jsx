@@ -20,7 +20,7 @@ import { usePageNavigation } from './hooks/usePageNavigation.js';
 export default function App(){
   const [selectedPrinter, setSelectedPrinter] = useState(null);
   const [showPopup, setShowPopup] = useState(true);
-  const [design, setDesign] = useState('');
+  const [design, setDesign] = useState(true);
   const [images, setImages] = useState([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -42,7 +42,7 @@ export default function App(){
             <Routes>
               {/* <Route path="/" element={<MainPage />} /> */}
               <Route path="/" element={<MainPage active={showPopup} setLoading={setLoading} loading={loading} />}/>
-              <Route path="/template" element={<TemplatePage onSelectDesign={setDesign} />} />
+              <Route path="/template" element={<TemplatePage design={design} setDesign={setDesign} />} />
               <Route path="/capture" element={<CapturePage onCapture={setImages}/>} />
               <Route path="/print" element={<PrintPage design={design} images={images} onPrint={() => {}} />} />
 
