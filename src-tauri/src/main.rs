@@ -852,7 +852,6 @@ async fn main() {
                 });
 
                 // Инициализация директорий
-                setting_dir(handle_clone);
 
                 Ok(())
             }
@@ -866,17 +865,18 @@ async fn main() {
             get_captured_image,
             get_last_saved_image,
             stop_live_view,
-            get_printers,
-            save_printers,
-            update_selected_printer,
+            get_printers, get_projects,
+            save_printers, save_projects,
+            update_selected_printer, update_selected_project,
             end_camera, save_settings, read_settings, save_background_image_for_photo, get_background_chromakey, get_background_image,
             get_printer_full_information,
             get_image_name,
-            open_printer_information,
+            open_printer_information, save_projects_and_create_dir, init_project_path,
             open_printer_status,
             delete_image])
         .manage(Arc::new(Mutex::new(None::<Arc<Mutex<Camera>>>)))
         .manage(PrinterState::default())
+        .manage(ProjectState::default())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -963,7 +963,10 @@ fn save_image(app_handle: tauri::AppHandle, image_data: String, file_name: Strin
     let decoded_data = BASE64_STANDARD.decode(image_data).map_err(|e| e.to_string())?;
     println!("Size of decoded image data: {} bytes", decoded_data.len());
     // Установите путь для сохранения файла
-    let base_path = app_handle.path_resolver().app_data_dir().ok_or("Failed to resolve app data directory")?;
+    let base_path = PROJECT_PATH.lock().unwrap()
+    .clone()
+    .ok_or("Project path is not set. Call update_project_path first.")?;
+
     let file_path = base_path.join("database").join("background").join(file_name);
     let mut file = File::create(file_path.clone()).map_err(|e| e.to_string())?;
 
@@ -974,10 +977,10 @@ fn save_image(app_handle: tauri::AppHandle, image_data: String, file_name: Strin
 #[tauri::command]
 fn get_image(app_handle: tauri::AppHandle, image_name: String) -> Result<String, String> {
     // Определяем путь к изображению
-    let mut path = app_handle.path_resolver()
-        .app_data_dir()
-        .ok_or("Failed to resolve app cache directory")?;
-    
+    let mut path = PROJECT_PATH.lock().unwrap()
+        .clone()
+        .ok_or("Project path is not set. Call update_project_path first.")?;
+
     path.push(format!("database/background/{}", image_name));
 
     match fs::read(&path) {
@@ -993,9 +996,9 @@ fn get_image(app_handle: tauri::AppHandle, image_name: String) -> Result<String,
 #[tauri::command]
 fn get_image_name(app_handle: tauri::AppHandle, image_name: String) -> Result<String, String> {
     // Определяем путь к изображению
-    let mut path = app_handle.path_resolver()
-        .app_data_dir()
-        .ok_or("Failed to resolve app cache directory")?;
+    let mut path = PROJECT_PATH.lock().unwrap()
+        .clone()
+        .ok_or("Project path is not set. Call update_project_path first.")?;
     
     path.push(format!("database\\background\\{}", image_name));
 
@@ -1010,9 +1013,9 @@ fn get_image_name(app_handle: tauri::AppHandle, image_name: String) -> Result<St
 #[tauri::command]
 fn delete_image(app_handle: tauri::AppHandle, image_name: String) -> Result<String, String> {
     // Определяем путь к изображению
-    let mut path = app_handle.path_resolver()
-        .app_data_dir()
-        .ok_or("Failed to resolve app data directory")?;
+    let mut path = PROJECT_PATH.lock().unwrap()
+        .clone()
+        .ok_or("Project path is not set. Call update_project_path first.")?;
     
     path.push(format!("database/background/{}", image_name));
 
@@ -1028,7 +1031,9 @@ fn delete_image(app_handle: tauri::AppHandle, image_name: String) -> Result<Stri
 //------------------------------------------Timer---------------------------------------------------------------
 #[tauri::command]
 fn get_work_hours(app_handle: tauri::AppHandle) -> Result<WorkHours, String> {
-    let base_path = app_handle.path_resolver().app_data_dir().ok_or("Failed to resolve app data directory")?;
+    let base_path = PROJECT_PATH.lock().unwrap()
+        .clone()
+        .ok_or("Project path is not set. Call update_project_path first.")?;
     let path = base_path.join("database/time/time.json");
 
     let file_content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
@@ -1041,8 +1046,9 @@ fn set_work_hours(app_handle: tauri::AppHandle, start: String, end: String, is_a
 
     let sleep_time  = NaiveTime::parse_from_str(&end, "%H:%M").map_err(|e| e.to_string())?;
     let wake_time  = NaiveTime::parse_from_str(&start, "%H:%M").map_err(|e| e.to_string())?;
-    let data_dir = app_handle.path_resolver().app_data_dir()
-        .ok_or("Failed to get app data directory")?;
+    let data_dir = PROJECT_PATH.lock().unwrap()
+        .clone()
+        .ok_or("Project path is not set. Call update_project_path first.")?;
     let file_path = data_dir.join("database/time/time.json");
     let work_hours = WorkHours { start: start.clone(), end: end.clone(), is_always_active: is_always_active.clone() };
     let file_content = serde_json::to_string(&work_hours).map_err(|e| e.to_string())?;
@@ -1196,15 +1202,68 @@ Remove-Item $taskXmlPath -Force
 }
 
 //---------------------------------------------------Setting App---------------------------------------------------------------------
-fn setting_dir(app_handle: tauri::AppHandle) {
+// Глобальная переменная для пути выбранного проекта
+lazy_static::lazy_static! {
+    static ref PROJECT_PATH: Arc<Mutex<Option<PathBuf>>> = Arc::new(Mutex::new(None));
+}
+
+fn update_project_path(app_handle: &tauri::AppHandle) -> Result<(), String> {
+    let base_path = app_handle
+        .path_resolver()
+        .app_data_dir()
+        .ok_or("Failed to resolve app data directory")?;
+    
+    // Путь к JSON с проектами
+    let projects_file = base_path.join("database/printers/projects.json");
+
+    // Чтение списка проектов
+    let projects: Vec<ProjectInfo> = if projects_file.exists() {
+        let data = fs::read_to_string(&projects_file).map_err(|e| e.to_string())?;
+        serde_json::from_str(&data).map_err(|e| e.to_string())?
+    } else {
+        return Err("Projects file does not exist".to_string());
+    };
+
+    // Поиск текущего выбранного проекта
+    if let Some(selected_project) = projects.into_iter().find(|p| p.is_used) {
+        let project_path = base_path.join(&selected_project.name);
+        *PROJECT_PATH.lock().unwrap() = Some(project_path.clone());
+        println!("Updated project path: {:?}", project_path);
+    } else {
+        return Err("No project is marked as 'is_used'".to_string());
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+fn init_project_path(app_handle: tauri::AppHandle) -> Result<(), String> {
+    update_project_path(&app_handle)
+}
+
+fn setting_dir(app_handle: tauri::AppHandle, projects: Vec<ProjectInfo>) {
     let base_path = app_handle.path_resolver().app_data_dir().unwrap();
 
-    let base_path_clone = base_path.clone(); // Clone base_path for use in the async block
-    tauri::async_runtime::spawn(async move {
-        let directories = vec!["database", "database/template", "database/time", "database/background", "database/images", "database/settings"];
-        create_directories_if_not_exist(directories, &base_path_clone); // Use the cloned version
-    });
-    create_time_json_if_not_exist(&base_path);
+    // Найти проект с is_used: true
+    if let Some(used_project) = projects.iter().find(|p| p.is_used) {
+        // Добавляем подпапку с именем выбранного проекта
+        let project_path = base_path.join(&used_project.name); 
+        let base_path_clone = project_path.clone();
+        tauri::async_runtime::spawn(async move {
+            let directories = vec![
+                "database",
+                "database/template",
+                "database/time",
+                "database/background",
+                "database/images",
+                "database/settings",
+            ];
+            create_directories_if_not_exist(directories, &base_path_clone);
+        });
+        create_time_json_if_not_exist(&base_path);
+    } else {
+        println!("Нет активного проекта для создания подпапки.");
+    };
 }
 
 fn create_directories_if_not_exist(dirs: Vec<&str>, base_path: &PathBuf) {
@@ -1265,10 +1324,9 @@ fn create_time_json_if_not_exist(base_path: &PathBuf) {
 #[tauri::command]
 fn save_canvas_data(canvas_id: String, data: String, available: bool, app_handle: tauri::AppHandle) -> Result<(), String> {
     // Получаем путь к папке приложения для хранения данных
-    let base_path = app_handle
-        .path_resolver()
-        .app_data_dir()
-        .ok_or("Не удалось разрешить папку данных приложения.")?;
+    let base_path = PROJECT_PATH.lock().unwrap()
+        .clone()
+        .ok_or("Project path is not set. Call update_project_path first.")?;
 
     // Создаем путь для сохранения данных шаблона в папке 'database/template'
     let template_dir;
@@ -1305,10 +1363,9 @@ fn save_canvas_data(canvas_id: String, data: String, available: bool, app_handle
 #[tauri::command]
 fn save_canvas_image(canvas_id: String, base64_image: String, available: bool, app_handle: tauri::AppHandle) -> Result<(), String> {
     // Получаем путь к папке приложения для хранения данных
-    let base_path = app_handle
-        .path_resolver()
-        .app_data_dir()
-        .ok_or("Не удалось разрешить папку данных приложения.")?;
+    let base_path = PROJECT_PATH.lock().unwrap()
+        .clone()
+        .ok_or("Project path is not set. Call update_project_path first.")?;
 
     // Создаем путь для сохранения изображений холста в папке 'database/images'
     let image_dir;
@@ -1348,10 +1405,9 @@ fn save_canvas_image(canvas_id: String, base64_image: String, available: bool, a
 #[tauri::command]
 fn delete_canvas_image_and_data(canvas_id: String, available: bool, app_handle: tauri::AppHandle) -> Result<(), String> {
     // Получаем путь к папке приложения для хранения данных
-    let base_path = app_handle
-        .path_resolver()
-        .app_data_dir()
-        .ok_or("Не удалось разрешить папку данных приложения.")?;
+    let base_path = PROJECT_PATH.lock().unwrap()
+        .clone()
+        .ok_or("Project path is not set. Call update_project_path first.")?;
 
     // Создаем путь для сохранения данных шаблона в папке 'database/template'
     let template_dir;
@@ -1383,10 +1439,9 @@ fn delete_canvas_image_and_data(canvas_id: String, available: bool, app_handle: 
 
 #[tauri::command]
 fn load_all_canvas_data(app_handle: tauri::AppHandle) -> Result<Vec<Value>, String> {
-    let base_path = app_handle
-        .path_resolver()
-        .app_data_dir()
-        .ok_or("Failed to resolve app data directory")?;
+    let base_path = PROJECT_PATH.lock().unwrap()
+        .clone()
+        .ok_or("Project path is not set. Call update_project_path first.")?;
 
     let template_dir_not_available = base_path.join("database/template/not_available");
     let template_dir_available = base_path.join("database/template/available");
@@ -1438,10 +1493,9 @@ fn load_all_canvas_data(app_handle: tauri::AppHandle) -> Result<Vec<Value>, Stri
 
 #[tauri::command]
 fn load_all_canvas_images(app_handle: tauri::AppHandle) -> Result<Vec<String>, String> {
-    let base_path = app_handle
-        .path_resolver()
-        .app_data_dir()
-        .ok_or("Failed to resolve app data directory")?;
+    let base_path = PROJECT_PATH.lock().unwrap()
+        .clone()
+        .ok_or("Project path is not set. Call update_project_path first.")?;    
 
     let image_dir_available = base_path.join("database/template/available");
 
@@ -1471,10 +1525,9 @@ fn load_all_canvas_images(app_handle: tauri::AppHandle) -> Result<Vec<String>, S
 
 #[tauri::command]
 fn load_available_canvas_data(app_handle: tauri::AppHandle) -> Result<Vec<Value>, String> {
-    let base_path = app_handle
-        .path_resolver()
-        .app_data_dir()
-        .ok_or("Failed to resolve app data directory")?;
+    let base_path = PROJECT_PATH.lock().unwrap()
+        .clone()
+        .ok_or("Project path is not set. Call update_project_path first.")?;
 
     let template_dir_available = base_path.join("database/template/available");
 
@@ -1577,6 +1630,145 @@ fn update_selected_printer(app_handle: tauri::AppHandle, state: State<PrinterSta
 }
 
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct ProjectInfo {
+    id: u32,
+    name: String,
+    is_used: bool,
+}
+
+#[derive(Default, Debug)]
+struct ProjectState {
+    selected_project: Mutex<Option<ProjectInfo>>,
+}
+
+#[tauri::command]
+fn get_projects(app_handle: tauri::AppHandle) -> Result<Vec<ProjectInfo>, String> {
+    let base_path = app_handle
+        .path_resolver()
+        .app_data_dir()
+        .ok_or("Не удалось разрешить папку данных приложения.")?;
+    let dir = base_path.join("database/printers");
+    if !dir.exists() {
+        fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    }
+    let file_path = dir.join("projects.json");
+    if !file_path.exists() {
+        return Ok(vec![]); // Если файл отсутствует, возвращаем пустой список
+    }
+    let file_content = fs::read_to_string(&file_path).map_err(|e| e.to_string())?;
+
+    let mut projects: Vec<ProjectInfo> = serde_json::from_str(&file_content).map_err(|e| e.to_string())?;
+
+    for (id, project) in projects.iter_mut().enumerate() {
+        project.id = (id + 1) as u32;
+    }
+    Ok(projects)
+}
+
+#[tauri::command]
+fn save_projects(
+    projects: Vec<ProjectInfo>, 
+    selected_project_id: u32, 
+    app_handle: tauri::AppHandle
+) -> Result<(), String> {
+    let base_path = app_handle
+        .path_resolver()
+        .app_data_dir()
+        .ok_or("Не удалось разрешить папку данных приложения.")?;
+    let dir = base_path.join("database/printers");
+
+    if !dir.exists() {
+        fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    }
+
+    let file_path = dir.join("projects.json");
+
+    // Устанавливаем выбранный проект
+    let updated_projects: Vec<ProjectInfo> = projects
+        .into_iter()
+        .map(|mut project| {
+            project.is_used = project.id == selected_project_id;
+            project
+        })
+        .collect();
+
+    // Сериализация и запись данных в файл
+    let data = serde_json::to_string(&updated_projects).map_err(|e| e.to_string())?;
+    fs::write(&file_path, data).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+
+#[tauri::command]
+fn update_selected_project(app_handle: tauri::AppHandle, state: State<ProjectState>) -> Result<(), String> {
+    let base_path = PROJECT_PATH.lock().unwrap()
+        .clone()
+        .ok_or("Project path is not set. Call update_project_path first.")?;
+    let dir = base_path.join("database/printers");
+    if !dir.exists() {
+        fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    }
+    let file_path = dir.join("printers.json");
+    let file_content = fs::read_to_string(&file_path).map_err(|e| e.to_string())?;
+    let selected_project: ProjectInfo = serde_json::from_str(&file_content).map_err(|e| e.to_string())?;
+    let mut state = state.selected_project.lock().unwrap();
+    *state = Some(selected_project);
+    Ok(())
+}
+
+#[tauri::command]
+fn save_projects_and_create_dir(
+    projects: Vec<ProjectInfo>, 
+    app_handle: tauri::AppHandle
+) -> Result<(), String> {
+    // Сохраняем проекты
+    let base_path = app_handle
+        .path_resolver()
+        .app_data_dir()
+        .ok_or("Не удалось разрешить папку данных приложения.")?;
+    let file_path = base_path.join("database/printers/projects.json");
+
+    let data = serde_json::to_string(&projects).map_err(|e| e.to_string())?;
+    fs::write(&file_path, data).map_err(|e| e.to_string())?;
+
+    // Создаём папку для выбранного проекта
+    setting_dir(app_handle, projects);
+
+    Ok(())
+}
+// #[tauri::command]
+// fn save_projects(project: ProjectInfo, app_handle: tauri::AppHandle, state: State<PrinterState>) -> Result<(), String> {
+//     let base_path = app_handle
+//         .path_resolver()
+//         .app_data_dir()
+//         .ok_or("Не удалось разрешить папку данных приложения.")?;
+//     let dir = base_path.join("database/printers");
+//     if !dir.exists() {
+//         fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+//     }
+//     let file_path = dir.join("projects.json");
+//     let data = serde_json::to_string(&project).map_err(|e| e.to_string())?;
+//     fs::write(&file_path, data).map_err(|e| e.to_string())?;
+//     println!("Сохранено: {:?}", *state);
+//     Ok(())
+// }
+
+// #[tauri::command]
+// fn get_projects(app_handle: tauri::AppHandle, state: State<PrinterState>) -> Result<Vec<Value>, String> {
+//     let base_path = app_handle
+//         .path_resolver()
+//         .app_data_dir()
+//         .ok_or("Не удалось разрешить папку данных приложения.")?;
+//     let dir = base_path.join("database/printers");
+//     if !dir.exists() {
+//         fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+//     }
+//     let file_path = dir.join("projects.json");
+//     let file_content = fs::read_to_string(&file_path).map_err(|e| e.to_string())?;
+
+//     Ok(file_content)
+// }
 
 //-------------------------------------------------Printer Information-------------------------------------------------------------------------------------
 
@@ -1652,8 +1844,10 @@ struct ChromakeyData {
 
 #[tauri::command]
 fn save_settings(app_handle: tauri::AppHandle, image: String, color: String, counter: u32) -> Result<(), String> {
-    let base_path = app_handle.path_resolver().app_data_dir().unwrap();
-    let path = base_path.join("database\\settings\\chromoketImage.png");
+    let base_path = PROJECT_PATH.lock().unwrap()
+        .clone()
+        .ok_or("Project path is not set. Call update_project_path first.")?;
+    let path = base_path.join("database\\settings\\chromokeyImage.png");
     // Сохраняем изображение как Base64
     fs::write(path.clone(), image).map_err(|e| format!("Ошибка сохранения изображения: {}", e))?;
 
@@ -1677,7 +1871,9 @@ fn save_settings(app_handle: tauri::AppHandle, image: String, color: String, cou
 #[tauri::command]
 fn read_settings(app_handle: tauri::AppHandle) -> Result<ChromakeyData, String> {
     // Определяем путь к файлу JSON
-    let base_path = app_handle.path_resolver().app_data_dir().unwrap();
+    let base_path = PROJECT_PATH.lock().unwrap()
+        .clone()
+        .ok_or("Project path is not set. Call update_project_path first.")?;
     let json_path = base_path.join("database/settings/chromakey.json");
 
     // Проверяем, существует ли файл
@@ -1697,7 +1893,9 @@ fn read_settings(app_handle: tauri::AppHandle) -> Result<ChromakeyData, String> 
 
 #[tauri::command]
 fn save_background_image_for_photo(app_handle: tauri::AppHandle, image: String) -> Result<(), String> {
-    let base_path = app_handle.path_resolver().app_data_dir().unwrap();
+    let base_path = PROJECT_PATH.lock().unwrap()
+    .clone()
+    .ok_or("Project path is not set. Call update_project_path first.")?;
     let path = base_path.join("database\\settings\\backgroundImage.png");
     fs::write(path.clone(), image).map_err(|e| format!("Ошибка сохранения изображения: {}", e))?;
     Ok(())
@@ -1705,7 +1903,9 @@ fn save_background_image_for_photo(app_handle: tauri::AppHandle, image: String) 
 
 #[tauri::command]
 fn get_background_image(app_handle: tauri::AppHandle) -> Result<String, String> {
-    let base_path = app_handle.path_resolver().app_data_dir().unwrap();
+    let base_path = PROJECT_PATH.lock().unwrap()
+    .clone()
+    .ok_or("Project path is not set. Call update_project_path first.")?;
     let path = base_path.join("database\\settings\\backgroundImage.png");
 
     if !path.exists() {
@@ -1718,7 +1918,9 @@ fn get_background_image(app_handle: tauri::AppHandle) -> Result<String, String> 
 
 #[tauri::command]
 fn get_background_chromakey(app_handle: tauri::AppHandle) -> Result<String, String> {
-    let base_path = app_handle.path_resolver().app_data_dir().unwrap();
+    let base_path = PROJECT_PATH.lock().unwrap()
+        .clone()
+        .ok_or("Project path is not set. Call update_project_path first.")?;
     let path = base_path.join("database\\settings\\chromokeyImage.png");
 
     if !path.exists() {

@@ -16,7 +16,7 @@ import { Settings } from "lucide-react"
 import { set } from "lodash";
 
 export default function MainPage({ active, loading, setLoading }) {
-    const { setCanvasData, updateStatus, setUpdateStatus, currentCanvasId, canvases, switchCanvas, chromokeyBackgroundImage, setChromokeyColor, setCounterCapturePhoto, backgroundImage, chromokeyStatus, setBackgroundImage } = useStore();
+    const { setCanvasData, updateStatus, setUpdateStatus, currentCanvasId, canvases, switchCanvas, chromokeyBackgroundImage, setChromokeyColor, setCounterCapturePhoto, backgroundImage, chromokeyStatus, setBackgroundImage, currentProject, setCurrentProject } = useStore();
     const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
     const [bgImage, setBgImage] = useState(localStorage.getItem("back_1") || `url(${back_img})`);
     const canvasRefForSelect = useRef(null);
@@ -107,10 +107,123 @@ export default function MainPage({ active, loading, setLoading }) {
         loadingAppSettings();
     }, [updateStatus]);
 
+    const [projects, setProjects] = useState([]);
+    const [newProjectName, setNewProjectName] = useState('');
+    const [selectedProject, setSelectedProject] = useState(null);
+    
+    useEffect(() => {
+        const fetchProjects = async () => {
+            try {
+                const projectList = await invoke('get_projects');
+                setProjects(projectList);
+                
+            } catch (err) {
+                console.error(err);
+                alert('Не удалось загрузить список проектов.');
+            }
+        };
+        fetchProjects();
+    }, []);
+
+    const handleSave = async () => {
+        if (selectedProject) {
+            try {
+                await invoke('save_projects', {
+                    projects: projects, // Передаем весь список проектов
+                    selectedProjectId: selectedProject.id, // ID выбранного проекта
+                });
+                setCurrentProject(false);
+                toast.success("Сохранено успешно!");
+                await invoke('save_projects_and_create_dir', {projects});
+                await invoke('init_project_path');
+            } catch (err) {
+                console.error(err);
+                alert("Не удалось сохранить проекты.");
+            }
+        } else {
+            alert("Выберите проект перед сохранением.");
+        }
+    };
+    
+
+
+    const handlePrinterChange = (id) => {
+        setProjects((prevProjects) => 
+            prevProjects.map((project) => ({
+                ...project,
+                is_used: project.id === id, // Только у выбранного проекта is_used = true
+            }))
+        );
+    
+        const selected = projects.find((project) => project.id === id);
+        setSelectedProject(selected ? { ...selected, is_used: true } : null);
+    };
+
+    const addProject = () => {
+        if (newProjectName.trim()) {
+            const newId = projects.length > 0 ? Math.max(...projects.map(p => p.id)) + 1 : 1;
+            setProjects([...projects, { id: newId, name: newProjectName.trim(), is_used: false }]);
+            setNewProjectName("");
+        }
+    };
+
+    const removeProject = (id) => {
+        setProjects((prevProjects) => {
+            const updatedProjects = prevProjects.filter((project) => project.id !== id);
+    
+            // Сбрасываем выбранный проект, если он был удален
+            if (selectedProject?.id === id) {
+                setSelectedProject(null);
+            }
+    
+            return updatedProjects;
+        });
+    };
+    
     return (
         <div className={`${active == true ? "pointer-events-none": "pointer-events-auto"} flex justify-center items-center`}>
             <div className="select-none relative  bg-cover bg-center bg-no-repeat" style={{width: '1280px', height: '1024px', backgroundImage: bgImage}}>
                 <div className='back-img'></div>
+                {currentProject ? (
+                <div className="block block-first" style={{position: 'absolute', width: '800px', top: '300px', left: '350px', backgroundColor: 'white'}}>
+                    <h2 style={{fontSize: '22px', fontWeight: 'bold', textAlign: 'center'}}>Выберите проект</h2>
+                    <ul className="px-2 gap-x-2 gap-y-4 flex flex-col overflow-auto min-h-24 max-h-80">
+                        {projects.map((project) => (
+                            <li key={project.id} className="project-item flex justify-between items-center py-2 border-b" >
+                                <div className="flex items-center gap-4">
+                                    <input
+                                        type="radio"
+                                        name="selectedProject"
+                                        checked={project.is_used}
+                                        onChange={() => handlePrinterChange(project.id)}
+                                    />
+                                    <span onClick={() => handlePrinterChange(project.id)} style={{cursor: 'pointer'}}>{project.name}</span>
+                                </div>
+                                <button onClick={() => removeProject(project.id)} className="delete-button bg-red-500 text-white px-2 py-1 rounded-md">
+                                    Удалить
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+
+                    <div className="create-project mt-4">
+                        <input
+                            type="text"
+                            placeholder="Введите имя проекта"
+                            value={newProjectName}
+                            onChange={(e) => setNewProjectName(e.target.value)}
+                            className="project-input border px-2 py-1 rounded-md mr-2"
+                        />
+                        <button onClick={addProject} className="create-button bg-blue-500 text-white px-4 py-1 rounded-md">
+                            Создать проект
+                        </button>
+                    </div>
+
+                    <button onClick={handleSave} className="confirm-button mt-4 bg-green-500 text-white px-6 py-2 rounded-md">
+                        Подтвердить
+                    </button>
+                </div>
+                ) : (
                 <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
                     {/* <img src={image} alt="" /> */}
                     <div className="flex flex-col">
@@ -127,6 +240,7 @@ export default function MainPage({ active, loading, setLoading }) {
 
                     </div>
                 </div>
+                ) }
             </div>
             <ToastContainer />
         </div>

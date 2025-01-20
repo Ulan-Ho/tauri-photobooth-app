@@ -962,6 +962,8 @@ export const useStore = create(devtools((set) => ({
   ],
 
   updateStatus: false,
+  
+  currentProject: true,
 
   chromokeyStatus: false,
 
@@ -996,6 +998,8 @@ export const useStore = create(devtools((set) => ({
   setCounterCapturePhoto: (value) => set({ counterCapturePhoto: value }),
 
   setUpdateStatus: (value) => set({ updateStatus: value }),
+
+  setCurrentProject: (value) => set({ currentProject: value }),
 
   error: null,  // Новое состояние для ошибок
 
