@@ -3,9 +3,22 @@
     windows_subsystem = "windows"
 )]
 
-//-------------------------------------------------------------------------------------------------
-// use tauri::AppHandle;
-// use std::slice;
+mod globals;
+mod fs_utils;
+mod printer_fn;
+mod image_fn;
+mod chromokey_fn;
+mod work_hours_fn;
+mod init_project_fn;
+
+use globals::{PROJECT_PATH, PrinterState};
+use init_project_fn::{get_projects, select_project, delete_project};
+use printer_fn::{saving_printer_data, get_printers_info, update_selected_printer, printer_information, printer_settings, printer_status};
+use image_fn::{delete_image, get_image_path, save_image, get_image_paths};
+use chromokey_fn::{save_settings, read_settings};
+use work_hours_fn::{get_work_hours, set_work_hours};
+
+
 use std::ffi::CString;
 use device_query::{DeviceQuery, DeviceState, Keycode};
 use std::result::Result;
@@ -18,21 +31,11 @@ use std::fs::File;
 use std::io::Write;
 use std::process::Command;
 use std::path::PathBuf;
-use serde_json::json;
-use serde::{Deserialize, Serialize};
 use std::env;
 use serde_json::Value;
-// use std::ffi::{ c_void, c_uint, c_int};
 use libc::{c_void, c_uint, c_int, c_char};
 use tauri::State;
-use chrono::{Local, NaiveTime};
-// use std::io;
-#[derive(Serialize, Deserialize, Debug)]
-pub struct WorkHours {
-    pub start: String,
-    pub end: String,
-    pub is_always_active: bool,
-}
+use chrono::Local;
 
 type EdsError = c_int;
 type EdsCameraRef = *mut c_void;
@@ -338,6 +341,8 @@ impl Camera {
                 EdsGetEvent();       // Обрабатываем события
                 thread::sleep(Duration::from_millis(100));
                 photo_created = self.photo_created.lock().unwrap();
+                println!("[LOG] photo created...");
+
             }
             *photo_created = false;
 
@@ -581,9 +586,7 @@ fn download_ev_image_command(state: tauri::State<'_, Arc<Mutex<Option<Arc<Mutex<
 }
 
 #[tauri::command]
-fn initialize_camera(
-    state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>,
-) -> Result<String, String> {
+fn initialize_camera(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>,) -> Result<String, String> {
     let start_time = std::time::Instant::now();
     let timeout = std::time::Duration::from_secs(10);
 
@@ -620,7 +623,6 @@ fn capture_photo_as(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) ->
         Err("Camera is not initialized".into())
     }
 }
-static mut LAST_SAVED_IMAGE: Option<PathBuf> = None;
 
 fn save_captured_image(image_data: String) -> Result<String, String> {
     println!("Saving captured image...");
@@ -628,7 +630,12 @@ fn save_captured_image(image_data: String) -> Result<String, String> {
     let current_date = Local::now().format("%Y-%m-%d").to_string();
     let base_path = tauri::api::path::picture_dir()
         .ok_or("Failed to resolve picture_dir")?;
-    let base_dir = base_path.join("photo_library");
+    let project_path = PROJECT_PATH.lock().unwrap().clone().ok_or("Project path is not set.")?;
+    
+    let project_path_str = project_path.to_str().ok_or("Failed to convert path to string.")?;
+    let parts: Vec<&str> = project_path_str.split("\\").collect();
+    let project_name = parts.last().ok_or("Failed to extract project name.")?;
+    let base_dir = base_path.join("Проекты").join(project_name);
 
     let date_dir = base_dir.join(&current_date);
     if !date_dir.exists() {
@@ -648,29 +655,8 @@ fn save_captured_image(image_data: String) -> Result<String, String> {
 
     println!("Image saved to {}", file_path.display());
 
-    // Сохраняем путь к последнему изображению
-    unsafe {
-        LAST_SAVED_IMAGE = Some(file_path.clone());
-    }
 
     Ok(file_path.to_str().unwrap_or_default().to_string())
-}
-
-#[tauri::command]
-fn get_last_saved_image() -> Result<String, String> {
-    unsafe {
-        if let Some(last_image) = &LAST_SAVED_IMAGE {
-            println!("Returning last saved image: {}", last_image.display());
-
-            if let Ok(data) = fs::read(last_image) {
-                let base64_str = BASE64_STANDARD.encode(&data);
-                return Ok(base64_str);
-            } else {
-                return Err("Failed to read the last saved image.".to_string());
-            }
-        }
-    }
-    Err("No image has been saved yet.".to_string())
 }
 
 #[tauri::command]
@@ -679,7 +665,7 @@ fn get_captured_image() -> Result<String, String> {
 
     // Путь к файлу captured_image.jpg
     let file_path = PathBuf::from(env::current_dir().map_err(|err| err.to_string())?)
-        .join("мой_фото.jpg");
+        .join("captured_image.jpg");
     
 
     // Проверяем наличие файла каждые 1 секунду, максимум 30 секунд
@@ -787,6 +773,8 @@ async fn main() {
     // Используем Arc и Mutex для управления видимостью меню
     let menu_visible = Arc::new(Mutex::new(true));
 
+    
+
     tauri::Builder::default()
         .menu(menu)
         .on_menu_event({
@@ -818,7 +806,7 @@ async fn main() {
         .setup({
             move |app| {
                 let handle = app.handle();
-                let handle_clone = handle.clone();
+                // let handle_clone = handle.clone();
                 let window = handle.get_window("main").unwrap();
                 let menu_visible = menu_visible.clone();
 
@@ -856,27 +844,29 @@ async fn main() {
                 Ok(())
             }
         })
-        .invoke_handler(tauri::generate_handler![print_image, get_work_hours, set_work_hours, save_image, get_image, save_canvas_data, save_canvas_image, load_all_canvas_data, delete_canvas_image_and_data, load_all_canvas_images,
+        .invoke_handler(tauri::generate_handler![print_image, get_work_hours, set_work_hours, save_image, save_canvas_data, save_canvas_image, load_all_canvas_data, delete_canvas_image_and_data, load_all_canvas_images,
             load_available_canvas_data,
+            print_image_use_path,
             initialize_camera,
             capture_photo_as,
             start_live_view,
             download_ev_image_command,
             get_captured_image,
-            get_last_saved_image,
             stop_live_view,
-            get_printers, get_projects,
-            save_printers, save_projects,
-            update_selected_printer, update_selected_project,
-            end_camera, save_settings, read_settings, save_background_image_for_photo, get_background_chromakey, get_background_image,
-            get_printer_full_information,
-            get_image_name,
-            open_printer_information, save_projects_and_create_dir, init_project_path,
-            open_printer_status,
-            delete_image])
+            get_printers_info, get_projects, select_project, delete_project,
+            saving_printer_data,
+            update_selected_printer,
+            end_camera, save_settings,
+            printer_information,
+            printer_settings,
+            printer_status,
+            delete_image,
+            get_image_path,
+            read_settings,
+            get_image_paths
+            ])
         .manage(Arc::new(Mutex::new(None::<Arc<Mutex<Camera>>>)))
         .manage(PrinterState::default())
-        .manage(ProjectState::default())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -887,15 +877,27 @@ fn print_image(image_data: String, state: State<PrinterState>) -> Result<(), Str
     // let base64_str = image_data.split(',').nth(1).ok_or("Invalid base64 string")?;
     let decoded_data = BASE64_STANDARD.decode(image_data).map_err(|e| e.to_string())?;
 
-    // let file_path = "temp_image.png";
-    let file_path = PathBuf::from(env::current_dir().map_err(|err| err.to_string())?).join("temp_image.png");
+    let base_path = tauri::api::path::picture_dir()
+        .ok_or("Failed to resolve picture_dir")?;
+    let project_path = PROJECT_PATH.lock().unwrap().clone().ok_or("Project path is not set.")?;
+    
+    let project_path_str = project_path.to_str().ok_or("Failed to convert path to string.")?;
+    let parts: Vec<&str> = project_path_str.split("\\").collect();
+    let project_name = parts.last().ok_or("Failed to extract project name.")?;
+    let base_dir = base_path.join("Проекты").join(project_name);
+
+    let timestamp = Local::now().format("%H-%M-%S").to_string();
+    let file_name = format!("photo_{}.jpg", timestamp);
+
+    let file_path = base_dir.join(file_name);
+
     let mut file = File::create(&file_path).map_err(|e| e.to_string())?;
     file.write_all(&decoded_data).map_err(|e| e.to_string())?;
     drop(file);
+
     let state_printer = state.selected_printer.lock().unwrap();
     let printer_name = state_printer.as_ref().map(|printer| printer.name.clone()).unwrap_or_default();
 
-    // Экранирование пути к файлу для PowerShell
     let file_path_str = file_path.display().to_string();
     let escaped_file_path = format!("\"{}\"", file_path_str.replace("\\", "\\\\"));
     println!("Escaped file path: {}", escaped_file_path);
@@ -957,387 +959,43 @@ Print-Image -PrinterName "{}" -FilePath {} -Scale 100 -PaperSize "6x4-Split (6x2
 }
 
 
-#[tauri::command]
-fn save_image(app_handle: tauri::AppHandle, image_data: String, file_name: String) -> Result<(), String> {
+// #[tauri::command]
+// fn save_image(, image_data: String, file_name: String) -> Result<(), String> {
 
-    let decoded_data = BASE64_STANDARD.decode(image_data).map_err(|e| e.to_string())?;
-    println!("Size of decoded image data: {} bytes", decoded_data.len());
-    // Установите путь для сохранения файла
-    let base_path = PROJECT_PATH.lock().unwrap()
-    .clone()
-    .ok_or("Project path is not set. Call update_project_path first.")?;
+//     let decoded_data = BASE64_STANDARD.decode(image_data).map_err(|e| e.to_string())?;
+//     println!("Size of decoded image data: {} bytes", decoded_data.len());
+//     // Установите путь для сохранения файла
+//     let base_path = PROJECT_PATH.lock().unwrap()
+//     .clone()
+//     .ok_or("Project path is not set. Call update_project_path first.")?;
 
-    let file_path = base_path.join("database").join("background").join(file_name);
-    let mut file = File::create(file_path.clone()).map_err(|e| e.to_string())?;
+//     let file_path = base_path.join("database").join("background").join(file_name);
+//     let mut file = File::create(file_path.clone()).map_err(|e| e.to_string())?;
 
-    file.write_all(&decoded_data).map_err(|e| e.to_string())?;
-    Ok(())
-}
+//     file.write_all(&decoded_data).map_err(|e| e.to_string())?;
+//     Ok(())
+// }
 
-#[tauri::command]
-fn get_image(app_handle: tauri::AppHandle, image_name: String) -> Result<String, String> {
-    // Определяем путь к изображению
-    let mut path = PROJECT_PATH.lock().unwrap()
-        .clone()
-        .ok_or("Project path is not set. Call update_project_path first.")?;
-
-    path.push(format!("database/background/{}", image_name));
-
-    match fs::read(&path) {
-        Ok(data) => {
-            // Кодируем данные в строку Base64
-            let base64_str = BASE64_STANDARD.encode(&data);
-            Ok(base64_str) // Возвращаем закодированную строку
-        }
-        Err(e) => Err(format!("Failed to read file: {}", e)), // Обрабатываем ошибку
-    }
-}
-
-#[tauri::command]
-fn get_image_name(app_handle: tauri::AppHandle, image_name: String) -> Result<String, String> {
-    // Определяем путь к изображению
-    let mut path = PROJECT_PATH.lock().unwrap()
-        .clone()
-        .ok_or("Project path is not set. Call update_project_path first.")?;
-    
-    path.push(format!("database\\background\\{}", image_name));
-
-    println!("Путь к изображению: {:?}", path);
-    let path_str = path
-        .to_str()
-        .ok_or("Failed to convert path to string")?
-        .to_string();
-    Ok(path_str)
-}
-
-#[tauri::command]
-fn delete_image(app_handle: tauri::AppHandle, image_name: String) -> Result<String, String> {
-    // Определяем путь к изображению
-    let mut path = PROJECT_PATH.lock().unwrap()
-        .clone()
-        .ok_or("Project path is not set. Call update_project_path first.")?;
-    
-    path.push(format!("database/background/{}", image_name));
-
-    println!("Путь к изображению для удаления: {:?}", path);
-
-    // Пытаемся удалить файл
-    match fs::remove_file(&path) {
-        Ok(()) => Ok(format!("Image {} deleted successfully", image_name)),
-        Err(e) => Err(format!("Failed to delete image: {}", e)), // Обрабатываем ошибку
-    }
-}
-
-//------------------------------------------Timer---------------------------------------------------------------
-#[tauri::command]
-fn get_work_hours(app_handle: tauri::AppHandle) -> Result<WorkHours, String> {
-    let base_path = PROJECT_PATH.lock().unwrap()
-        .clone()
-        .ok_or("Project path is not set. Call update_project_path first.")?;
-    let path = base_path.join("database/time/time.json");
-
-    let file_content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    let work_hours: WorkHours = serde_json::from_str(&file_content).map_err(|e| e.to_string())?;
-    Ok(work_hours)
-}
-
-#[tauri::command]
-fn set_work_hours(app_handle: tauri::AppHandle, start: String, end: String, is_always_active: bool) -> Result<(), String> {
-
-    let sleep_time  = NaiveTime::parse_from_str(&end, "%H:%M").map_err(|e| e.to_string())?;
-    let wake_time  = NaiveTime::parse_from_str(&start, "%H:%M").map_err(|e| e.to_string())?;
-    let data_dir = PROJECT_PATH.lock().unwrap()
-        .clone()
-        .ok_or("Project path is not set. Call update_project_path first.")?;
-    let file_path = data_dir.join("database/time/time.json");
-    let work_hours = WorkHours { start: start.clone(), end: end.clone(), is_always_active: is_always_active.clone() };
-    let file_content = serde_json::to_string(&work_hours).map_err(|e| e.to_string())?;
-    fs::write(file_path, file_content).map_err(|e| e.to_string())?;
-
-    let now = Local::now().time();
-    // Вычисляем задержки для сна и пробуждения
-    let sleep_duration = if sleep_time > now {
-        (sleep_time - now).num_seconds()
-    } else {
-        (sleep_time + chrono::Duration::hours(24) - now).num_seconds()
-    };
-
-    let wake_duration = if wake_time > now {
-        (wake_time - now).num_seconds()
-    } else {
-        (wake_time + chrono::Duration::hours(24) - now).num_seconds()
-    };
-    // Логируем оставшееся время
-    if !is_always_active {
-        println!(
-            "Оставшееся время до сна: {} секунд ({} часов, {} минут)",
-            sleep_duration,
-            sleep_duration / 3600,
-            (sleep_duration % 3600) / 60
-        );
-        println!(
-            "Оставшееся время до пробуждения: {} секунд ({} часов, {} минут)",
-            wake_duration,
-            wake_duration / 3600,
-            (wake_duration % 3600) / 60
-        );
-    }
-    
-    // Настраиваем таймер на вход в спящий режим
-    if !(sleep_time == wake_time) && !is_always_active {
-        thread::spawn(move || {
-            loop {
-                let current_time = Local::now().time();
-                // Если текущее время равно времени выключения, переводим компьютер в спящий режим
-                if current_time >= sleep_time && current_time < sleep_time + chrono::Duration::minutes(1) {
-                    Command::new("shutdown")
-                        .args(&["/h", "/f"])  // Перевод в спящий режим с принудительным закрытием приложений
-                        .spawn()
-                        .expect("Не удалось перевести компьютер в спящий режим");
-                }
-                // Проверяем каждые 30 секунд
-                thread::sleep(Duration::from_secs(30));
-            }
-        });
-    }
-    let wake_time_formatted = wake_time.format("%H:%M:%S").to_string();
-
-    let ps_script;
-    let remote_script = r#"
-if (Get-ScheduledTask -TaskName "DailyWakeUpTask" -ErrorAction SilentlyContinue) {
-    Unregister-ScheduledTask -TaskName "DailyWakeUpTask" -Confirm:$false
-    Write-Output "Task removed successfully."
-} else {
-    Write-Output "Task does not exist."
-}
-"#;
-    ps_script = format!(
-r#"
-# Check if task already exists, if so, delete it
-if (Get-ScheduledTask -TaskName "DailyWakeUpTask" -ErrorAction SilentlyContinue) {{
-    Unregister-ScheduledTask -TaskName "DailyWakeUpTask" -Confirm:$false
-}}
-
-# Task start time
-$taskTime = "{wake_time}"
-
-# XML file for task
-$taskXmlPath = "$env:temp\DailyWakeUpTask.xml"
-
-# Generate XML file
-@"
-<?xml version="1.0" encoding="UTF-16"?>
-<Task xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-    <RegistrationInfo>
-    <Description>Daily task to wake up the computer and execute the task</Description>
-    </RegistrationInfo>
-    <Triggers>
-    <CalendarTrigger>
-        <StartBoundary>$((Get-Date -Format "yyyy-MM-ddT") + $taskTime)</StartBoundary>
-        <Enabled>true</Enabled>
-        <ScheduleByDay>
-        <DaysInterval>1</DaysInterval>
-        </ScheduleByDay>
-    </CalendarTrigger>
-    </Triggers>
-    <Settings>
-    <AllowStartOnDemand>true</AllowStartOnDemand>
-    <Enabled>true</Enabled>
-    <StartWhenAvailable>true</StartWhenAvailable>
-    <WakeToRun>true</WakeToRun>
-    <AllowHardTerminate>false</AllowHardTerminate>
-    <RestartOnFailure>
-        <Interval>PT1M</Interval>
-        <Count>3</Count>
-    </RestartOnFailure>
-    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
-    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
-    </Settings>
-    <Actions Context="Author">
-    <Exec>
-        <Command>cmd.exe</Command>
-        <Arguments>/c echo Wake-up task executed</Arguments>
-    </Exec>
-    <Exec>
-        <Command>cmd.exe</Command>
-        <Arguments>/c echo Wake-up task executed</Arguments>
-    </Exec>
-    </Actions>
-</Task>
-"@ | Out-File -Encoding UTF8 -FilePath $taskXmlPath
-
-# Register task with XML
-Register-ScheduledTask -Xml (Get-Content $taskXmlPath -Raw) -TaskName "DailyWakeUpTask"
-
-# Remove the temporary XML file
-Remove-Item $taskXmlPath -Force
-"#,
-            wake_time = wake_time_formatted
-        );
-    // else if (sleep_time == wake_time){
-    //     let command = r#"Unregister-ScheduledTask -TaskName "DailyWakeUpTask" -Confirm:$false"#;
-
-    // // Вызов PowerShell с указанной командой
-    // let output = Command::new("powershell")
-    //     .arg("-Command")
-    //     .arg(command)
-    //     .output()
-    //     .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
-    // }
-
-    // Execute PowerShell script
-    if is_always_active{
-        let _output = Command::new("powershell")
-        .args(&["-Command", &remote_script])
-        .output()
-        .map_err(|e| format!("Failed to execute PowerShell script: {}", e))?;
-    }
-    else{
-        let _output = Command::new("powershell")
-        .args(&["-Command", &ps_script])
-        .output()
-        .map_err(|e| format!("Failed to execute PowerShell script: {}", e))?;    
-    }
-    Ok(())
-}
-
-//---------------------------------------------------Setting App---------------------------------------------------------------------
-// Глобальная переменная для пути выбранного проекта
-lazy_static::lazy_static! {
-    static ref PROJECT_PATH: Arc<Mutex<Option<PathBuf>>> = Arc::new(Mutex::new(None));
-}
-
-fn update_project_path(app_handle: &tauri::AppHandle) -> Result<(), String> {
-    let base_path = app_handle
-        .path_resolver()
-        .app_data_dir()
-        .ok_or("Failed to resolve app data directory")?;
-    
-    // Путь к JSON с проектами
-    let projects_file = base_path.join("database/printers/projects.json");
-
-    // Чтение списка проектов
-    let projects: Vec<ProjectInfo> = if projects_file.exists() {
-        let data = fs::read_to_string(&projects_file).map_err(|e| e.to_string())?;
-        serde_json::from_str(&data).map_err(|e| e.to_string())?
-    } else {
-        return Err("Projects file does not exist".to_string());
-    };
-
-    // Поиск текущего выбранного проекта
-    if let Some(selected_project) = projects.into_iter().find(|p| p.is_used) {
-        let project_path = base_path.join(&selected_project.name);
-        *PROJECT_PATH.lock().unwrap() = Some(project_path.clone());
-        println!("Updated project path: {:?}", project_path);
-    } else {
-        return Err("No project is marked as 'is_used'".to_string());
-    }
-
-    Ok(())
-}
-
-#[tauri::command]
-fn init_project_path(app_handle: tauri::AppHandle) -> Result<(), String> {
-    update_project_path(&app_handle)
-}
-
-fn setting_dir(app_handle: tauri::AppHandle, projects: Vec<ProjectInfo>) {
-    let base_path = app_handle.path_resolver().app_data_dir().unwrap();
-
-    // Найти проект с is_used: true
-    if let Some(used_project) = projects.iter().find(|p| p.is_used) {
-        // Добавляем подпапку с именем выбранного проекта
-        let project_path = base_path.join(&used_project.name); 
-        let base_path_clone = project_path.clone();
-        tauri::async_runtime::spawn(async move {
-            let directories = vec![
-                "database",
-                "database/template",
-                "database/time",
-                "database/background",
-                "database/images",
-                "database/settings",
-            ];
-            create_directories_if_not_exist(directories, &base_path_clone);
-        });
-        create_time_json_if_not_exist(&base_path);
-    } else {
-        println!("Нет активного проекта для создания подпапки.");
-    };
-}
-
-fn create_directories_if_not_exist(dirs: Vec<&str>, base_path: &PathBuf) {
-    for dir in dirs {
-        let path: PathBuf = base_path.join(dir);
-        if !path.exists() {
-            if let Err(_e) = fs::create_dir_all(&path) {
-                eprintln!("Ошибка при создании папки: {:?}", _e);
-            } else {
-                println!("Папка создана: {:?}", path);
-            }
-        } else {
-            println!("Папка уже существует: {:?}", path);
-        }
-    }
-}
-
-// Потом добавить функцию в котором он поставить таймер работы в винде
-fn create_time_json_if_not_exist(base_path: &PathBuf) {
-    let path: PathBuf = base_path.join("database/time/time.json");
-
-    if let Some(parent_dir) = path.parent() {
-        if !parent_dir.exists() {
-            if let Err(e) = fs::create_dir_all(parent_dir) { // Corrected: create the parent directory, not the file path
-                eprintln!("Ошибка при создании папки: {:?}", e);
-            } else {
-                println!("Папка создана: {:?}", parent_dir);
-            }
-        }
-    }
-
-    if !path.exists() {
-        let default_data = json!({
-            "start": "09:00",
-            "end": "21:00"
-        });
-
-        let json_string = match serde_json::to_string(&default_data) {
-            Ok(data) => data,
-            Err(e) => {
-                eprintln!("Ошибка при создании JSON: {:?}", e);
-                return;
-            }
-        };
-
-        if let Err(e) = File::create(&path).and_then(|mut file| file.write_all(json_string.as_bytes())) {
-            eprintln!("Ошибка при создании файла: {:?}", e);
-        } else {
-            println!("Файл создан: {:?}", path);
-        }
-    } else {
-        println!("Файл уже существует: {:?}", path);
-    }
-}
 
 
 //-------------------------------------------------Template Editor-------------------------------------------------------------------------------------
 #[tauri::command]
-fn save_canvas_data(canvas_id: String, data: String, available: bool, app_handle: tauri::AppHandle) -> Result<(), String> {
+fn save_canvas_data(canvas_id: String, data: String, available: bool) -> Result<(), String> {
     // Получаем путь к папке приложения для хранения данных
     let base_path = PROJECT_PATH.lock().unwrap()
         .clone()
         .ok_or("Project path is not set. Call update_project_path first.")?;
 
-    // Создаем путь для сохранения данных шаблона в папке 'database/template'
+    // Создаем путь для сохранения данных шаблона в папке 'template'
     let template_dir;
     let other_template_dir;
 
     if available {
-        template_dir = base_path.join("database/template/available");
-        other_template_dir = base_path.join("database/template/not_available");
+        template_dir = base_path.join("template/available");
+        other_template_dir = base_path.join("template/not_available");
     } else {
-        template_dir = base_path.join("database/template/not_available");
-        other_template_dir = base_path.join("database/template/available");
+        template_dir = base_path.join("template/not_available");
+        other_template_dir = base_path.join("template/available");
     }
 
     // Убедимся, что директория существует, и создадим её при необходимости
@@ -1361,22 +1019,22 @@ fn save_canvas_data(canvas_id: String, data: String, available: bool, app_handle
 }
 
 #[tauri::command]
-fn save_canvas_image(canvas_id: String, base64_image: String, available: bool, app_handle: tauri::AppHandle) -> Result<(), String> {
+fn save_canvas_image(canvas_id: String, base64_image: String, available: bool) -> Result<(), String> {
     // Получаем путь к папке приложения для хранения данных
     let base_path = PROJECT_PATH.lock().unwrap()
         .clone()
         .ok_or("Project path is not set. Call update_project_path first.")?;
 
-    // Создаем путь для сохранения изображений холста в папке 'database/images'
+    // Создаем путь для сохранения изображений холста в папке 'images'
     let image_dir;
     let other_image_dir;
 
     if available {
-        image_dir = base_path.join("database/template/available");
-        other_image_dir = base_path.join("database/template/not_available");
+        image_dir = base_path.join("template/available");
+        other_image_dir = base_path.join("template/not_available");
     } else {
-        image_dir = base_path.join("database/template/not_available");
-        other_image_dir = base_path.join("database/template/available");
+        image_dir = base_path.join("template/not_available");
+        other_image_dir = base_path.join("template/available");
     }
 
     // Убедимся, что директория существует, и создадим её при необходимости
@@ -1403,22 +1061,22 @@ fn save_canvas_image(canvas_id: String, base64_image: String, available: bool, a
 }
 
 #[tauri::command]
-fn delete_canvas_image_and_data(canvas_id: String, available: bool, app_handle: tauri::AppHandle) -> Result<(), String> {
+fn delete_canvas_image_and_data(canvas_id: String, available: bool) -> Result<(), String> {
     // Получаем путь к папке приложения для хранения данных
     let base_path = PROJECT_PATH.lock().unwrap()
         .clone()
         .ok_or("Project path is not set. Call update_project_path first.")?;
 
-    // Создаем путь для сохранения данных шаблона в папке 'database/template'
+    // Создаем путь для сохранения данных шаблона в папке 'template'
     let template_dir;
     let image_dir;
 
     if available {
-        template_dir = base_path.join("database/template/available");
-        image_dir = base_path.join("database/template/available");
+        template_dir = base_path.join("template/available");
+        image_dir = base_path.join("template/available");
     } else {
-        template_dir = base_path.join("database/template/not_available");
-        image_dir = base_path.join("database/template/not_available");
+        template_dir = base_path.join("template/not_available");
+        image_dir = base_path.join("template/not_available");
     }
 
     // Создаем полный путь для файла JSON с использованием canvas_id
@@ -1438,13 +1096,13 @@ fn delete_canvas_image_and_data(canvas_id: String, available: bool, app_handle: 
 }
 
 #[tauri::command]
-fn load_all_canvas_data(app_handle: tauri::AppHandle) -> Result<Vec<Value>, String> {
+fn load_all_canvas_data() -> Result<Vec<Value>, String> {
     let base_path = PROJECT_PATH.lock().unwrap()
         .clone()
         .ok_or("Project path is not set. Call update_project_path first.")?;
 
-    let template_dir_not_available = base_path.join("database/template/not_available");
-    let template_dir_available = base_path.join("database/template/available");
+    let template_dir_not_available = base_path.join("template/not_available");
+    let template_dir_available = base_path.join("template/available");
 
     // Получаем все JSON файлы в директории
     let mut canvas_data = Vec::new();
@@ -1492,12 +1150,12 @@ fn load_all_canvas_data(app_handle: tauri::AppHandle) -> Result<Vec<Value>, Stri
 }
 
 #[tauri::command]
-fn load_all_canvas_images(app_handle: tauri::AppHandle) -> Result<Vec<String>, String> {
+fn load_all_canvas_images() -> Result<Vec<String>, String> {
     let base_path = PROJECT_PATH.lock().unwrap()
         .clone()
         .ok_or("Project path is not set. Call update_project_path first.")?;    
 
-    let image_dir_available = base_path.join("database/template/available");
+    let image_dir_available = base_path.join("template/available");
 
     // Вектор для хранения изображений в формате Base64
     let mut canvas_images = Vec::new();
@@ -1524,12 +1182,12 @@ fn load_all_canvas_images(app_handle: tauri::AppHandle) -> Result<Vec<String>, S
 }
 
 #[tauri::command]
-fn load_available_canvas_data(app_handle: tauri::AppHandle) -> Result<Vec<Value>, String> {
+fn load_available_canvas_data() -> Result<Vec<Value>, String> {
     let base_path = PROJECT_PATH.lock().unwrap()
         .clone()
         .ok_or("Project path is not set. Call update_project_path first.")?;
 
-    let template_dir_available = base_path.join("database/template/available");
+    let template_dir_available = base_path.join("template/available");
 
     // Получаем все JSON файлы в директории
     let mut canvas_data = Vec::new();
@@ -1554,379 +1212,69 @@ fn load_available_canvas_data(app_handle: tauri::AppHandle) -> Result<Vec<Value>
     Ok(canvas_data)
 }
 
-//-------------------------------------------------Printer Connection and Change-------------------------------------------------------------------------------------
-#[derive(Serialize, Deserialize, Debug)]
-struct PrinterInfo {
-    id: u32,
-    name: String,
-    state: String,
-    system_name: String,
-    driver_name: String,
-    is_used: bool,
-}
-
-#[derive(Default, Debug)]
-struct PrinterState {
-    selected_printer: Mutex<Option<PrinterInfo>>,
-}
-
-use printers;
-use printers::common::base::printer::Printer;
 
 #[tauri::command]
-fn get_printers() -> Result<Vec<PrinterInfo>, String> {
-    let printers: Vec<Printer> = printers::get_printers();
-    let mut id_counter = 1;
-    let printer_infos: Vec<PrinterInfo> = printers.into_iter().map(|printer| {
-        let info = PrinterInfo {
-            id: id_counter,
-            name: printer.name.clone(),
-            state: format!("{:?}", printer.state),
-            system_name: printer.system_name.clone(),
-            driver_name: printer.driver_name.clone(),
-            is_used: false,
-        };
-        id_counter += 1;
-        info
-    }).collect();
-    Ok(printer_infos)
+fn print_image_use_path(image_path: String, state: State<PrinterState>) -> Result<(), String> {
+
+    let state_printer = state.selected_printer.lock().unwrap();
+    let printer_name = state_printer.as_ref().map(|printer| printer.name.clone()).unwrap_or_default();
+
+    let file_path_str = image_path.to_string();
+    let escaped_file_path = format!("\"{}\"", file_path_str.replace("\\", "\\\\"));
+    println!("Escaped file path: {}", escaped_file_path);
+
+    thread::sleep(Duration::from_millis(100));
+
+    let print_function = r#"
+function Print-Image {
+    param(
+        [string]$PrinterName,
+        [string]$FilePath,
+        [int]$Scale,
+        [string]$PaperSize,
+        [string]$PrintJobName,
+        [string]$PrintQuality
+    )
+    Add-Type -AssemblyName System.Drawing
+    $printDocument = New-Object System.Drawing.Printing.PrintDocument
+    $printDocument.PrinterSettings.PrinterName = $PrinterName
+    $printDocument.DefaultPageSettings.Landscape = $false
+    $printDocument.DefaultPageSettings.PaperSize = New-Object System.Drawing.Printing.PaperSize('Custom', 600, 400)
+    $printDocument.add_PrintPage({
+        param($sender, $e)
+        $image = [System.Drawing.Image]::FromFile($FilePath)
+        $e.Graphics.TranslateTransform(0, 0)
+        $e.Graphics.RotateTransform(0)
+        $scaledWidth = $image.Width * ($Scale / 300)
+        $scaledHeight = $image.Height * ($Scale / 300)
+        $e.Graphics.DrawImage($image, 0, 0, $scaledWidth, $scaledHeight)
+        $image.Dispose()
+    })
+    $printDocument.PrinterSettings.DefaultPageSettings.PrinterResolution.Kind = [System.Drawing.Printing.PrinterResolutionKind]::High
+    $printDocument.PrintController = New-Object System.Drawing.Printing.StandardPrintController
+    $printDocument.Print()
 }
+    "#;
 
-#[tauri::command]
-fn save_printers(printer: PrinterInfo, app_handle: tauri::AppHandle, state: State<PrinterState>) -> Result<(), String> {
-    let base_path = app_handle
-        .path_resolver()
-        .app_data_dir()
-        .ok_or("Не удалось разрешить папку данных приложения.")?;
-    let dir = base_path.join("database/printers");
-    if !dir.exists() {
-        fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    }
-    let file_path = dir.join("printers.json");
-    let data = serde_json::to_string(&printer).map_err(|e| e.to_string())?;
-    fs::write(&file_path, data).map_err(|e| e.to_string())?;
-    let mut state = state.selected_printer.lock().unwrap();
-    *state = Some(printer);
-    println!("Сохранено: {:?}", *state);
-    Ok(())
-}
+    let command = format!(
+        r#"
+{}
+Print-Image -PrinterName "{}" -FilePath {} -Scale 100 -PaperSize "6x4-Split (6x2 2 prints)" -PrintJobName "ImagePrintJob" -PrintQuality "High"
+        "#,
+        print_function,
+        printer_name,
+        escaped_file_path
+    );
 
-#[tauri::command]
-fn update_selected_printer(app_handle: tauri::AppHandle, state: State<PrinterState>) -> Result<(), String> {
-    let base_path = app_handle
-        .path_resolver()
-        .app_data_dir()
-        .ok_or("Не удалось разрешить папку данных приложения.")?;
-    let dir = base_path.join("database/printers");
-    if !dir.exists() {
-        fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    }
-    let file_path = dir.join("printers.json");
-    let file_content = fs::read_to_string(&file_path).map_err(|e| e.to_string())?;
-    let selected_printer: PrinterInfo = serde_json::from_str(&file_content).map_err(|e| e.to_string())?;
-    let mut state = state.selected_printer.lock().unwrap();
-    *state = Some(selected_printer);
-    Ok(())
-}
-
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct ProjectInfo {
-    id: u32,
-    name: String,
-    is_used: bool,
-}
-
-#[derive(Default, Debug)]
-struct ProjectState {
-    selected_project: Mutex<Option<ProjectInfo>>,
-}
-
-#[tauri::command]
-fn get_projects(app_handle: tauri::AppHandle) -> Result<Vec<ProjectInfo>, String> {
-    let base_path = app_handle
-        .path_resolver()
-        .app_data_dir()
-        .ok_or("Не удалось разрешить папку данных приложения.")?;
-    let dir = base_path.join("database/printers");
-    if !dir.exists() {
-        fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    }
-    let file_path = dir.join("projects.json");
-    if !file_path.exists() {
-        return Ok(vec![]); // Если файл отсутствует, возвращаем пустой список
-    }
-    let file_content = fs::read_to_string(&file_path).map_err(|e| e.to_string())?;
-
-    let mut projects: Vec<ProjectInfo> = serde_json::from_str(&file_content).map_err(|e| e.to_string())?;
-
-    for (id, project) in projects.iter_mut().enumerate() {
-        project.id = (id + 1) as u32;
-    }
-    Ok(projects)
-}
-
-#[tauri::command]
-fn save_projects(
-    projects: Vec<ProjectInfo>, 
-    selected_project_id: u32, 
-    app_handle: tauri::AppHandle
-) -> Result<(), String> {
-    let base_path = app_handle
-        .path_resolver()
-        .app_data_dir()
-        .ok_or("Не удалось разрешить папку данных приложения.")?;
-    let dir = base_path.join("database/printers");
-
-    if !dir.exists() {
-        fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    }
-
-    let file_path = dir.join("projects.json");
-
-    // Устанавливаем выбранный проект
-    let updated_projects: Vec<ProjectInfo> = projects
-        .into_iter()
-        .map(|mut project| {
-            project.is_used = project.id == selected_project_id;
-            project
-        })
-        .collect();
-
-    // Сериализация и запись данных в файл
-    let data = serde_json::to_string(&updated_projects).map_err(|e| e.to_string())?;
-    fs::write(&file_path, data).map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-
-#[tauri::command]
-fn update_selected_project(app_handle: tauri::AppHandle, state: State<ProjectState>) -> Result<(), String> {
-    let base_path = PROJECT_PATH.lock().unwrap()
-        .clone()
-        .ok_or("Project path is not set. Call update_project_path first.")?;
-    let dir = base_path.join("database/printers");
-    if !dir.exists() {
-        fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    }
-    let file_path = dir.join("printers.json");
-    let file_content = fs::read_to_string(&file_path).map_err(|e| e.to_string())?;
-    let selected_project: ProjectInfo = serde_json::from_str(&file_content).map_err(|e| e.to_string())?;
-    let mut state = state.selected_project.lock().unwrap();
-    *state = Some(selected_project);
-    Ok(())
-}
-
-#[tauri::command]
-fn save_projects_and_create_dir(
-    projects: Vec<ProjectInfo>, 
-    app_handle: tauri::AppHandle
-) -> Result<(), String> {
-    // Сохраняем проекты
-    let base_path = app_handle
-        .path_resolver()
-        .app_data_dir()
-        .ok_or("Не удалось разрешить папку данных приложения.")?;
-    let file_path = base_path.join("database/printers/projects.json");
-
-    let data = serde_json::to_string(&projects).map_err(|e| e.to_string())?;
-    fs::write(&file_path, data).map_err(|e| e.to_string())?;
-
-    // Создаём папку для выбранного проекта
-    setting_dir(app_handle, projects);
-
-    Ok(())
-}
-// #[tauri::command]
-// fn save_projects(project: ProjectInfo, app_handle: tauri::AppHandle, state: State<PrinterState>) -> Result<(), String> {
-//     let base_path = app_handle
-//         .path_resolver()
-//         .app_data_dir()
-//         .ok_or("Не удалось разрешить папку данных приложения.")?;
-//     let dir = base_path.join("database/printers");
-//     if !dir.exists() {
-//         fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-//     }
-//     let file_path = dir.join("projects.json");
-//     let data = serde_json::to_string(&project).map_err(|e| e.to_string())?;
-//     fs::write(&file_path, data).map_err(|e| e.to_string())?;
-//     println!("Сохранено: {:?}", *state);
-//     Ok(())
-// }
-
-// #[tauri::command]
-// fn get_projects(app_handle: tauri::AppHandle, state: State<PrinterState>) -> Result<Vec<Value>, String> {
-//     let base_path = app_handle
-//         .path_resolver()
-//         .app_data_dir()
-//         .ok_or("Не удалось разрешить папку данных приложения.")?;
-//     let dir = base_path.join("database/printers");
-//     if !dir.exists() {
-//         fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-//     }
-//     let file_path = dir.join("projects.json");
-//     let file_content = fs::read_to_string(&file_path).map_err(|e| e.to_string())?;
-
-//     Ok(file_content)
-// }
-
-//-------------------------------------------------Printer Information-------------------------------------------------------------------------------------
-
-#[tauri::command]
-fn get_printer_full_information(state: State<PrinterState>) -> Result<Value, String> {
-
-    let state = state.selected_printer.lock().unwrap();
-    let printer_name = state.as_ref().map(|printer| printer.name.clone()).unwrap_or_default();
-
-    let command = format!(r#"Get-WmiObject Win32_Printer -Filter "Name = '{}'" | Select-Object * | ConvertTo-Json"#, printer_name);
-    
+    // Передача функции в PowerShell
     let output = Command::new("powershell")
         .args(&["-Command", &command])
         .output()
         .map_err(|e| e.to_string())?;
 
-    if output.status.success() {
-        // Преобразуем stdout в строку
-        let printer_json = String::from_utf8_lossy(&output.stdout);
-        // Парсим строку JSON в объект serde_json::Value
-        let json: Value = serde_json::from_str(&printer_json).map_err(|e| e.to_string())?;
-        Ok(json)
-    } else {
-        // Если команда завершилась с ошибкой, возвращаем stderr как ошибку
-        let error = String::from_utf8_lossy(&output.stderr);
-        Err(error.into())
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).to_string());
     }
-}
-
-#[tauri::command]
-fn open_printer_information(state: State<PrinterState>) -> Result<(), String> {
-    let printer_name = {
-        let state = state.selected_printer.lock().unwrap();
-        state
-            .as_ref()
-            .map(|printer| printer.name.clone())
-            .ok_or_else(|| "Принтер не выбран".to_string())?
-    };
-
-    let _command = Command::new("rundll32")
-        .arg("printui.dll,PrintUIEntry")
-        .arg("/e")
-        .arg("/n")
-        .arg(printer_name)
-        .spawn();
 
     Ok(())
-}
-
-#[tauri::command]
-fn open_printer_status() -> Result<(), String> {
-    let output = Command::new("cmd")
-        .args(&["/C", "start ms-settings:printers"]) // Отправляем команду в командную строку
-        .output()
-        .map_err(|e| format!("Failed to execute command: {}", e))?;
-
-    if output.status.success() {
-        Ok(())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        Err(format!("Error: {}", stderr))
-    }
-}
-
-//-------------------------------------------------Chromokey-------------------------------------------------------------------------------------
-
-#[derive(Serialize, Deserialize, Debug)]
-struct ChromakeyData {
-    chromakey_image_path: String,
-    chromakey_color: String,
-    counter_capture_photo: u32,
-}
-
-#[tauri::command]
-fn save_settings(app_handle: tauri::AppHandle, image: String, color: String, counter: u32) -> Result<(), String> {
-    let base_path = PROJECT_PATH.lock().unwrap()
-        .clone()
-        .ok_or("Project path is not set. Call update_project_path first.")?;
-    let path = base_path.join("database\\settings\\chromokeyImage.png");
-    // Сохраняем изображение как Base64
-    fs::write(path.clone(), image).map_err(|e| format!("Ошибка сохранения изображения: {}", e))?;
-
-    let chromakey_data = ChromakeyData {
-        chromakey_image_path: path.to_str().unwrap_or_default().to_string(),
-        chromakey_color: color.to_string(),
-        counter_capture_photo: counter,
-    };
-
-    let json_data = serde_json::to_string_pretty(&chromakey_data).map_err(|e| e.to_string())?;
-
-    let json_path = base_path.join("database/settings/chromakey.json");
-
-    let mut json_file = File::create(json_path).map_err(|e| e.to_string())?;
-    
-    json_file.write_all(json_data.as_bytes()).map_err(|e| e.to_string())?;
-    
-    Ok(())
-}
-
-#[tauri::command]
-fn read_settings(app_handle: tauri::AppHandle) -> Result<ChromakeyData, String> {
-    // Определяем путь к файлу JSON
-    let base_path = PROJECT_PATH.lock().unwrap()
-        .clone()
-        .ok_or("Project path is not set. Call update_project_path first.")?;
-    let json_path = base_path.join("database/settings/chromakey.json");
-
-    // Проверяем, существует ли файл
-    if !json_path.exists() {
-        return Err("Файл настроек не найден.".to_string());
-    }
-
-    // Читаем файл
-    let json_content = fs::read_to_string(json_path).map_err(|e| format!("Ошибка чтения файла: {}", e))?;
-
-    // Десериализуем JSON в структуру ChromakeyData
-    let chromakey_data: ChromakeyData =
-        serde_json::from_str(&json_content).map_err(|e| format!("Ошибка парсинга JSON: {}", e))?;
-
-    Ok(chromakey_data)
-}
-
-#[tauri::command]
-fn save_background_image_for_photo(app_handle: tauri::AppHandle, image: String) -> Result<(), String> {
-    let base_path = PROJECT_PATH.lock().unwrap()
-    .clone()
-    .ok_or("Project path is not set. Call update_project_path first.")?;
-    let path = base_path.join("database\\settings\\backgroundImage.png");
-    fs::write(path.clone(), image).map_err(|e| format!("Ошибка сохранения изображения: {}", e))?;
-    Ok(())
-}
-
-#[tauri::command]
-fn get_background_image(app_handle: tauri::AppHandle) -> Result<String, String> {
-    let base_path = PROJECT_PATH.lock().unwrap()
-    .clone()
-    .ok_or("Project path is not set. Call update_project_path first.")?;
-    let path = base_path.join("database\\settings\\backgroundImage.png");
-
-    if !path.exists() {
-        return Err("Фон не найден".to_string());
-    }
-
-    // Читаем изображение из файла
-    fs::read_to_string(path).map_err(|e| format!("Ошибка загрузки изображения: {}", e))
-}
-
-#[tauri::command]
-fn get_background_chromakey(app_handle: tauri::AppHandle) -> Result<String, String> {
-    let base_path = PROJECT_PATH.lock().unwrap()
-        .clone()
-        .ok_or("Project path is not set. Call update_project_path first.")?;
-    let path = base_path.join("database\\settings\\chromokeyImage.png");
-
-    if !path.exists() {
-        return Err("Фон не найден".to_string());
-    }
-
-    // Читаем изображение из файла
-    fs::read_to_string(path).map_err(|e| format!("Ошибка загрузки изображения: {}", e))
 }

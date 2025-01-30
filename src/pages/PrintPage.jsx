@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { invoke } from "@tauri-apps/api/tauri"
+import { invoke, convertFileSrc } from "@tauri-apps/api/tauri"
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import bg_screen from "../components/images_for_template/Макет.png";
@@ -21,9 +21,9 @@ import { Settings } from "lucide-react"
 // import test_image_2 from '../image_beta/IMG_7107.JPG';
 // import test_image_3 from '../image_beta/IMG_7111.JPG';
 
-export default function PrintPage({ images, design }) {
+export default function PrintPage({ images, design, setDesign }) {
   const [bgImage, setBgImage] = useState(localStorage.getItem("back_4") || `url(${back_img})`);
-  const { canvases, currentCanvasId, updateObjectProps, chromokeyBackgroundImage, updateLiveViewStatus } = useStore();
+  const { canvases, currentCanvasId, updateObjectProps, setCamera, chromokey } = useStore();
   const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
   usePageNavigation();
   const canvasRef = useRef(null);
@@ -32,32 +32,36 @@ export default function PrintPage({ images, design }) {
   // const imgES = [test_image_1, test_image_2, test_image_3];
 
   useEffect(() => {
-    const fetchImage = async () => {
-        try {
-            const image = await invoke('get_image', { imageName: '4_bg.jpeg' });
-            const url_image = `url(data:image/jpeg;base64,${image})`;
-            setBgImage(url_image);
-            localStorage.setItem("back_4", url_image);
-        } catch (err) {
-            console.log(err);
-        }
-    };
-    if(!localStorage.getItem("back_4")) {
-        fetchImage();
-    } else {
-      setBgImage(localStorage.getItem("back_4"))
-    }
+      const fetchImage = async () => {
+          try {
+              const image = await invoke('get_image_path', { path: `background/4_background` })
+              const url_image = `url(${convertFileSrc(image)})`;
+              setBgImage(url_image);
+              if (image && image.trim() !== "") {
+                  setBgImage(url_image);
+                  localStorage.setItem("back_4", url_image);
+              } else {
+                  throw new Error("Изображение не найдено");
+              }
+          } catch (err) {
+              localStorage.removeItem("back_4");
+              setBgImage(`url(${back_img})`);
+              console.log(err);
+          }
+      };
+
+      fetchImage();
   },[]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext('2d');
-      drawMyCanvas(ctx, canvas, currentCanvas, false, chromokeyBackgroundImage, design);
+      drawMyCanvas(ctx, canvas, currentCanvas, false, chromokey.backgroundImage, !design);
 
       // Второй вызов отрисовки через небольшой промежуток времени
       const timeoutId = setTimeout(() => {
-        drawMyCanvas(ctx, canvas, currentCanvas, false, chromokeyBackgroundImage, design);
+        drawMyCanvas(ctx, canvas, currentCanvas, false, chromokey.backgroundImage, !design);
       }, 50); // Задержка в 50 миллисекунд (можно варьировать)
       // Очистка таймера, если компонент размонтируется
       const imageData = canvas.toDataURL('image/png');
@@ -91,11 +95,12 @@ export default function PrintPage({ images, design }) {
       const imageData = canvasRef.current.toDataURL('image/png');
       const imageBase64 = imageData.replace(/^data:image\/(png|jpg);base64,/, '');
       setIsImage(imageBase64);
-      toast('Printing...', { type: 'info' });
+      toast.done('Printing...', { type: 'info' });
       await invoke('print_image', { imageData: imageBase64 });
-        navigate('/')
+      setDesign(true);
+      navigate('/')
     } else {
-      toast('No image available for printing', { type: 'warning' });
+      toast.error('No image available for printing', { type: 'warning' });
     }
   };
 
@@ -103,7 +108,7 @@ export default function PrintPage({ images, design }) {
     garbedCanvas(currentCanvas);
     navigate('/capture');
     await invoke('start_live_view');
-    updateLiveViewStatus(true);
+    setCamera({ isLiveView: true });
   }
 
   return (

@@ -29,7 +29,7 @@ export async function saveCanvasImage(canvasId, canvasData, canvasRef) {
         });
         toast.success('Изображение сохранено');
         console.log('Canvas image saved successfully.');
-        } catch (error) {
+    } catch (error) {
         console.error('Failed to save canvas image:', error);
     }
 }

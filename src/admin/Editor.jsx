@@ -18,7 +18,7 @@ import {
     RefreshCcwDot
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { invoke } from "@tauri-apps/api/tauri";
+import { invoke, convertFileSrc } from "@tauri-apps/api/tauri";
 import { toast, ToastContainer } from "react-toastify";
 import { usePageNavigation } from '../hooks/usePageNavigation.js';
 import { emit } from '@tauri-apps/api/event';
@@ -88,21 +88,11 @@ export default function Editor({ isDarkMode }) {
     });
     const [activeTab, setActiveTab] = useState("filters");
 
-    // useEffect(() => {
-    //     const newBgImage = localStorage.getItem(`back_${whyBg}`);
-    //     // const image = await invoke('get_image', { imageName: '${whyBg}_bg.jpeg' });
-    //     // const url_image = `url(data:image/jpeg;base64,${image})`;
-    //     // setBgImage(url_image);
-    //     console.log("back_${whyBg}");
-    //     setBgImage(newBgImage);
-    //   }, [whyBg]);
-
     useEffect(() => {
         const fetchImage = async () => {
             try {
-                const image = await invoke('get_image', { imageName: `${whyBg}_bg.jpeg`});
-                console.log(image);
-                const url_image = `data:image/jpeg;base64,${image}`;
+                const image = await invoke('get_image_path', { path: `background/${whyBg}_background`});
+                const url_image = convertFileSrc(image);
                 const newState = {
                     ...state,
                     image: url_image || defaultImage,
@@ -190,7 +180,7 @@ export default function Editor({ isDarkMode }) {
 
     const refreshCcwDot = async () => {
         try {
-            const image = await invoke('delete_image', { imageName: `${whyBg}_bg.jpeg` });
+            const image = await invoke('delete_image', { relativePath: `background/${whyBg}_background` });
             // const url_image = `url(data:image/jpeg;base64,${image})`;
             // setBgImage(url_image);
             const newState = {
@@ -266,7 +256,7 @@ export default function Editor({ isDarkMode }) {
         }
     };
 
-    const saveImage = () => {
+    const saveImage = async () => {
         if (!details) return;
         const canvas = document.createElement("canvas");
         const scaleFactor = 0.9; // Измените этот фактор для изменения разрешения (например, 0.5 уменьшит размер в два раза)
@@ -275,31 +265,31 @@ export default function Editor({ isDarkMode }) {
         const ctx = canvas.getContext("2d");
 
         if (ctx) {
-        ctx.filter = `brightness(${state.brightness}%) grayscale(${state.grayscale}%) sepia(${state.sepia}%) saturate(${state.saturate}%) contrast(${state.contrast}%) hue-rotate(${state.hueRotate}deg)`;
+            ctx.filter = `brightness(${state.brightness}%) grayscale(${state.grayscale}%) sepia(${state.sepia}%) saturate(${state.saturate}%) contrast(${state.contrast}%) hue-rotate(${state.hueRotate}deg)`;
 
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.rotate((state.rotate * Math.PI) / 180);
-        ctx.scale(state.vertical, state.horizontal);
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate((state.rotate * Math.PI) / 180);
+            ctx.scale(state.vertical, state.horizontal);
 
-        ctx.drawImage(
-            details,
-            -canvas.width / 2,
-            -canvas.height / 2,
-            canvas.width,
-            canvas.height
-        );
+            ctx.drawImage(
+                details,
+                -canvas.width / 2,
+                -canvas.height / 2,
+                canvas.width,
+                canvas.height
+            );
 
-        const dataURL = canvas.toDataURL('image/webp', 0.8);
-        const imageData = dataURL.split(',')[1];
-        const fileName = `${whyBg}_bg.jpeg`;
-        localStorage.removeItem(`back_${whyBg}`);
-        invoke('save_image', { imageData, fileName })
-        .then(() => {
-            toast.success('Image saved successfully');
-        })
-        .catch((error) => {
-            toast.error('Error saving image:', error);
-        });;
+            const dataURL = canvas.toDataURL('image/webp', 0.8);
+            const fileName = `${whyBg}_bg.jpeg`;
+            localStorage.removeItem(`back_${whyBg}`);
+            try {
+                await invoke('save_image', {
+                    image: dataURL,
+                    relativePath: `background/${whyBg}_background`,
+                })
+            } catch (err) {
+                console.error("Ошибка сохранения изображения: ", err);
+            }
         }
     };
 

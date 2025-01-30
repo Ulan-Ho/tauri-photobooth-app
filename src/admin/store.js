@@ -526,19 +526,57 @@ const updateCanvasProperty = (canvasId, propertyUpdates) => set((state) => ({
 }));
 
 export const useStore = create(devtools((set) => ({
-  cameraStatus: false,
 
-  isLiveView: false,
-
-  updateCameraStatus: (status) => set({ cameraStatus: status }),
-  updateLiveViewStatus: (status) => set({ isLiveView: status }),
-
-  backgroundImage: {
-    imgObject: '',
-    src: back_img,
+  camera: {
+    isCameraOn: false,
+    isLiveView: false,
+    counterCapturePhoto: 3,
   },
 
-  setBackgroundImage: (src) => set({ backgroundImage: { imgObject: '', src } }),
+  setCamera: (updates) => set((state) => ({ camera: { ...state.camera, ...updates } })),
+
+  
+  reference: {
+    imgObject: '',
+    src: back_img,
+    isEnabled: false,
+  },
+
+  setReferences: (updates) => set((state) => ({ reference: { ...state.reference, ...updates }})),
+
+
+  chromokey: {
+    isEnabled: false,
+    color: '#00ff00',
+    backgroundImage: {
+      imgObject: '',
+      src: back_img,
+    },
+  },
+
+  setChromokey: (updates) => set((state) => ({ chromokey: { ...state.chromokey, ...updates } })),
+
+
+  project: {
+    isCurrent: true,
+    updateStatus: false,
+  },
+
+  setProject: (updates) => set((state) => ({ project: { ...state.project, ...updates } })),
+
+  // cameraStatus: false,
+
+  // isLiveView: false,
+
+  // updateCameraStatus: (status) => set({ cameraStatus: status }),
+  // updateLiveViewStatus: (status) => set({ isLiveView: status }),
+
+  // backgroundImage: {
+  //   imgObject: '',
+  //   src: back_img,
+  // },
+
+  // setBackgroundImage: (src) => set({ backgroundImage: { imgObject: '', src } }),
 
   canvases: [
     {
@@ -961,45 +999,45 @@ export const useStore = create(devtools((set) => ({
     },
   ],
 
-  updateStatus: false,
+  // updateStatus: false,
   
-  currentProject: true,
+  // currentProject: true,
 
-  chromokeyStatus: false,
+  // chromokeyStatus: false,
 
-  chromokeyBackgroundImage: {
-    // id: 9999999,
-    // type: 'image',
-    // numberImage: 1,
-    // left: 48,
-    // top: 48,
-    // width: 530,
-    // height: 490,
-    imgObject: '',
-    src: back_img,
-  },
+  // chromokeyBackgroundImage: {
+  //   // id: 9999999,
+  //   // type: 'image',
+  //   // numberImage: 1,
+  //   // left: 48,
+  //   // top: 48,
+  //   // width: 530,
+  //   // height: 490,
+  //   imgObject: '',
+  //   src: back_img,
+  // },
 
-  chromokeyColor: '#00ff00',
+  // chromokeyColor: '#00ff00',
 
 
-  counterCapturePhoto: 3,
+  // counterCapturePhoto: 3,
 
-  setChromokeyStatus: (status) => set({ chromokeyStatus: status }),
+  // setChromokeyStatus: (status) => set({ chromokeyStatus: status }),
 
-  setChromokeyBackgroundImage: (imageObject, imageSrc) => set({
-    chromokeyBackgroundImage: {
-      imgObject: imageObject,
-      src: imageSrc,
-    },
-  }),
+  // setChromokeyBackgroundImage: (imageObject, imageSrc) => set({
+  //   chromokeyBackgroundImage: {
+  //     imgObject: imageObject,
+  //     src: imageSrc,
+  //   },
+  // }),
 
-  setChromokeyColor: (color) => set({ chromokeyColor: color }),
+  // setChromokeyColor: (color) => set({ chromokeyColor: color }),
 
-  setCounterCapturePhoto: (value) => set({ counterCapturePhoto: value }),
+  // setCounterCapturePhoto: (value) => set({ counterCapturePhoto: value }),
 
-  setUpdateStatus: (value) => set({ updateStatus: value }),
+  // setUpdateStatus: (value) => set({ updateStatus: value }),
 
-  setCurrentProject: (value) => set({ currentProject: value }),
+  // setCurrentProject: (value) => set({ currentProject: value }),
 
   error: null,  // Новое состояние для ошибок
 

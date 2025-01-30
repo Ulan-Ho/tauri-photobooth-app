@@ -11,27 +11,26 @@ const props = {
     type: 'printer'
 }
 
-export default function PrinterInfo({ isDarkMode }) {
+export default function PrinterInfo({ isDarkMode, setShowPopup, setLoading }) {
 
     usePageNavigation();
 
     const [printerData, setPrinterData] = useState();
 
     async function openPrinterSettings() {
-      
         try {
-          const process = invoke('open_printer_information');
+            const process = invoke('printer_settings');
         //   await process.execute();
-          console.log(process);
-          console.log('Settings window opened');
+            console.log(process);
+            console.log('Settings window opened');
         } catch (err) {
-          console.error('Failed to open printer settings:', err);
+            console.error('Failed to open printer settings:', err);
         }
     }
     
     async function openPrinterStatus() {
         try {
-            invoke('open_printer_status');
+            invoke('printer_status');
         } catch (err) {
             console.error('Failed to open printer status:', err);
         }
@@ -39,9 +38,8 @@ export default function PrinterInfo({ isDarkMode }) {
     useEffect(() => {
         const get_printer = async () => {
             try {
-                const response = await invoke('get_printer_full_information');
+                const response = await invoke('printer_information');
                 if (response) {
-                    console.log(response)
                     setPrinterData(response); 
                 }
             } catch (error) {
@@ -51,6 +49,11 @@ export default function PrinterInfo({ isDarkMode }) {
 
         get_printer();
     }, []);
+
+    const handleSetPrinter = () => {
+        setLoading(false);
+        setShowPopup(true);
+    }
     
 
     return (
@@ -85,13 +88,13 @@ export default function PrinterInfo({ isDarkMode }) {
                         </div>
                         <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Поддерживаемые размеры бумаги</p>
-                            {printerData?.CapabilityDescriptions?.map((type) => <p className="text-lg font-medium">{type}</p>)}
+                            {printerData?.CapabilityDescriptions?.map((type) => <p className="text-lg font-medium" key={type}>{type}</p>)}
                         </div>
                     </div>
                     <div className="space-y-4">
                         <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Поддерживаемые размеры бумаги</p>
-                            {printerData?.PrinterPaperNames?.map((type) => <p className="text-lg font-medium">{type}</p>)}
+                            {printerData?.PrinterPaperNames?.map((type) => <p className="text-lg font-medium" key={type}>{type}</p>)}
                         </div>
                         <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Разрешение печати</p>
@@ -123,6 +126,9 @@ export default function PrinterInfo({ isDarkMode }) {
                             <div>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">Имя общего ресурса</p>
                                 <p className="text-lg font-medium">{printerData?.ShareName}</p>
+                            </div>
+                            <div>
+                                <button className="text-sm text-blue-600 dark:text-gray-400" onClick={handleSetPrinter}>Поменять принтер</button>
                             </div>
                         </div>
                     </div>

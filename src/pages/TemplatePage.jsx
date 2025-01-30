@@ -4,12 +4,12 @@ import '../App.css';
 import templateTriangle from '../assets/templateTriangle.png';
 import { usePageNavigation } from '../hooks/usePageNavigation.js';
 import back_img from '../assets/defaultImage.jpeg';
-import { invoke } from "@tauri-apps/api/tauri"
+import { invoke, convertFileSrc } from "@tauri-apps/api/tauri"
 import { useStore } from '../admin/store.js';
 
 export default function TemplatePage({ design, setDesign }) {
     const [bgImage, setBgImage] = useState(localStorage.getItem("back_2") || `url(${back_img})`);
-    const { canvases, switchCanvas, currentCanvasId, cameraStatus, updateCameraStatus, updateLiveViewStatus } = useStore();
+    const { canvases, switchCanvas, currentCanvasId, camera, setCamera } = useStore();
     const availableCanvases = canvases.filter((canvas) => canvas.canvasProps.available === true);
     const navigate = useNavigate();
     usePageNavigation();
@@ -19,29 +19,32 @@ export default function TemplatePage({ design, setDesign }) {
     useEffect(() => {
         const fetchImage = async () => {
             try {
-                const image = await invoke('get_image', { imageName: '2_bg.jpeg' });
-                const url_image = `url(data:image/jpeg;base64,${image})`;
+                const image = await invoke('get_image_path', { path: `background/2_background` })
+                const url_image = `url(${convertFileSrc(image)})`;
                 setBgImage(url_image);
-                localStorage.setItem("back_2", url_image);
+                if (image && image.trim() !== "") {
+                    setBgImage(url_image);
+                    localStorage.setItem("back_2", url_image);
+                } else {
+                    throw new Error("Изображение не найдено");
+                }
             } catch (err) {
+                localStorage.removeItem("back_2");
+                setBgImage(`url(${back_img})`);
                 console.log(err);
             }
         };
-        if(!localStorage.getItem("back_2")) {
-            fetchImage();
-        } else {
-            setBgImage(localStorage.getItem("back_2"))
-        }
+
+        fetchImage();
     },[]);
 
     const handleNext = async () => {
-        if (design) navigate('/capture');
-        else alert('Пожалуйста, выберите дизайн.');
-        if (!cameraStatus) {
+        navigate('/capture');
+        if (!camera.isCameraOn) {
             await invoke('initialize_camera');
-            updateCameraStatus(true);
+            setCamera({ isCameraOn: true });
         }
-        updateLiveViewStatus(true);
+        setCamera({ isLiveView: true });
         await invoke('start_live_view');
     };
 

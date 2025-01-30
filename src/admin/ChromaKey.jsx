@@ -3,7 +3,7 @@ import AdminShell from "../components/AdminShell";
 import { useStore } from "./store";
 import { SaveIcon, ArrowBigUpDash } from "lucide-react";
 import backgroundUrl from "../assets/defaultImage.jpeg";
-import { invoke } from '@tauri-apps/api/tauri';
+import { convertFileSrc, invoke } from '@tauri-apps/api/tauri';
 import { ToastContainer } from "react-toastify";
 import { usePageNavigation } from '../hooks/usePageNavigation.js';
 import { drawCromakeyBackgroundImage } from '../components/CanvasDrawer.jsx'
@@ -11,25 +11,28 @@ import { drawCromakeyBackgroundImage } from '../components/CanvasDrawer.jsx'
 const props = { page: 'Chromakey', type: 'chromakey' };
 
 export default function Chromakey() {
-    const { chromokeyColor, setChromokeyColor, chromokeyStatus, updateCameraStatus, updateLiveViewStatus, cameraStatus, isLiveView, chromokeyBackgroundImage, setChromokeyStatus, setChromokeyBackgroundImage, counterCapturePhoto, setCounterCapturePhoto } = useStore();
+    const { camera, setCamera, chromokey, setChromokey } = useStore();
     const canvasRef = useRef(null);
     const backgroundImageRef = useRef(null);
-    // const [chromokeyColor, setChromokeyColor] = useState('#00ff00'); // По умолчанию зеленый
     const [image, setImage] = useState(null);
 
     usePageNavigation();
 
     useEffect(() => {
-        if (!chromokeyBackgroundImage.src) return;
+        updateSettings();
+    }, []);
+
+    useEffect(() => {
+        if (!chromokey.backgroundImage.src) return;
 
         const bgCanvas = backgroundImageRef.current;
         const bgCtx = bgCanvas.getContext("2d");
         bgCanvas.width = 530;
         bgCanvas.height = 530;
-        drawCromakeyBackgroundImage(bgCtx, bgCanvas, chromokeyBackgroundImage, true)
+        drawCromakeyBackgroundImage(bgCtx, bgCanvas, chromokey.backgroundImage, true)
 
         // backgr.onerror = (err) => console.error('Ошибка загрузки фона:', err);
-    }, [chromokeyBackgroundImage]);
+    }, [chromokey.backgroundImage]);
 
     const processVideoFrames = useCallback((base64Image) => {
         const canvas = canvasRef.current;
@@ -64,12 +67,11 @@ export default function Chromakey() {
             // ctx.drawImage(backgroundImageRef.current, 0, 0, canvas.width, canvas.height);
             ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
 
-            if (chromokeyStatus) {
+            if (chromokey.isEnabled) {
                 const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 const data = frame.data;
-                const [r, g, b] = hexToRgb(chromokeyColor); 
+                const [r, g, b] = hexToRgb(chromokey.color); 
                 console.log('Цвет хромакея:', r, g, b);
-                console.log(chromokeyColor);
 
                 const tolerance = 50;  // Уровень погрешности для цветового сравнения
 
@@ -89,7 +91,7 @@ export default function Chromakey() {
         };
 
         image.onerror = (err) => console.error('Ошибка загрузки изображения:', err);
-    }, [chromokeyStatus, chromokeyColor]);
+    }, [chromokey, camera]);
 
     const hexToRgb = (hex) => {
         const match = /^#([a-fA-F0-9]{6})$/.exec(hex);
@@ -104,7 +106,7 @@ export default function Chromakey() {
     };
 
     useEffect(() => {
-        if (!isLiveView) return;
+        if (!camera.isLiveView) return;
 
         const interval = setInterval(async () => {
             try {
@@ -116,21 +118,21 @@ export default function Chromakey() {
         }, 100);
 
         return () => clearInterval(interval);
-    }, [isLiveView, processVideoFrames]);
+    }, [camera.isLiveView, processVideoFrames]);
 
     const toggleLiveView = useCallback(async () => {
-        if (!cameraStatus) {
+        if (!camera.isCameraOn) {
             await invoke('initialize_camera');
-            updateCameraStatus(true);
+            setCamera({ isCameraOn: true });
         }
-        if (isLiveView) {
+        if (camera.isLiveView) {
             await invoke('stop_live_view');
-            updateLiveViewStatus(false);
+            setCamera({ isLiveView: false });
         } else {
             await invoke('start_live_view');
-            updateLiveViewStatus(true);
+            setCamera({ isLiveView: true });
         }
-    }, [cameraStatus, isLiveView]);
+    }, [camera.isLiveView, camera.isCameraOn, setCamera]);
 
     // Обработчик для изменения фона
     const handleBackgroundChange = (event) => {
@@ -138,20 +140,27 @@ export default function Chromakey() {
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             const imageSrc = e.target.result;
             const imageObject = new Image();
             imageObject.src = imageSrc;
             // Обновляем состояние с новым изображением
-            setChromokeyBackgroundImage(imageObject, imageSrc);
-            console.log(chromokeyBackgroundImage.scr);
+            setChromokey({ backgroundImage: { imgObject: imageObject, src: imageSrc } });
+            try {
+                await invoke('save_image', {
+                    image: imageSrc,
+                    relativePath: "settings/chromokey_image",
+                })
+            } catch (err) {
+                console.error("Ошибка сохранения изображения: ", err);
+            }
         };
         reader.readAsDataURL(file);
     };
 
     const saveChanged = async () => {
         try {
-            await invoke('save_settings', { image: chromokeyBackgroundImage?.src, color: chromokeyColor, counter: counterCapturePhoto });
+            await invoke('save_settings', { color: chromokey.color, counter: camera.counterCapturePhoto, status: chromokey.isEnabled });
             console.log('Изменения успешно сохраненый');
         } catch (err) {
             console.error('Ошибка сохранения фона:', err);
@@ -163,15 +172,19 @@ export default function Chromakey() {
             const settings = await invoke('read_settings');
 
             if (settings) {
-                setChromokeyColor(settings.chromakey_color);
-                setCounterCapturePhoto(settings.counter_capture_photo);
+                setChromokey({ color: settings.color, isEnabled: settings.is_enabled });
+                setCamera({ counterCapturePhoto: settings.counter_capture_photo });
             }
             
-            const background = await invoke('get_background_chromakey');
-            if (background) {
+            const background = await invoke('get_image_path', { path: `settings/chromokey_image`});
+            if (background !== "Image file not found.") {
                 const imageObject = new Image();
-                imageObject.src = background;
-                setChromokeyBackgroundImage(imageObject, background);
+                imageObject.src = convertFileSrc(background);
+                setChromokey({ backgroundImage: { imgObject: imageObject, src: imageObject.src } });
+            } else {
+                const imageObject = new Image();
+                imageObject.src = backgroundUrl;
+                setChromokey({ backgroundImage: { imgObject: imageObject, src: backgroundUrl } });
             }
         } catch (err) {
             console.error('Ошибка загрузки фона:', err);
@@ -183,22 +196,22 @@ export default function Chromakey() {
         <AdminShell props={props}>
             <div className="flex ">
                 <div className="relative w-3/5 h-full">
-                    <canvas ref={backgroundImageRef} width="530" height="530" style={{ position: 'absolute', zIndex: 1, display: chromokeyStatus === true ? 'block' : 'none' }} />
+                    <canvas ref={backgroundImageRef} width="530" height="530" style={{ position: 'absolute', zIndex: 1, display: chromokey.isEnabled === true ? 'block' : 'none' }} />
                     <canvas ref={canvasRef} width="530" height="530" style={{ position: 'absolute', zIndex: 2 }} />
                 </div>
                 <div className="flex flex-col justify-between w-2/5 gap-4">
                     <div className="grid grid-cols-2 gap-x-2 gap-y-4">
-                        <button className={`p-2 rounded-lg border ${isLiveView === true ? 'bg-blue-500' : 'bg-red-500'} text-white`} onClick={toggleLiveView}>Включить камеру</button>
-                        <button className={`p-2 rounded-lg border ${chromokeyStatus === true ? 'bg-blue-500' : 'bg-red-500'} text-white`} onClick={() => setChromokeyStatus(!chromokeyStatus)}>Chromakey {chromokeyStatus === true ? 'включен' : 'выключен'}</button>
+                        <button className={`p-2 rounded-lg border ${camera.isLiveView === true ? 'bg-blue-500' : 'bg-red-500'} text-white`} onClick={toggleLiveView}>Включить камеру</button>
+                        <button className={`p-2 rounded-lg border ${chromokey.isEnabled === true ? 'bg-blue-500' : 'bg-red-500'} text-white`} onClick={() => setChromokey({ isEnabled: !chromokey.isEnabled })}>Chromakey {chromokey.isEnabled === true ? 'включен' : 'выключен'}</button>
                         <div
                             className="rounded-lg border flex justify-center items-center cursor-pointer col-span-2 w-fit h-fit"
                             style={{ overflow: 'hidden', background: '#f3f3f3' }}
                         >
                             <label style={{ width: '370px', height: '370px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                {chromokeyBackgroundImage.src ? (
+                                {chromokey.backgroundImage.src ? (
                                     <img
                                         className="object-cover w-full h-full"
-                                        src={chromokeyBackgroundImage.src}
+                                        src={chromokey.backgroundImage.src}
                                         alt="Сохранённый фон"
                                     />
                                 ) : (
@@ -218,10 +231,8 @@ export default function Chromakey() {
                         <input 
                             type="color" 
                             id="chromakey-color"
-                            value={chromokeyColor} 
-                            onChange={(e) => {setChromokeyColor(e.target.value)
-                                console.log(chromokeyColor)
-                            }}
+                            value={chromokey.color} 
+                            onChange={(e) => { setChromokey({ color: e.target.value }) }}
                         />
                     </div>
                     <div className='flex gap-4 items-center justify-start flex-row' >
@@ -230,8 +241,8 @@ export default function Chromakey() {
                             type='number'
                             min={0}
                             max={20}
-                            value={counterCapturePhoto ?? 0}
-                            onChange={(e) => setCounterCapturePhoto(Number(e.target.value))}
+                            value={camera.counterCapturePhoto ?? 3}
+                            onChange={(e) => setCamera({ counterCapturePhoto: Number(e.target.value) })}
                             className='h-8 pl-2 border border-gray-300 dark:border-gray-600 rounded-md w-16'/>
                     </div>
                     <div className="flex justify-between">

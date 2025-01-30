@@ -19,7 +19,7 @@ export default function TemplateEditor() {
 
     usePageNavigation();
 
-    const { addObject, setCanvasProps, canvases, currentCanvasId, updateObjectProps, removeObject, addCanvas, removeCanvas, switchCanvas, setCanvasData, updateStatus, setUpdateStatus, chromokeyBackgroundImage, backgroundImage, setBackgroundImage, chromokeyStatus } = useStore();
+    const { reference, setReferences, chromokey, setChromokey, setProject, addObject, setCanvasProps, canvases, currentCanvasId, updateObjectProps, removeObject, addCanvas, removeCanvas, switchCanvas, setCanvasData } = useStore();
     const [activeTab, setActiveTab] = useState('shapes');
     const canvasRef = useRef(null);
     const canvasRefForSelect = useRef(null);
@@ -239,7 +239,6 @@ export default function TemplateEditor() {
 
         
 
-        // console.log(currentCanvas.canvasProps)
         const drawMarkers = (ctx, obj) => {
             if (!obj) return;
 
@@ -278,15 +277,18 @@ export default function TemplateEditor() {
     
         if (currentCanvas) {
             // Рисуем основной холст
-            drawMyCanvas(ctx, canvas, currentCanvas, true, chromokeyStatus === true ? chromokeyBackgroundImage : backgroundImage, false);
-            drawMyCanvas(ctxSel, canvasSel, currentCanvas, false, chromokeyStatus === true ? chromokeyBackgroundImage : backgroundImage, false);
-            // Выделяем объект, если он выбран
+            drawMyCanvas(ctx, canvas, currentCanvas, true, chromokey.isEnabled === true ? chromokey.backgroundImage : reference, false);
+    
+            // Рисуем выделение только на основном холсте
             if (selectedObjectId) {
                 const selectedObject = currentCanvas.objects.find(obj => obj.id === selectedObjectId);
                 if (selectedObject) {
                     drawMarkers(ctx, selectedObject);
                 }
             }
+    
+            // Рисуем вспомогательный холст, но без выделения
+            drawMyCanvas(ctxSel, canvasSel, currentCanvas, false, chromokey.isEnabled === true ? chromokey.backgroundImage : reference, false);
         }
     }, [currentCanvas, selectedObjectId]);
 
@@ -399,10 +401,9 @@ export default function TemplateEditor() {
     async function loadAllCanvasData() {
         try {
             const canvasArray = await invoke('load_all_canvas_data');
-            // console.log(canvasArray[0].objects);
             switchCanvas(1); // Switch to the first canvas
             setCanvasData(canvasArray); // Use the new function to update the canvases
-            setUpdateStatus(true);
+            setProject({ updateStatus: true });
             toast.success('Данные обновлены');
         } catch (error) {
             toast.error('Failed to load all canvas data:', error);
@@ -436,13 +437,13 @@ export default function TemplateEditor() {
         try {
             currentCanvas.objects.map((obj) => {
                 if (obj.type === 'image') obj.imgObject = '';
-                // console.log('nice')
             });
             currentCanvas.canvasProps.webpData = canvasRefForSelect.current.toDataURL('image/webp');
             saveCanvasData(currentCanvas.id, currentCanvas);
-            saveCanvasImage(currentCanvas.id, currentCanvas, canvasRef);
+            saveCanvasImage(currentCanvas.id, currentCanvas, canvasRefForSelect);
             toast.success('Данные сохранены');
         } catch (error) {
+            console.log(error);
             toast.error('Не удалось сохранить данные:', error);
         }
     }
@@ -470,14 +471,23 @@ export default function TemplateEditor() {
             const imageObject = new Image();
             imageObject.src = imageSrc;
             // Обновляем состояние с новым изображением
-            setBackgroundImage(imageSrc);
-            // console.log(chromokeyBackgroundImage.scr);
-            await invoke('save_background_image_for_photo', { image: imageSrc});
-
+            setReferences({ src: imageSrc, imgObject: imageObject });
+            try {
+                await invoke('save_image', {
+                    image: imageSrc,
+                    relativePath: "settings/references_image",
+                })
+            } catch (err) {
+                console.error("Ошибка сохранения изображения: ", err);
+            }
         };
         reader.readAsDataURL(file);
 
     };
+
+    function handleToggle() {
+        setReferences({ isEnabled: !reference.isEnabled })
+    }
 
     return (
         <AdminShell props={props}>
@@ -554,10 +564,10 @@ export default function TemplateEditor() {
                                         style={{ overflow: 'hidden', background: '#f3f3f3' }}
                                     >
                                         <label style={{ width: '200px', height: '200px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                            {backgroundImage.src ? (
+                                            {reference.src ? (
                                                 <img
                                                     className="object-cover w-full h-full"
-                                                    src={backgroundImage.src}
+                                                    src={reference.src}
                                                     alt="Сохранённый фон"
                                                 />
                                             ) : (

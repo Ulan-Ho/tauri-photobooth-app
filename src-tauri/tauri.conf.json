@@ -14,10 +14,12 @@
     "allowlist": {
       "all": true,
       "fs": {
-        "scope": [
-          "**"
-      ],
-        "all": true
+        "all": true,
+        "scope": ["**"]
+      },
+      "protocol": {
+        "asset": true,
+        "assetScope": ["**"]
       },
       "shell": {
         "all": true,

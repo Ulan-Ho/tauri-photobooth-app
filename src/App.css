@@ -228,3 +228,11 @@
   display: inline-flex;
   align-items: center;
 }
+
+* {
+  scrollbar-width: none;
+} 
+
+::-webkit-scrollbar {
+  display: none;
+}
