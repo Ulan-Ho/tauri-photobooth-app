@@ -16,14 +16,18 @@ import { Settings } from "lucide-react"
 import { set } from "lodash";
 import printer from "../assets/printer.png";
 
-export default function MainPage({ active, loading, setLoading, setActive }) {
-    const { project, setProject, chromokey, setChromokey, reference, setReferences, setCamera, setCanvasData, currentCanvasId, canvases, switchCanvas, chromokeyBackgroundImage, setChromokeyColor, setCounterCapturePhoto, backgroundImage, chromokeyStatus, setBackgroundImage, currentProject, setCurrentProject } = useStore();
+export default function MainPage({ active, loading, setLoading, setActive, design }) {
+    const { license, project, setProject, chromokey, setChromokey, reference, setReferences, setCamera, setCanvasData, currentCanvasId, canvases, switchCanvas, chromokeyBackgroundImage, setChromokeyColor, setCounterCapturePhoto, backgroundImage, chromokeyStatus, setBackgroundImage, currentProject, setCurrentProject } = useStore();
     const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
     const [bgImage, setBgImage] = useState(localStorage.getItem("back_1") || `url(${back_img})`);
     const canvasRefForSelect = useRef(null);
     const navigate = useNavigate();
     // const [image, setImage] = useState('');
     usePageNavigation();
+
+    useEffect(() => {
+        if (!license) navigate('/license');
+    })
 
     useEffect(() => {
         const fetchImage = async () => {
@@ -49,15 +53,9 @@ export default function MainPage({ active, loading, setLoading, setActive }) {
 
     const fetchTemplate = async() => {
         try {
-            // const base64Image = await invoke('get_last_saved_image');
-            // if (base64Image) {
-            //     const url_image = `url(data:image/jpeg;base64,${base64Image})`;
-            //     setImage(url_image);
-            // }
-            if (project.updateStatus === false) {
+            if (!project.updateStatus) {
                 const backgroundImageInBase64 = await invoke('get_image_path', { path: `settings/references_image` });
                 setReferences({ src: convertFileSrc(backgroundImageInBase64) });
-                console.log(reference.src);
                 const canvasArray = await invoke('load_all_canvas_data');
                 if (!canvasArray || canvasArray.length === 0) {
                     console.log("No templates found. Exiting function.");
@@ -67,31 +65,48 @@ export default function MainPage({ active, loading, setLoading, setActive }) {
                 setCanvasData(canvasArray);
                 const canvas = canvasRefForSelect.current;
                 const ctx = canvas.getContext('2d');
-                canvasArray.map(async (canva) => {
+                let timeoutId; 
+                canvasArray.forEach(async (canva) => {
                     if (canva) {
-                        // drawMyCanvas(ctx, canvas, canva, false);
-                        drawMyCanvas(ctx, canvas, canva, false, chromokey.isEnabled === true ? chromokey.backgroundImage : reference, false);
-                        drawMyCanvas(ctx, canvas, canva, false, chromokey.isEnabled === true ? chromokey.backgroundImage : reference, false);
-                        // drawMyCanvas(ctx, canvas, canva, false);
+                        drawMyCanvas(ctx, canvas, canva, false, chromokey.isEnabled ? chromokey.backgroundImage : reference, false);
+                        timeoutId = setTimeout(() => {
+                            drawMyCanvas(ctx, canvas, currentCanvas, false, chromokey.isEnabled ? chromokey.backgroundImage : reference, !design);
+                            try {
+                                canva.canvasProps.webpData = canvasRefForSelect.current.toDataURL('image/webp');
+                            } catch (error) {
+                                console.error("Error generating WebP image:", error);
+                            }
+                        }, 50);
                     }
-                    canva.objects.map((obj) => {
-                        if (( obj.numberImage === 1 ||  obj.numberImage === 3  || obj.numberImage === 2  )) obj.imgObject = '';
+                    
+                    canva.objects.forEach((obj) => {
+                        if ([1, 2, 3].includes(obj.numberImage)) obj.imgObject = '';
                     });
-                    canva.canvasProps.webpData = canvasRefForSelect.current.toDataURL('image/webp');
-                    // saveCanvasData(canva.id, canva);
-                    // saveCanvasImage(canva.id, canva, canvasRefForSelect);
-                })
+                    
+                });
                 setProject({ updateStatus: true });
             }
+            
+            return () => clearTimeout(timeoutId);
+        } catch (err) {
+            console.log(err);
+        }
+    }
+
+    const fetchChromokey = async() => {
+        try {
             const settings = await invoke('read_settings');
 
             if (settings) {
                 setChromokey({ color: settings.color });
                 setCamera({ counterCapturePhoto: settings.counter });
             }
-
-        } catch (err) {
-            console.log(err);
+        } catch(err) {
+            setChromokey({ color: '#00FF00' });
+            setCamera({ counterCapturePhoto: 3 });
+            const errorText = "Ошибка при загрузки настроек";
+            console.error(errorText, err);
+            toast.error(errorText)
         }
     }
 
@@ -129,6 +144,7 @@ export default function MainPage({ active, loading, setLoading, setActive }) {
     const handleSave = async () => {
         if (selectedProject) {
             try {
+                fetchChromokey()
                 await invoke('select_project', { projectName: selectedProject.name });
                 setProject({ isCurrent: false });
                 toast.success("Сохранено успешно!");
@@ -174,23 +190,13 @@ export default function MainPage({ active, loading, setLoading, setActive }) {
     };
 
     const removeProject = async (id) => {
-        setProjects(async (prevProjects) => {
-            const updatedProjects = prevProjects.filter((project) => project.id !== id);
-            prevProjects.forEach(async (project) => {
-                if (project.id === id) {
-                    await invoke('delete_project', { projectName: project.name });
-                }
-            })
-    
-            // Сбрасываем выбранный проект, если он был удален
-            if (selectedProject?.id === id) {
-                setSelectedProject(null);
+        setProjects((prevProjects) => prevProjects.filter((project) => project.id !== id));
+        projects.map( async (project) => {
+            if (project.id === id) {
+                await invoke('delete_project', { projectName: project.name });
             }
-
-
-    
-            return updatedProjects;
         });
+
     };
 
     const [listPH, setListPh] = useState([]);

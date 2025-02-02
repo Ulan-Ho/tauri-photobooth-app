@@ -10,14 +10,15 @@ mod image_fn;
 mod chromokey_fn;
 mod work_hours_fn;
 mod init_project_fn;
+mod license;
 
-use globals::{PROJECT_PATH, PrinterState};
+use globals::{LicenseState, PrinterState, PROJECT_PATH};
 use init_project_fn::{get_projects, select_project, delete_project};
 use printer_fn::{saving_printer_data, get_printers_info, update_selected_printer, printer_information, printer_settings, printer_status};
 use image_fn::{delete_image, get_image_path, save_image, get_image_paths};
 use chromokey_fn::{save_settings, read_settings};
 use work_hours_fn::{get_work_hours, set_work_hours};
-
+use license::{verify_license, check_license};
 
 use std::ffi::CString;
 use device_query::{DeviceQuery, DeviceState, Keycode};
@@ -809,7 +810,6 @@ async fn main() {
                 // let handle_clone = handle.clone();
                 let window = handle.get_window("main").unwrap();
                 let menu_visible = menu_visible.clone();
-
                 // Обработчик событий клавиатуры
                 thread::spawn(move || {
                     let mut last_check = Instant::now();
@@ -863,10 +863,13 @@ async fn main() {
             delete_image,
             get_image_path,
             read_settings,
-            get_image_paths
+            get_image_paths,
+            verify_license,
+            check_license
             ])
         .manage(Arc::new(Mutex::new(None::<Arc<Mutex<Camera>>>)))
         .manage(PrinterState::default())
+        .manage(LicenseState { license: Mutex::new(None) })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -90,6 +90,7 @@ export const drawLine = (ctx, obj) => {
 export const drawCromakeyBackgroundImage = (ctx, obj, chromokeyBackgroundImage, drawImage) => {
     if (!chromokeyBackgroundImage || !chromokeyBackgroundImage.imgObject) {
         chromokeyBackgroundImage.imgObject = new Image();
+        chromokeyBackgroundImage.imgObject.crossOrigin = "anonymous";
         chromokeyBackgroundImage.imgObject.src = chromokeyBackgroundImage.src;
     }
 
@@ -128,6 +129,7 @@ export const drawCromakeyBackgroundImage = (ctx, obj, chromokeyBackgroundImage, 
             ctx.restore();
         }
         if (!chromokeyBackgroundImage.imgObject.complete) {
+            chromokeyBackgroundImage.imgObject.crossOrigin = "anonymous";
             chromokeyBackgroundImage.imgObject.onload = draw;
         } else {
             draw();
@@ -168,6 +170,7 @@ export const drawCromakeyBackgroundImage = (ctx, obj, chromokeyBackgroundImage, 
             ctx.restore();
         }
         if (!chromokeyBackgroundImage.imgObject.complete) {
+            chromokeyBackgroundImage.imgObject.crossOrigin = "anonymous";
             chromokeyBackgroundImage.imgObject.onload = draw;
         } else {
             draw();
@@ -183,6 +186,7 @@ export const drawImages = (ctx, obj, bool, chromokeyBackgroundImage, backImage) 
     if (!obj.imgObject) {
         // Создаем и сохраняем объект изображения, если он еще не создан
         obj.imgObject = new Image();
+        obj.imgObject.crossOrigin = "anonymous";
         obj.imgObject.src = obj.src;
     }
 
