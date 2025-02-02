@@ -15,7 +15,7 @@ cc = "1.0"
 tauri = { version = "1.7.2", features = [ "api-all"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-base64 = "0.22.1"
+
 rdev = "0.5.3"
 device_query = "2.1.0"
 tokio = { version = "1", features = ["full"] }
@@ -26,6 +26,14 @@ lazy_static = "1.4"
 printers = "2.0.0"
 chrono = { version = "0.4", features = ["serde"] }
 crc32fast = "1.4.2"
+
+rsa = "0.9"
+sha2 = "0.10"
+pem = "3.0"
+base64 = "0.21"
+rand = "0.8"
+mid = "1.1.0"
+dotenv = "0.15"
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

@@ -4,6 +4,8 @@ use std::path::PathBuf;
 
 use crate::globals::ProjectInfo;
 use crate::globals::PROJECT_PATH;
+use crate::work_hours_fn::set_work_hours;
+use crate::chromokey_fn::save_settings;
 
 
 #[tauri::command]
@@ -89,6 +91,14 @@ fn setting_dir() -> Result<(), String> {
         ];
         create_directories_if_not_exist(directories, &base_path);
     });
+
+    let start_time = "09:00".to_string();
+    let end_time = "21:00".to_string();
+
+    set_work_hours(start_time, end_time, false).unwrap();
+
+    save_settings("#00ff00".to_string(), 3, false).unwrap();
+
     Ok(())
 }
 

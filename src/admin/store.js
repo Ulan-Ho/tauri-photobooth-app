@@ -527,6 +527,10 @@ const updateCanvasProperty = (canvasId, propertyUpdates) => set((state) => ({
 
 export const useStore = create(devtools((set) => ({
 
+  license: false,
+
+  setLicense: () => set(state => ({ license: !state.license })),
+
   camera: {
     isCameraOn: false,
     isLiveView: false,

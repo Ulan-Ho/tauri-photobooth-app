@@ -23,7 +23,7 @@ import { Settings } from "lucide-react"
 
 export default function PrintPage({ images, design, setDesign }) {
   const [bgImage, setBgImage] = useState(localStorage.getItem("back_4") || `url(${back_img})`);
-  const { canvases, currentCanvasId, updateObjectProps, setCamera, chromokey } = useStore();
+  const { canvases, currentCanvasId, updateObjectProps, setCamera, chromokey, reference } = useStore();
   const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
   usePageNavigation();
   const canvasRef = useRef(null);
@@ -57,11 +57,11 @@ export default function PrintPage({ images, design, setDesign }) {
     const canvas = canvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext('2d');
-      drawMyCanvas(ctx, canvas, currentCanvas, false, chromokey.backgroundImage, !design);
+      drawMyCanvas(ctx, canvas, currentCanvas, false, chromokey.isEnabled === true ? chromokey.backgroundImage : reference, !design);
 
-      // Второй вызов отрисовки через небольшой промежуток времени
+      // Второй вызов отрисовки через небольшой промежchromokey.isEnabled === true ? chromokey.backgroundImage : reference
       const timeoutId = setTimeout(() => {
-        drawMyCanvas(ctx, canvas, currentCanvas, false, chromokey.backgroundImage, !design);
+        drawMyCanvas(ctx, canvas, currentCanvas, false, chromokey.isEnabled === true ? chromokey.backgroundImage : reference, !design);
       }, 50); // Задержка в 50 миллисекунд (можно варьировать)
       // Очистка таймера, если компонент размонтируется
       const imageData = canvas.toDataURL('image/png');
