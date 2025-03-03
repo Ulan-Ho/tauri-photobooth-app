@@ -1,11 +1,9 @@
 use std::fs::*;
 use std::path::PathBuf;
 
-
 use crate::globals::ProjectInfo;
 use crate::globals::PROJECT_PATH;
 use crate::work_hours_fn::set_work_hours;
-use crate::chromokey_fn::save_settings;
 
 
 #[tauri::command]
@@ -31,8 +29,8 @@ pub fn get_projects(app_handle: tauri::AppHandle) -> Result<Vec<ProjectInfo>, St
                     None
                 }
             }
-            Err(err) => {
-                eprintln!("Ошибка чтения элемента директории: {}", err);
+            Err(_err) => {
+                // eprintln!("Ошибка чтения элемента директории: {}", err);
                 None
             }
         })
@@ -80,7 +78,6 @@ fn setting_dir() -> Result<(), String> {
     let base_path = PROJECT_PATH.lock().unwrap().clone()
         .ok_or_else(|| "Project path is not set. Call update_project_path first.".to_string())?;
     // Найти проект с is_used: true
-    println!("base_path: {:?}", base_path);
     tauri::async_runtime::spawn(async move {
         let directories = vec![
             "template",
@@ -97,7 +94,7 @@ fn setting_dir() -> Result<(), String> {
 
     set_work_hours(start_time, end_time, false).unwrap();
 
-    save_settings("#00ff00".to_string(), 3, false).unwrap();
+    // save_settings("#00ff00".to_string(), 3, false).unwrap();
 
     Ok(())
 }
@@ -108,7 +105,7 @@ fn create_directories_if_not_exist(dirs: Vec<&str>, base_path: &PathBuf) {
         let path: PathBuf = base_path.join(dir);
         if !path.exists() {
             if let Err(_e) = create_dir_all(&path) {
-                eprintln!("Ошибка при создании папки: {:?}", _e);
+                // eprintln!("Ошибка при создании папки: {:?}", _e);
             } else {
                 println!("Папка создана: {:?}", path);
             }

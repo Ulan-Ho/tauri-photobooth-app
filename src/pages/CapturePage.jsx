@@ -164,7 +164,7 @@ export default function CaptureScreen({ onCapture }) {
                 processVideoFrames(base64Image);
             } catch (err) {
                 console.error('Ошибка загрузки кадра:', err);
-                toast.error('Проверьте камеру');
+                // toast.error('Проверьте камеру');
             }
         }, 100);
 
@@ -201,6 +201,7 @@ export default function CaptureScreen({ onCapture }) {
             // if (images.length + 1 === 3) setCapturedImage(test_image_3);
             // setCapturedImage(`data:image/jpeg;base64,${base64Image}`);
             const image = canvas.toDataURL("image/png");
+            setCountdown(camera.counterCapturePhoto);
             setCapturedImage(image);
             setIsShooting(false);
         } catch (err) {

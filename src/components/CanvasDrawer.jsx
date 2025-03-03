@@ -341,7 +341,7 @@ export const drawMyCanvas = (ctx, canvas, currentCanvas, bool, chromokeyBackgrou
     const canvasWidth = canvas.width;
     const canvasHeight = canvas.height;
 
-    const object = { x: 0, y: 0, width: 1244, height: 1840 };
+    const object = { x: 0, y: 0, width: 1200, height: 1800 };
 
     // Задаем цвет фона
     ctx.fillStyle = currentCanvas.canvasProps.backgroundColor;

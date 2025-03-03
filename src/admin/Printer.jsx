@@ -11,7 +11,7 @@ const props = {
     type: 'printer'
 }
 
-export default function PrinterInfo({ isDarkMode, setShowPopup, setLoading }) {
+export default function PrinterInfo({ isDarkMode, setShowPopup, setLoading, showPopup }) {
 
     usePageNavigation();
 
@@ -47,8 +47,10 @@ export default function PrinterInfo({ isDarkMode, setShowPopup, setLoading }) {
             }
         }
 
-        get_printer();
-    }, []);
+        if (!showPopup) {
+            get_printer();
+        }
+    }, [showPopup]);
 
     const handleSetPrinter = () => {
         setLoading(false);
@@ -92,7 +94,7 @@ export default function PrinterInfo({ isDarkMode, setShowPopup, setLoading }) {
                         </div>
                     </div>
                     <div className="space-y-4">
-                        <div>
+                        <div className='overflow-y-auto h-56'>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Поддерживаемые размеры бумаги</p>
                             {printerData?.PrinterPaperNames?.map((type) => <p className="text-lg font-medium" key={type}>{type}</p>)}
                         </div>

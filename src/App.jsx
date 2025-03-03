@@ -78,13 +78,13 @@ export default function App(){
 
                           <Route path="/settings" element={<Settings isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />} />
                           <Route path="/settings/touchscreen" element={<Touchscreen isDarkMode={isDarkMode} />} />
-                          <Route path="/settings/printer" element={<PrinterInfo isDarkMode={isDarkMode} setShowPopup={setShowPopup} setLoading={setLoading}/>} />
+                          <Route path="/settings/printer" element={<PrinterInfo isDarkMode={isDarkMode} setShowPopup={setShowPopup} setLoading={setLoading} showPopup={showPopup}/>} />
                           <Route path="/settings/timer" element={<Timer />} />
                           <Route path="/settings/editor" element={<Editor isDarkMode={isDarkMode}/>} />
                           <Route path="/settings/template-editor" element={<TemplateEditor isDarkMode={isDarkMode} />} />
                           <Route path="/settings/chromakey" element={<Chromakey />} />
                         </Routes>
-                        {showPopup && <PrinterPopup  onClose={() => setShowPopup(false)} loading={loading} />}
+                        {showPopup && <PrinterPopup  onClose={() => setShowPopup(false)} loading={loading}/>}
 
                       </>
                     </CheckLicense>

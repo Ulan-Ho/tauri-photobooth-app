@@ -122,10 +122,10 @@ impl Camera {
     fn new() -> Result<Arc<Mutex<Self>>, u32> {
         unsafe {
             let err = EdsInitializeSDK();
-            println!("EdsInitializeSDK: {}", err);
+            // println!("EdsInitializeSDK: {}", err);
             if err != 0 {
                 if err == 2 { // Убедитесь, что код ошибки 2 соответствует вашей логике
-                    println!("[WARNING] Camera busy or session error. Retrying...");
+                    // println!("[WARNING] Camera busy or session error. Retrying...");
                     // EdsCloseSession(camera_ref_in); // Закрытие на случай повторного открытия
                     // EdsRelease(camera_ref_in);
                     EdsTerminateSDK();
@@ -144,7 +144,7 @@ impl Camera {
 
             let mut camera_list: *mut c_void = std::ptr::null_mut();
             let err = EdsGetCameraList(&mut camera_list);
-            println!("EdsGetCameraList: {}", err);
+            // println!("EdsGetCameraList: {}", err);
             if err != 0 {
                 EdsTerminateSDK();
                 return Err(err);
@@ -160,7 +160,7 @@ impl Camera {
 
             let mut camera_ref_in: *mut c_void = std::ptr::null_mut();
             let err = EdsGetChildAtIndex(camera_list, 0, &mut camera_ref_in);
-            println!("EdsGetChildAtIndex: {}", err);
+            // println!("EdsGetChildAtIndex: {}", err);
             EdsRelease(camera_list);
             if err != 0 {
                 EdsTerminateSDK();
@@ -168,24 +168,8 @@ impl Camera {
             }
 
             let err = EdsOpenSession(camera_ref_in);
-            println!("EdsOpenSession: {}", err);
+            // println!("EdsOpenSession: {}", err);
             if err != 0 {
-                if err == 2 { // Убедитесь, что код ошибки 2 соответствует вашей логике
-                    println!("[WARNING] Camera busy or session error. Retrying...");
-                    // EdsCloseSession(camera_ref_in); // Закрытие на случай повторного открытия
-                    // EdsRelease(camera_ref_in);
-                    // EdsTerminateSDK();
-                    // if let Ok(camera) = Self::new() {
-                    //     return Ok(camera);
-                    // }
-                    // Используем ограничение на количество попыток вместо рекурсии
-                    // for _ in 0..3 {
-                    //     std::thread::sleep(std::time::Duration::from_secs(1));
-                    //     if let Ok(camera) = Self::new() {
-                    //         return Ok(camera);
-                    //     }
-                    // }
-                }
                 EdsRelease(camera_ref_in);
                 EdsTerminateSDK();
                 return Err(err);
@@ -198,7 +182,7 @@ impl Camera {
                 photo_created: Arc::new(Mutex::new(false)),
             }));
 
-            println!("[INFO] Camera initialized successfully.");
+            // println!("[INFO] Camera initialized successfully.");
             Ok(camera)
         }
     }
@@ -209,7 +193,7 @@ impl Camera {
             let camera = unsafe { &*(context as *mut Camera) };
             let err = Self::download_image( object, "captured_image.jpg");
             if err != 0 {
-                println!("[ERROR] Failed to download image: 0x{:?}", err);
+                // println!("[ERROR] Failed to download image: 0x{:?}", err);
             }
             if !object.is_null() {
                 unsafe { EdsRelease(object); }
@@ -220,8 +204,8 @@ impl Camera {
         0
     }
 
-    extern "C" fn handle_property_event(_event: EdsPropertyEvent, property_id: EdsPropertyID, _param: EdsUInt32, _context: *mut EdsVoid) -> EdsError {
-        println!("[LOG] Property event triggered: 0x{:X}", property_id);
+    extern "C" fn handle_property_event(_event: EdsPropertyEvent, _property_id: EdsPropertyID, _param: EdsUInt32, _context: *mut EdsVoid) -> EdsError {
+        // println!("[LOG] Property event triggered: 0x{:X}", property_id);
         // Обработка события свойства
         0
     }
@@ -248,13 +232,13 @@ impl Camera {
                     EdsOpenSession(camera.camera_ref);
                     // let _ = Self::capture_photo(camera);
                 }
-                println!("[INFO] Camera connected.");
+                // println!("[INFO] Camera connected.");
             }
             _ => {
-                println!("[LOG] State event triggered: 0x{:X}", event);
+                // println!("[LOG] State event triggered: 0x{:X}", event);
             }
         }
-        println!("[LOG] State event triggered: 0x{:X}", event);
+        // println!("[LOG] State event triggered: 0x{:X}", event);
 
         0
     }
@@ -278,7 +262,7 @@ impl Camera {
                 // return Err(2);
             }
             if EdsSetCameraStateEventHandler(self.camera_ref, 0x00000300, Self::handle_state_event, self as *const _ as *mut EdsVoid) != 0 {
-                eprintln!("[ERROR] Failed to set camera state event handler.");
+                // eprintln!("[ERROR] Failed to set camera state event handler.");
                 // return Err(3);
             }
             println!("[LOG] Event handlers set successfully.");
@@ -299,7 +283,7 @@ impl Camera {
             // Установка емкости
             let result = EdsSetCapacity(self.camera_ref, capacity);
             if result != 0 {
-                eprintln!("[ERROR] Failed to set capacity. Error code: 0x{:X}", result);
+                // eprintln!("[ERROR] Failed to set capacity. Error code: 0x{:X}", result);
             }
             println!("[LOG] Capacity set successfully.");
     
@@ -307,7 +291,7 @@ impl Camera {
             // thread::sleep(Duration::from_millis(100));
             // let result = EdsSendCommand(self.camera_ref, 0x00000000, 0x00000000);
             // if result != 0 {
-            //     eprintln!("[ERROR] Failed to send capture command (1). Error code: 0x{:X}", result);
+            //     // eprintln!("[ERROR] Failed to send capture command (1). Error code: 0x{:X}", result);
             //     return Err(result);
             // }
 
@@ -317,10 +301,10 @@ impl Camera {
             while attempts < max_retries {
                 let result = EdsSendCommand(self.camera_ref, 0x00000000, 0x00000000);
                 if result == 0 {
-                    println!("[INFO] Capture command sent successfully.");
+                    // println!("[INFO] Capture command sent successfully.");
                     break; // Успешное выполнение команды — выходим из цикла
                 } else {
-                    eprintln!("[ERROR] Failed to send capture command (attempt {}). Error code: 0x{:X}", attempts + 1, result);
+                    // eprintln!("[ERROR] Failed to send capture command (attempt {}). Error code: 0x{:X}", attempts + 1, result);
                     attempts += 1;
 
                     // Здесь можно добавить задержку перед следующей попыткой, если нужно
@@ -329,11 +313,11 @@ impl Camera {
             }
 
             if attempts == max_retries {
-                eprintln!("[ERROR] All attempts to send capture command failed.");
+                // eprintln!("[ERROR] All attempts to send capture command failed.");
                 return Err(result); // Возвращаем ошибку после всех попыток
             }
 
-            println!("[LOG] Photo capture commands sent successfully.");
+            // println!("[LOG] Photo capture commands sent successfully.");
 
             // Ожидаем завершения создания фотографии
             let mut photo_created = self.photo_created.lock().unwrap();
@@ -367,36 +351,36 @@ impl Camera {
             // Получаем информацию о элементе директории
             let err = EdsGetDirectoryItemInfo(directory_item, &mut dir_item_info);
             if err != 0 {
-                println!("[ERROR] Failed to get directory item info: 0x{:X}", err);
+                // println!("[ERROR] Failed to get directory item info: 0x{:X}", err);
                 // return Err(err);
             }
 
             let mut stream: *mut c_void = std::ptr::null_mut();
             let err = EdsCreateFileStream(c_file_name.as_ptr(), 1, 2, &mut stream);
             if err != 0 {
-                println!("[ERROR] Failed to create file stream: 0x{:X}", err);
+                // println!("[ERROR] Failed to create file stream: 0x{:X}", err);
                 // return Err(err);
             }
             // Создаем поток в памяти для сохранения изображения
             // err = unsafe { EdsCreateMemoryStream(dir_item_info.size, &mut stream) };
             // if err != 0 {
             //     println!("[ERROR] Failed to create memory stream: 0x{:X}", err);
-                // return err.try_into().unwrap();
+            //     return err.try_into().unwrap();
             // }
 
             // Скачиваем изображение в поток
             let err = EdsDownload(directory_item, dir_item_info.size, stream);
             if err != 0 {
-                println!("[ERROR] Failed to download image: 0x{:X}", err);
+                // println!("[ERROR] Failed to download image: 0x{:X}", err);
                 EdsRelease(stream);
                 // return Err(err);
             }
-            println!("[LOG] Image downloaded successfully.");
+            // println!("[LOG] Image downloaded successfully.");
 
             // Завершаем скачивание
             let err = EdsDownloadComplete(directory_item);
             if err != 0 {
-                eprintln!("[ERROR] Failed to complete download: 0x{:X}", err);
+                // eprintln!("[ERROR] Failed to complete download: 0x{:X}", err);
                 EdsRelease(stream);
                 // return Err(err);
             }
@@ -406,7 +390,7 @@ impl Camera {
                 EdsRelease(stream);
             }
 
-            println!("[LOG] Image downloaded and encoded to base64 successfully.");
+            // println!("[LOG] Image downloaded and encoded to base64 successfully.");
             0
         }
     }
@@ -430,10 +414,10 @@ impl Camera {
                         return Err(err);
                     }
                 }
-                println!("{}", device);
+                // println!("{}", device);
             }
 
-            println!("Live view started");
+            // println!("Live view started");
             Ok(())
         } else {
             Ok(())
@@ -451,10 +435,10 @@ impl Camera {
                     size_of::<u32>() as u32,
                     &mut device as *mut _ as *mut c_void,
                 );
-                println!("device: {}", device);
-                println!("err: {}", err);
+                // println!("device: {}", device);
+                // println!("err: {}", err);
                 if err != 0 {
-                    println!("Failed to get current output device: {}", err);
+                    // println!("Failed to get current output device: {}", err);
                     return Err(err);
                 }
     
@@ -473,7 +457,7 @@ impl Camera {
                     );
     
                     if err != 0 {
-                        println!("Failed to disable live view output device: {}", err);
+                        // println!("Failed to disable live view output device: {}", err);
                         return Err(err);
                     }
                     EdsRelease(device as *mut c_void);
@@ -481,10 +465,10 @@ impl Camera {
             }
             // Обновляем флаг состояния живого просмотра
             self.is_live_view_started = false;
-            println!("Live view stopped.");
+            // println!("Live view stopped.");
             Ok(())
         } else {
-            println!("Live view is not active.");
+            // println!("Live view is not active.");
             Ok(())
         }
     }
@@ -495,7 +479,7 @@ impl Camera {
             let mut evf_image: *mut c_void = std::ptr::null_mut();
             // thread::sleep(Duratiosn::from_millis(200));
             // Создаем поток памяти для хранения изображения
-            println!("{}", stream as u32);
+            // println!("{}", stream as u32);
             let err = EdsCreateMemoryStream(0, &mut stream);
             if err != 0 {
                 if err == 2 {
@@ -514,11 +498,11 @@ impl Camera {
             }
             // Скачиваем изображение
             let err = EdsDownloadEvfImage(self.camera_ref, evf_image);
-            // println!("err: {}", err);
+            // // println!("err: {}", err);
             if err != 0 {
                 EdsRelease(evf_image);
                 EdsRelease(stream);
-                // println!("Error downloading EVF image: {}", err);
+                // // println!("Error downloading EVF image: {}", err);
                 if err == 97 {
                     // let err = self::start_live_view();
                     // let _err= self.stop_live_view();
@@ -555,7 +539,7 @@ impl Camera {
             // Копируем данные в вектор
             let image_data = std::slice::from_raw_parts(data_ptr, length as usize).to_vec();
             // let image_data = Vec::from_raw_parts(data_ptr, length as usize, length as usize);
-            // println!("image_data: {:?}", image_data.len());
+            // // println!("image_data: {:?}", image_data.len());
             let base64_data = BASE64_STANDARD.encode(&image_data);
             let result = format!("data:image/jpeg;base64,{}", base64_data);
             EdsRelease(evf_image);
@@ -591,6 +575,14 @@ fn initialize_camera(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>,) 
     let start_time = std::time::Instant::now();
     let timeout = std::time::Duration::from_secs(10);
 
+    {
+        let mut state_lock = state.lock().unwrap();
+        if state_lock.is_some() {
+            *state_lock = None; // Удаляем старую камеру
+            println!("Старая камера удалена");
+        }
+    }
+
     loop {
         match Camera::new() {
             Ok(camera) => {
@@ -604,10 +596,10 @@ fn initialize_camera(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>,) 
                 }
             }
         }
-        // Небольшая задержка перед следующей попыткой проверки
         std::thread::sleep(std::time::Duration::from_millis(500));
     }
 }
+
 
 
 // Tauri command for capturing a photo
@@ -625,8 +617,8 @@ fn capture_photo_as(state: State<'_, Arc<Mutex<Option<Arc<Mutex<Camera>>>>>>) ->
     }
 }
 
-fn save_captured_image(image_data: String) -> Result<String, String> {
-    println!("Saving captured image...");
+async fn save_captured_image(image_data: String) -> Result<String, String> {
+    // println!("Saving captured image...");
 
     let current_date = Local::now().format("%Y-%m-%d").to_string();
     let base_path = tauri::api::path::picture_dir()
@@ -654,7 +646,7 @@ fn save_captured_image(image_data: String) -> Result<String, String> {
     file.write_all(&decoded_image)
         .map_err(|err| format!("Failed to write image to file: {}", err))?;
 
-    println!("Image saved to {}", file_path.display());
+    // println!("Image saved to {}", file_path.display());
 
 
     Ok(file_path.to_str().unwrap_or_default().to_string())
@@ -662,7 +654,7 @@ fn save_captured_image(image_data: String) -> Result<String, String> {
 
 #[tauri::command]
 fn get_captured_image() -> Result<String, String> {
-    println!("Waiting for captured image...");
+    // println!("Waiting for captured image...");
 
     // Путь к файлу captured_image.jpg
     let file_path = PathBuf::from(env::current_dir().map_err(|err| err.to_string())?)
@@ -678,23 +670,30 @@ fn get_captured_image() -> Result<String, String> {
             return Err("Image not found after 30 seconds.".to_string());
         }
         attempts += 1;
-        println!("Image not found, retrying... (Attempt {}/{})", attempts, max_attempts);
+        // println!("Image not found, retrying... (Attempt {}/{})", attempts, max_attempts);
         thread::sleep(Duration::from_secs(1));
     }
 
     // Читаем файл, если он существует
     match fs::read(&file_path) {
         Ok(data) => {
-            println!("Image data read successfully");
+            // println!("Image data read successfully");
             let base64_str = BASE64_STANDARD.encode(&data);
-            let _ = save_captured_image(base64_str.clone());
-            // Удаляем файл после успешного чтения
             if file_path.exists() {
                 fs::remove_file(&file_path).map_err(|err| format!("Failed to delete file: {}", err))?;
-                println!("Remove file")
+                // println!("Remove file")
             } else {
-                println!("Image not found, skipping deletion.");
+                // println!("Image not found, skipping deletion.");
             }
+            // let _ = save_captured_image(base64_str.clone());
+            // Запускаем асинхронное сохранение в другом потоке
+            let img_clone = base64_str.clone();
+            tokio::spawn(async move {
+                if let Err(_e) = save_captured_image(img_clone).await {
+                    // eprintln!("Failed to save image: {}", e);
+                }
+            });
+            
             Ok(base64_str)
         }
         Err(e) => Err(format!("Failed to read file: {}", e)),
@@ -873,25 +872,24 @@ async fn main() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-
-
 #[tauri::command]
-fn print_image(image_data: String, state: State<PrinterState>) -> Result<(), String> {
-    // let base64_str = image_data.split(',').nth(1).ok_or("Invalid base64 string")?;
+fn print_image(image_data: String, width: u32, height: u32, state: State<PrinterState>) -> Result<(), String> {
+    println!("Printing image...");
     let decoded_data = BASE64_STANDARD.decode(image_data).map_err(|e| e.to_string())?;
 
-    let base_path = tauri::api::path::picture_dir()
-        .ok_or("Failed to resolve picture_dir")?;
+    let is_landscape = width > height;
+
+    let base_path = tauri::api::path::picture_dir().ok_or("Failed to resolve picture_dir")?;
     let project_path = PROJECT_PATH.lock().unwrap().clone().ok_or("Project path is not set.")?;
-    
-    let project_path_str = project_path.to_str().ok_or("Failed to convert path to string.")?;
-    let parts: Vec<&str> = project_path_str.split("\\").collect();
-    let project_name = parts.last().ok_or("Failed to extract project name.")?;
+    let project_name = project_path.file_name().ok_or("Failed to extract project name.")?.to_str().unwrap();
     let base_dir = base_path.join("Проекты").join(project_name);
+
+    if !base_dir.exists() {
+        std::fs::create_dir_all(&base_dir).map_err(|e| format!("Failed to create directory: {}", e))?;
+    }
 
     let timestamp = Local::now().format("%H-%M-%S").to_string();
     let file_name = format!("photo_{}.jpg", timestamp);
-
     let file_path = base_dir.join(file_name);
 
     let mut file = File::create(&file_path).map_err(|e| e.to_string())?;
@@ -900,10 +898,8 @@ fn print_image(image_data: String, state: State<PrinterState>) -> Result<(), Str
 
     let state_printer = state.selected_printer.lock().unwrap();
     let printer_name = state_printer.as_ref().map(|printer| printer.name.clone()).unwrap_or_default();
-
     let file_path_str = file_path.display().to_string();
     let escaped_file_path = format!("\"{}\"", file_path_str.replace("\\", "\\\\"));
-    println!("Escaped file path: {}", escaped_file_path);
 
     thread::sleep(Duration::from_millis(100));
 
@@ -916,11 +912,12 @@ function Print-Image {
         [string]$PaperSize,
         [string]$PrintJobName,
         [string]$PrintQuality
+        [bool]$Landscape
     )
     Add-Type -AssemblyName System.Drawing
     $printDocument = New-Object System.Drawing.Printing.PrintDocument
     $printDocument.PrinterSettings.PrinterName = $PrinterName
-    $printDocument.DefaultPageSettings.Landscape = $false
+    $printDocument.DefaultPageSettings.Landscape = $Landscape
     $printDocument.DefaultPageSettings.PaperSize = New-Object System.Drawing.Printing.PaperSize('Custom', 600, 400)
     $printDocument.add_PrintPage({
         param($sender, $e)
@@ -941,14 +938,14 @@ function Print-Image {
     let command = format!(
         r#"
 {}
-Print-Image -PrinterName "{}" -FilePath {} -Scale 100 -PaperSize "6x4-Split (6x2 2 prints)" -PrintJobName "ImagePrintJob" -PrintQuality "High"
+Print-Image -PrinterName "{}" -FilePath {} -Scale 100 -PaperSize "6x4-Split (6x2 2 prints)" -PrintJobName "ImagePrintJob" -PrintQuality "High" -Landscape {}
         "#,
         print_function,
         printer_name,
-        escaped_file_path
+        escaped_file_path,
+        is_landscape
     );
 
-    // Передача функции в PowerShell
     let output = Command::new("powershell")
         .args(&["-Command", &command])
         .output()
@@ -966,7 +963,7 @@ Print-Image -PrinterName "{}" -FilePath {} -Scale 100 -PaperSize "6x4-Split (6x2
 // fn save_image(, image_data: String, file_name: String) -> Result<(), String> {
 
 //     let decoded_data = BASE64_STANDARD.decode(image_data).map_err(|e| e.to_string())?;
-//     println!("Size of decoded image data: {} bytes", decoded_data.len());
+//     // println!("Size of decoded image data: {} bytes", decoded_data.len());
 //     // Установите путь для сохранения файла
 //     let base_path = PROJECT_PATH.lock().unwrap()
 //     .clone()
@@ -1224,7 +1221,7 @@ fn print_image_use_path(image_path: String, state: State<PrinterState>) -> Resul
 
     let file_path_str = image_path.to_string();
     let escaped_file_path = format!("\"{}\"", file_path_str.replace("\\", "\\\\"));
-    println!("Escaped file path: {}", escaped_file_path);
+    // println!("Escaped file path: {}", escaped_file_path);
 
     thread::sleep(Duration::from_millis(100));
 
@@ -1234,25 +1231,45 @@ function Print-Image {
         [string]$PrinterName,
         [string]$FilePath,
         [int]$Scale,
-        [string]$PaperSize,
         [string]$PrintJobName,
         [string]$PrintQuality
     )
     Add-Type -AssemblyName System.Drawing
     $printDocument = New-Object System.Drawing.Printing.PrintDocument
     $printDocument.PrinterSettings.PrinterName = $PrinterName
-    $printDocument.DefaultPageSettings.Landscape = $false
-    $printDocument.DefaultPageSettings.PaperSize = New-Object System.Drawing.Printing.PaperSize('Custom', 600, 400)
+    $image = [System.Drawing.Image]::FromFile($FilePath)
+
+    # Определяем ориентацию бумаги
+    if ($image.Width -gt $image.Height) {
+        $printDocument.DefaultPageSettings.Landscape = $true
+    } else {
+        $printDocument.DefaultPageSettings.Landscape = $false
+    }
+
+    # Обработчик печати
     $printDocument.add_PrintPage({
         param($sender, $e)
-        $image = [System.Drawing.Image]::FromFile($FilePath)
-        $e.Graphics.TranslateTransform(0, 0)
-        $e.Graphics.RotateTransform(0)
-        $scaledWidth = $image.Width * ($Scale / 300)
-        $scaledHeight = $image.Height * ($Scale / 300)
-        $e.Graphics.DrawImage($image, 0, 0, $scaledWidth, $scaledHeight)
-        $image.Dispose()
+        $img = [System.Drawing.Image]::FromFile($FilePath)  # Загружаем изображение в обработчике
+        
+        # Определяем размеры бумаги
+        $pageWidth = $e.PageBounds.Width
+        $pageHeight = $e.PageBounds.Height
+        
+        # Определяем масштаб с учетом ориентации
+        $scaleFactor = [Math]::Min(($pageWidth / $img.Width), ($pageHeight / $img.Height)) * ($Scale / 100)
+
+        $scaledWidth = $img.Width * $scaleFactor
+        $scaledHeight = $img.Height * $scaleFactor
+        
+        # Центрируем изображение
+        $x = ($pageWidth - $scaledWidth) / 2
+        $y = ($pageHeight - $scaledHeight) / 2
+
+        $e.Graphics.DrawImage($img, $x, $y, $scaledWidth, $scaledHeight)
+        $img.Dispose()  # Освобождаем ресурс после использования
     })
+
+    # Качество печати
     $printDocument.PrinterSettings.DefaultPageSettings.PrinterResolution.Kind = [System.Drawing.Printing.PrinterResolutionKind]::High
     $printDocument.PrintController = New-Object System.Drawing.Printing.StandardPrintController
     $printDocument.Print()

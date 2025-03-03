@@ -84,7 +84,7 @@ export default function TemplatePage({ design, setDesign }) {
                                         <img
                                             src={availableCanvases[(currentIndex + 1 + availableCanvases.length) % availableCanvases.length].canvasProps.webpData}
                                             alt={availableCanvases[(currentIndex + 1 + availableCanvases.length) % availableCanvases.length].canvasProps.name}
-                                            className="w-64 h-96 opacity-50 cursor-pointer"
+                                            className="w-64 max-h-96 opacity-50 cursor-pointe"
                                             onClick={prevSlide}
                                         />
                                         <img
@@ -95,7 +95,7 @@ export default function TemplatePage({ design, setDesign }) {
                                         <img
                                             src={availableCanvases[(currentIndex - 1 + availableCanvases.length) % availableCanvases.length].canvasProps.webpData}
                                             alt={availableCanvases[(currentIndex - 1 + availableCanvases.length) % availableCanvases.length].canvasProps.name}
-                                            className="w-64 h-96 opacity-50 cursor-pointer"
+                                            className="w-64 max-h-96 opacity-50 cursor-pointer"
                                             onClick={nextSlide}
                                         />
                                     </div>

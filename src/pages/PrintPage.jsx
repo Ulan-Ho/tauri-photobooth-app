@@ -23,7 +23,7 @@ import { Settings } from "lucide-react"
 
 export default function PrintPage({ images, design, setDesign }) {
   const [bgImage, setBgImage] = useState(localStorage.getItem("back_4") || `url(${back_img})`);
-  const { canvases, currentCanvasId, updateObjectProps, setCamera, chromokey, reference } = useStore();
+  const { canvases, currentCanvasId, switchCanvas, updateObjectProps, setCamera, chromokey, reference } = useStore();
   const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
   usePageNavigation();
   const canvasRef = useRef(null);
@@ -92,12 +92,17 @@ export default function PrintPage({ images, design, setDesign }) {
     if (canvas) {
       const ctx = canvas.getContext('2d');
       garbedCanvas(currentCanvas);
+      
+      let canvasWidth = currentCanvas.canvasProps.width;
+      let canvasHeight = currentCanvas.canvasProps.height;
+      
       const imageData = canvasRef.current.toDataURL('image/png');
       const imageBase64 = imageData.replace(/^data:image\/(png|jpg);base64,/, '');
       setIsImage(imageBase64);
       toast.done('Printing...', { type: 'info' });
-      await invoke('print_image', { imageData: imageBase64 });
+      await invoke('print_image', { imageData: imageBase64, width: Number(canvasWidth), height: Number(canvasHeight) });
       setDesign(true);
+      switchCanvas(1);
       navigate('/')
     } else {
       toast.error('No image available for printing', { type: 'warning' });

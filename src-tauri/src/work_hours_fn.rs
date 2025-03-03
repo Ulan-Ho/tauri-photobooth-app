@@ -22,38 +22,38 @@ pub fn set_work_hours(start: String, end: String, is_always_active: bool) -> Res
     let wake_time  = NaiveTime::parse_from_str(&start, "%H:%M").map_err(|e| e.to_string())?;
 
     let work_hours = WorkHours { start: start.clone(), end: end.clone(), is_always_active: is_always_active.clone() };
-    if let Err(e) = writing_to_json_file("time/time.json", &work_hours) {
-        eprintln!("Failed to write to JSON file: {}", e);
+    if let Err(_e) = writing_to_json_file("time/time.json", &work_hours) {
+        // eprintln!("Failed to write to JSON file: {}", e);
     }
 
     let now = Local::now().time();
     // Вычисляем задержки для сна и пробуждения
-    let sleep_duration = if sleep_time > now {
+    let _sleep_duration = if sleep_time > now {
         (sleep_time - now).num_seconds()
     } else {
         (sleep_time + chrono::Duration::hours(24) - now).num_seconds()
     };
 
-    let wake_duration = if wake_time > now {
+    let _wake_duration = if wake_time > now {
         (wake_time - now).num_seconds()
     } else {
         (wake_time + chrono::Duration::hours(24) - now).num_seconds()
     };
     // Логируем оставшееся время
-    if !is_always_active {
-        println!(
-            "Оставшееся время до сна: {} секунд ({} часов, {} минут)",
-            sleep_duration,
-            sleep_duration / 3600,
-            (sleep_duration % 3600) / 60
-        );
-        println!(
-            "Оставшееся время до пробуждения: {} секунд ({} часов, {} минут)",
-            wake_duration,
-            wake_duration / 3600,
-            (wake_duration % 3600) / 60
-        );
-    }
+    // if !is_always_active {
+    //     println!(
+    //         "Оставшееся время до сна: {} секунд ({} часов, {} минут)",
+    //         sleep_duration,
+    //         sleep_duration / 3600,
+    //         (sleep_duration % 3600) / 60
+    //     );
+    //     println!(
+    //         "Оставшееся время до пробуждения: {} секунд ({} часов, {} минут)",
+    //         wake_duration,
+    //         wake_duration / 3600,
+    //         (wake_duration % 3600) / 60
+    //     );
+    // }
     
     // Настраиваем таймер на вход в спящий режим
     if !(sleep_time == wake_time) && !is_always_active {
@@ -146,18 +146,7 @@ Remove-Item $taskXmlPath -Force
 "#,
             wake_time = wake_time_formatted
         );
-    // else if (sleep_time == wake_time){
-    //     let command = r#"Unregister-ScheduledTask -TaskName "DailyWakeUpTask" -Confirm:$false"#;
 
-    // // Вызов PowerShell с указанной командой
-    // let output = Command::new("powershell")
-    //     .arg("-Command")
-    //     .arg(command)
-    //     .output()
-    //     .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
-    // }
-
-    // Execute PowerShell script
     if is_always_active{
         let _output = Command::new("powershell")
         .args(&["-Command", &remote_script])

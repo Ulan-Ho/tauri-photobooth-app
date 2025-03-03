@@ -23,7 +23,7 @@ pub fn delete_image(relative_path: String) -> Result<String, String> {
             return Ok(format!("File '{}' deleted successfully.", file_path.display()));
         }
     }
-    println!("File not found: {:?}", path);
+    // println!("File not found: {:?}", path);
 
     Err(format!(
         "Не найдено файла '{}' с расширениями ({:?}).",

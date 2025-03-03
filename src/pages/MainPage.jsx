@@ -17,7 +17,7 @@ import { set } from "lodash";
 import printer from "../assets/printer.png";
 
 export default function MainPage({ active, loading, setLoading, setActive, design }) {
-    const { license, project, setProject, chromokey, setChromokey, reference, setReferences, setCamera, setCanvasData, currentCanvasId, canvases, switchCanvas, chromokeyBackgroundImage, setChromokeyColor, setCounterCapturePhoto, backgroundImage, chromokeyStatus, setBackgroundImage, currentProject, setCurrentProject } = useStore();
+    const { license, project, setProject, chromokey, setChromokey, reference, setReferences, setCamera, setCanvasData, currentCanvasId, canvases, switchCanvas, chromokeyBackgroundImage, setChromokeyColor, setCounterCapturePhoto, backgroundImage, chromokeyStatus, setBackgroundImage, currentProject, setCurrentProject, setCanvasProps } = useStore();
     const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
     const [bgImage, setBgImage] = useState(localStorage.getItem("back_1") || `url(${back_img})`);
     const canvasRefForSelect = useRef(null);
@@ -44,66 +44,61 @@ export default function MainPage({ active, loading, setLoading, setActive, desig
             } catch (err) {
                 localStorage.removeItem("back_1");
                 setBgImage(`url(${back_img})`);
-                console.log(err);
+                console.error(err);
             }
         };
 
         fetchImage();
     },[]);
 
-    const fetchTemplate = async() => {
-        try {
-            if (!project.updateStatus) {
+    const fetchTemplate = async () => {
+        if (!project.updateStatus) {
+            try {
                 const backgroundImageInBase64 = await invoke('get_image_path', { path: `settings/references_image` });
                 setReferences({ src: convertFileSrc(backgroundImageInBase64) });
-                const canvasArray = await invoke('load_all_canvas_data');
-                if (!canvasArray || canvasArray.length === 0) {
-                    console.log("No templates found. Exiting function.");
-                    return; // Завершаем выполнение функции, если массив пустой
-                }
-                switchCanvas(1); // Switch to the first canvas
-                setCanvasData(canvasArray);
-                const canvas = canvasRefForSelect.current;
-                const ctx = canvas.getContext('2d');
-                let timeoutId; 
-                canvasArray.forEach(async (canva) => {
-                    if (canva) {
-                        drawMyCanvas(ctx, canvas, canva, false, chromokey.isEnabled ? chromokey.backgroundImage : reference, false);
-                        timeoutId = setTimeout(() => {
-                            drawMyCanvas(ctx, canvas, currentCanvas, false, chromokey.isEnabled ? chromokey.backgroundImage : reference, !design);
-                            try {
-                                canva.canvasProps.webpData = canvasRefForSelect.current.toDataURL('image/webp');
-                            } catch (error) {
-                                console.error("Error generating WebP image:", error);
-                            }
-                        }, 50);
-                    }
-                    
-                    canva.objects.forEach((obj) => {
-                        if ([1, 2, 3].includes(obj.numberImage)) obj.imgObject = '';
-                    });
-                    
-                });
-                setProject({ updateStatus: true });
+            } catch (err) {
+                console.error(err);
             }
-            
-            return () => clearTimeout(timeoutId);
+    
+            try {
+                const canvasArray = await invoke('load_all_canvas_data');
+                switchCanvas(1); // Switch to the first canvas
+                if (canvasArray.length === 0 || !canvasArray) {
+                    return;
+                }
+                setCanvasData(canvasArray); // Use the new function to update the canvases
+                setProject({ updateStatus: true });
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    };
+    
+
+
+    const getSavedPrinter = async () => {
+        try {
+            const printer = await invoke('update_selected_printer');
+            if (printer) {
+                setLoading(true);
+            }
         } catch (err) {
-            console.log(err);
+            console.error(err);
+            // alert('Не удалось загрузить выбранный принтер.');
         }
     }
+
 
     const fetchChromokey = async() => {
         try {
             const settings = await invoke('read_settings');
-
             if (settings) {
                 setChromokey({ color: settings.color });
                 setCamera({ counterCapturePhoto: settings.counter });
             }
         } catch(err) {
             setChromokey({ color: '#00FF00' });
-            setCamera({ counterCapturePhoto: 3 });
+            setCamera({ counterCapturePhoto: Number(3) });
             const errorText = "Ошибка при загрузки настроек";
             console.error(errorText, err);
             toast.error(errorText)
@@ -128,7 +123,6 @@ export default function MainPage({ active, loading, setLoading, setActive, desig
     const fetchProjects = async () => {
         try {
             const projectList = await invoke('get_projects');
-            console.log(projectList);
             setProjects(projectList);
             
         } catch (err) {
@@ -149,7 +143,8 @@ export default function MainPage({ active, loading, setLoading, setActive, desig
                 setProject({ isCurrent: false });
                 toast.success("Сохранено успешно!");
                 setActive(true);
-                fetchTemplate()
+                fetchTemplate();
+                getSavedPrinter();
                 // await invoke('save_projects_and_create_dir', {projects});
                 // await invoke('init_project_path');
             } catch (err) {
@@ -176,8 +171,6 @@ export default function MainPage({ active, loading, setLoading, setActive, desig
         );
     
         const selected = projects.find((project) => project.id === id);
-        console.log(selected);
-        console.log(selectedProject);
         setSelectedProject(selected ? { ...selected, is_used: true } : null);
     };
 
@@ -198,17 +191,6 @@ export default function MainPage({ active, loading, setLoading, setActive, desig
         });
 
     };
-
-    const [listPH, setListPh] = useState([]);
-
-    const handleListImage = async () => {
-        const list = await invoke('get_image_paths')
-        list.map(li => {
-            setListPh(presfs => [...presfs, convertFileSrc(li)])
-
-        })
-        console.log(list);
-    }
     
     return (
         <div className={`${active == true ? "pointer-events-none": "pointer-events-auto"} flex justify-center items-center`}>
@@ -264,7 +246,7 @@ export default function MainPage({ active, loading, setLoading, setActive, desig
                         </NavLink>
                         <NavLink to='/template'><img src={main_icon} alt="camera icon" /></NavLink>
                         <div style={word}><button onClick={() => navigate('/template')} >НАЧАТЬ ФОТОСЕССИЮ</button></div>
-                        <canvas ref={canvasRefForSelect} style={{ width: '413.3px', height: '614.6px', display: 'none'}} />
+                        <canvas ref={canvasRefForSelect} style={{ width: '400px', height: '600px', display: 'none'}} />
                     </div>
                     <NavLink to="/list"><img className="w-28" src={printer} alt="" /></NavLink>
                 </div>

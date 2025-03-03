@@ -11,8 +11,8 @@ use crate::fs_utils::{reading_from_json_file, writing_to_json_file};
 
 #[tauri::command]
 pub fn saving_printer_data(printer: PrinterInfo, state: State<PrinterState>) -> Result<(), String> {
-    if let Err(e) = writing_to_json_file("printer/printer.json", &printer) {
-        eprintln!("Ошибка чтения данных принтера в json файле: {}", e);
+    if let Err(_e) = writing_to_json_file("printer/printer.json", &printer) {
+        // eprintln!("Ошибка чтения данных принтера в json файле: {}", e);
     }
     let mut state = state.selected_printer.lock().unwrap();
     *state = Some(printer);

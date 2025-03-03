@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import AdminShell from '../components/AdminShell';
 import { useStore } from './store';
-import { Plus, Save, Square, Circle, Triangle, Minus, Trash2, Star, Octagon, FileImage, SaveIcon, ArrowBigUpDash, X } from "lucide-react";
+import { Plus, Save, Square, Circle, Triangle, Minus, Trash2, Star, Octagon, FileImage, SaveIcon, ArrowBigUpDash, X, RefreshCcwDot } from "lucide-react";
 import ObjectProperties from '../components/ObjectProperties';
 import { useFetcher } from 'react-router-dom';
 import { usePageNavigation } from '../hooks/usePageNavigation.js';
@@ -27,6 +27,10 @@ export default function TemplateEditor() {
     const fileInputRef = useRef(null);
     const fileInputRefForSelect = useRef(null);
     const [selectedObjectId, setSelectedObjectId] = useState(null);
+
+    useEffect(() => {
+        loadAllCanvasData();
+    }, []);
 
     const handleObjectClick = (e) => {
         // Получаем координаты клика относительно холста
@@ -188,8 +192,8 @@ export default function TemplateEditor() {
                         imgObject: img,
                         left: 0,
                         top: 0,
-                        width: 1240,
-                        height: 1844,
+                        width: 1200,
+                        height: 1800,
                         zIndex: 2,
                         rotate: 0,
                         opacity: 1
@@ -234,7 +238,7 @@ export default function TemplateEditor() {
         const canvasWidth = canvas.width;
         const canvasHeight = canvas.height;
 
-        const object = { x: 0, y: 0, width: 1244, height: 1840 };
+        const object = { x: 0, y: 0, width: 1200, height: 1800 };
 
 
         
@@ -401,8 +405,30 @@ export default function TemplateEditor() {
     async function loadAllCanvasData() {
         try {
             const canvasArray = await invoke('load_all_canvas_data');
-            switchCanvas(1); // Switch to the first canvas
+             // Switch to the first canvas
+            if (canvasArray.length === 0 || !canvasArray) {
+                canvases.forEach(canvas => {
+                    canvas.objects.map((obj) => {
+                        if (obj.type === 'image') obj.imgObject = '';
+                    });
+                    canvas.canvasProps.webpData = canvasRefForSelect.current.toDataURL('image/webp');
+                    saveCanvasData(canvas.id, canvas);
+                    saveCanvasImage(canvas.id, canvas, canvasRefForSelect);
+                });
+
+                return;
+            }
+            let firstCanvas = canvasArray.find(canvas => canvas.id === 1);
+
+            if (!firstCanvas) {
+                switchCanvas(canvasArray[0].id);
+                console.log('Switching to the first canvas');
+            } else {
+                switchCanvas(1);
+            }
+            console.log(currentCanvas)
             setCanvasData(canvasArray); // Use the new function to update the canvases
+            
             setProject({ updateStatus: true });
             toast.success('Данные обновлены');
         } catch (error) {
@@ -410,6 +436,8 @@ export default function TemplateEditor() {
             // Handle error if necessary
         }
     }
+    
+    
 
     async function handleRemoveCanvas() {
         try {
@@ -450,12 +478,16 @@ export default function TemplateEditor() {
 
     const handlePrint = async ( currentCanvasId ) => {
         const canvas = canvasRef.current;
+        const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
+        console.log(currentCanvas)
         if (canvas) {
             const ctx = canvas.getContext('2d');
+            let canvasWidth = currentCanvas.canvasProps.width;
+            let canvasHeight = currentCanvas.canvasProps.height;
             const imageData = canvasRef.current.toDataURL('image/png');
             const imageBase64 = imageData.replace(/^data:image\/(png|jpg);base64,/, '');
             toast('Printing...', { type: 'info' });
-            await invoke('print_image', { imageData: imageBase64 });
+            await invoke('print_image', { imageData: imageBase64, width: Number(canvasWidth), height: Number(canvasHeight) });
         } else {
             toast('No image available for printing', { type: 'warning' });
         }
@@ -489,6 +521,12 @@ export default function TemplateEditor() {
         setReferences({ isEnabled: !reference.isEnabled })
     }
 
+    function refreshCanvasPropsSize() {
+        let width = currentCanvas.canvasProps.width;
+        let height = currentCanvas.canvasProps.height;
+        setCanvasProps(currentCanvas.id, { width: height, height: width });
+    }
+
     return (
         <AdminShell props={props}>
             <div className="flex flex-col">
@@ -496,10 +534,10 @@ export default function TemplateEditor() {
                     <div className="w-3/5">
                         <div className="flex justify-between items-center mb-4">
                             {/* Canvas or shapes will be rendered here */}
-                            <canvas ref={canvasRef} style={{ border: '1px solid black', width: currentCanvas.canvasProps.width / 3, height: currentCanvas.canvasProps.height / 3 }}
+                            <canvas ref={canvasRef} style={{ border: '1px solid black', width: currentCanvas?.canvasProps?.width / 3 || "400px", height: currentCanvas?.canvasProps?.height / 3 || "600px" }}
                                 onClick={(e) => handleObjectClick(e)}
                             />
-                            <canvas ref={canvasRefForSelect} style={{ width: '413.3px', height: '614.6px', display: 'none'}} />
+                            <canvas ref={canvasRefForSelect} style={{ width: '400px', height: '600px', display: 'none'}} />
                             {/* Render canvas from `canvases` */}
                         </div>
                     </div>
@@ -626,7 +664,7 @@ export default function TemplateEditor() {
                                         </div>
                                         <div className='flex mt-1 justify-between'>
                                             <button className='flex bg-green-500 text-white p-2 rounded-lg' onClick={saveAllData}><SaveIcon />Сохранить холсты</button>
-                                            <button className='flex bg-yellow-500 text-white p-2 rounded-lg' onClick={loadAllCanvasData}><ArrowBigUpDash /> Update</button>
+                                            {/* <button className='flex bg-yellow-500 text-white p-2 rounded-lg' onClick={loadAllCanvasData}><ArrowBigUpDash /> Update</button> */}
                                         </div>
                                     </div>
                                     <div className='px-2 gap-x-2 gap-y-4'>
@@ -636,7 +674,7 @@ export default function TemplateEditor() {
                                                 <label className='w-4 flex items-center justify-center'>W</label>
                                                 <input
                                                     min={200}
-                                                    max={1240}
+                                                    max={1800}
                                                     type='number'
                                                     onChange={(e) => setCanvasProps(currentCanvas.id, { width: e.target.value })}
                                                     value={currentCanvas.canvasProps.width}
@@ -646,7 +684,7 @@ export default function TemplateEditor() {
                                                 <label className='w-4 flex items-center justify-center'>H</label>
                                                 <input
                                                     min={200}
-                                                    max={1844}
+                                                    max={1800}
                                                     type='number'
                                                     onChange={(e) => setCanvasProps(currentCanvas.id, { height: e.target.value })}
                                                     value={currentCanvas.canvasProps.height}
@@ -660,6 +698,7 @@ export default function TemplateEditor() {
                                                     value={currentCanvas.canvasProps.backgroundColor}
                                                     onChange={(e) => setCanvasProps(currentCanvas.id, { backgroundColor: e.target.value })}
                                                 />
+                                                <button onClick={refreshCanvasPropsSize}><RefreshCcwDot /></button>
                                             </div>
                                             <div className='flex gap-5 items-center  col-span-3'>
                                                 <p>Название холста</p>

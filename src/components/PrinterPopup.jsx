@@ -16,22 +16,8 @@ export default function PrinterPopup({ onClose, loading }) {
         }
     };
 
-    const getSavedPrinter = async () => {
-        try {
-            const printer = await invoke('update_selected_printer');
-            if (printer) {
-                setSelectedPrinter(printer);
-                onClose();
-            }
-        } catch (err) {
-            console.error(err);
-            // alert('Не удалось загрузить выбранный принтер.');
-        }
-    }
-
     useEffect(() => {
         fetchPrinters();
-        getSavedPrinter();
     }, []);
 
     const handleSave = async () => {
