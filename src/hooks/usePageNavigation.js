@@ -21,11 +21,10 @@ export function usePageNavigation() {
       const cameraStatusCheck = async () => {
         if (cameraStatus) {
           await invoke('end_camera');
-          updateCameraStatus(true);
         }
       }
   
-      // cameraStatusCheck();
+      cameraStatusCheck();
       // Cleanup listener on component unmount
       return () => {
         unlisten.then((off) => off());

@@ -22,28 +22,14 @@ import { useStore } from './admin/store.js';
 import { invoke } from '@tauri-apps/api/tauri';
 
 export function CheckLicense({ children }) {
-  const { license, setLicense } = useStore();
+  const { license } = useStore();
   const navigate = useNavigate();
 
-  // const checkLicense = useCallback(async () => {
-  //   try {
-  //     const state = await invoke('check_license');
-  //     console.log(state);
-  //     if (!state) navigate('/license');
-  //     else setLicense();
-  //     console.log('License:', license);
-  //   } catch (error) {
-  //     navigate('/license');
-  //     console.error(error);
-  //   }
-  // }, [navigate, setLicense]);
-  
-  // useEffect(() => {
-  //   if (!license) checkLicense();
-  // }, [checkLicense, license]);
-
   useEffect(() => {
-    if (!license) navigate('/license');
+    const storedLicense = localStorage.getItem("license") === "true";
+    if (!storedLicense) {
+      navigate('/license');
+    }
   }, [license, navigate]);
 
   return license ? children : null;
@@ -56,8 +42,6 @@ export default function App(){
   const [images, setImages] = useState([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [loading, setLoading] = useState(false);
-  // const [cameraStatus, setCameraStatus] = useState(false);
-  // const [isLiveView, setIsLiveView] = useState(false);
 
   return (
         <>

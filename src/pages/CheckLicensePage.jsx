@@ -7,20 +7,28 @@ import verifyLicenseIcon from '../assets/verify-license.png';
 import changeLicenseIcon from '../assets/change-license.png';
 import { toast, ToastContainer } from 'react-toastify';
 
+
 export default function CheckLicensePage() {
     const { license, setLicense } = useStore();
     const navigate = useNavigate();
     const [loadingVerify, setLoadingVerify] = useState(false);
     const [loadingCheck, setLoadingCheck] = useState(false);
 
+    useEffect(() => {
+        const storedLicense = localStorage.getItem("license") === "true";
+        if (storedLicense) {
+            setLicense(true);
+            navigate('/');
+        }
+    }, [navigate, setLicense]);
 
     const checkLicense = useCallback(async () => {
-        
         try {
             setLoadingCheck(true);
             await invoke('check_license')
                 .then((state) => {
-                    setLicense();
+                    localStorage.setItem("license", "true");
+                    setLicense(true);
                     toast.success(state);
                     navigate('/');
                     setLoadingCheck(false);
@@ -45,7 +53,8 @@ export default function CheckLicensePage() {
             setLoadingVerify(true);
             await invoke('verify_license')
                 .then((data) => {
-                    setLicense();
+                    localStorage.setItem("license", "true");
+                    setLicense(true);
                     toast.success(data);
                     navigate('/');
                     setLoadingVerify(false);

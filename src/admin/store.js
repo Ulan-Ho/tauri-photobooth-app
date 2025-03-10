@@ -527,9 +527,12 @@ const updateCanvasProperty = (canvasId, propertyUpdates) => set((state) => ({
 
 export const useStore = create(devtools((set) => ({
 
-  license: false,
+  license: localStorage.getItem("license") === "true",
 
-  setLicense: () => set(state => ({ license: !state.license })),
+  setLicense: (value) => {
+    localStorage.setItem("license", value ? "true" : "false");
+    set({ license: value });
+  },
 
   camera: {
     isCameraOn: false,

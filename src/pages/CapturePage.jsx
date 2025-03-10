@@ -45,7 +45,7 @@ export default function CaptureScreen({ onCapture }) {
     const [imageData, setImageData] = useState(null);
     const [errCount, setErrCount] = useState(0);
     const canvasRefLayout = useRef(null);
-
+    const [forCapture, setForCapture] = useState(true);
     useEffect(() => {
         const fetchImage = async () => {
             try {
@@ -83,7 +83,7 @@ export default function CaptureScreen({ onCapture }) {
         drawBackImage();
     }, [capturedImage]);
 
-    const processVideoFrames = useCallback((base64Image) => {
+    const processVideoFrames = useCallback((base64Image, test_num) => {
         const canvas = canvasRefMain.current;
         const ctx = canvas.getContext("2d");
 
@@ -139,7 +139,11 @@ export default function CaptureScreen({ onCapture }) {
                 ctx.putImageData(frame, 0, 0);
             }
         };
-
+        if (test_num){
+            setTimeout(() => {
+                setCapturedImage(canvas.toDataURL("image/png"));
+            }, 50);
+        }
         image.onerror = (err) => console.error('Ошибка загрузки изображения:', err);
     }, [chromokey.isEnabled , chromokey.color]);
 
@@ -161,7 +165,7 @@ export default function CaptureScreen({ onCapture }) {
         const interval = setInterval(async () => {
             try {
                 const base64Image = await invoke('download_ev_image_command');
-                processVideoFrames(base64Image);
+                processVideoFrames(base64Image, 0);
             } catch (err) {
                 console.error('Ошибка загрузки кадра:', err);
                 // toast.error('Проверьте камеру');
@@ -176,34 +180,18 @@ export default function CaptureScreen({ onCapture }) {
     // Функция для захвата фото через Tauri
     const capture = useCallback(async () => {
         try {
+            const capture = await invoke("capture_photo_as");
+
+            
+            invoke('get_captured_image').then((image) => {
+                processVideoFrames(`data:image/jpeg;base64,${image}`, 1);
+            });
             setCamera({ isLiveView: false });
-            const capture = await invoke('capture_photo_as'); // Вызов команды на съемку фото
-            // console.log(capture);
-            const base64Image = await invoke('get_captured_image'); // Вызываем backend для получения нового кадра
-            
-            const canvas = canvasRefMain.current;
-            // const ctx = canvas.getContext("2d");
-            // const bgCanvas = backgroundImageRef.current;
-            // // const bgCtx = ;
-            // bgCanvas.width = 530;
-            // bgCanvas.height = 530;
-            // drawCromakeyBackgroundImage(bgCanvas.getContext("2d"), bgCanvas, chromokeyBackgroundImage, true)
-            // // Отрисовываем фон
-            // if (backgroundImageRef.current) {
-            //     ctx.drawImage(backgroundImageRef.current, 0, 0, canvas.width, canvas.height);
-            // }
-    
-            // Отрисовываем кадр
-            processVideoFrames(`data:image/jpeg;base64,${base64Image}`);
-            
-            // if (images.length + 1 === 1) setCapturedImage(test_image_1);
-            // if (images.length + 1 === 2) setCapturedImage(test_image_2);
-            // if (images.length + 1 === 3) setCapturedImage(test_image_3);
-            // setCapturedImage(`data:image/jpeg;base64,${base64Image}`);
-            const image = canvas.toDataURL("image/png");
-            setCountdown(camera.counterCapturePhoto);
-            setCapturedImage(image);
+            setForCapture(false);
             setIsShooting(false);
+            setCountdown(camera.counterCapturePhoto);
+
+            // setIsShooting(false);
         } catch (err) {
             console.log("Ошибка захвата фото:", err);
         }
@@ -212,11 +200,9 @@ export default function CaptureScreen({ onCapture }) {
     
     // Обработка обратного отсчета перед съемкой
     const startCountdown = useCallback(() => {
-        // navigate('/print');
         if(!camera.isLiveView) {
             setCamera({ isLiveView: true });
         }
-        // startLiveView();
         setIsShooting(true);
         let timer = camera.counterCapturePhoto;
         // const cerRes = cer + 1;
@@ -250,6 +236,10 @@ export default function CaptureScreen({ onCapture }) {
             startCountdown();
         } else {
             onCapture([...images, newImage]);
+
+            await invoke('end_camera');
+            setCamera({ isCameraOn: false });
+
             navigate('/print');
             await invoke('stop_live_view');
             setCamera({ isLiveView: false });
@@ -391,7 +381,7 @@ export default function CaptureScreen({ onCapture }) {
                                                 <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
                                             </button>
                                             <div className='flex justify-center items-center'>
-                                                {!isShooting && (
+                                                {!isShooting && forCapture && (
                                                     <button onClick={startCountdown}>
                                                         <img src={cameraCapture} className='w-72' alt="Capture Photo" />
                                                     </button>
