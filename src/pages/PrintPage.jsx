@@ -100,7 +100,11 @@ export default function PrintPage({ images, design, setDesign }) {
       const imageBase64 = imageData.replace(/^data:image\/(png|jpg);base64,/, '');
       setIsImage(imageBase64);
       toast.done('Printing...', { type: 'info' });
-      await invoke('print_image', { imageData: imageBase64, width: Number(canvasWidth), height: Number(canvasHeight) });
+      try {
+        await invoke('print_image', { imageData: imageBase64, width: Number(canvasWidth), height: Number(canvasHeight) });
+      } catch (error) {
+        toast.error('Ошибка печати', { type: 'error' });
+      }
       setDesign(true);
       switchCanvas(1);
       navigate('/')
@@ -133,15 +137,13 @@ export default function PrintPage({ images, design, setDesign }) {
                 <div className='w-32'></div>
                 <div className='relative items-center box_print'>
                   <div className='bg_print' ></div>
-                  <div>
-                    <div  className='absolute bottom-1 left-0 w-full h-full flex gap-10 justify-center items-center z-10'>
-                      <canvas
-                        ref={canvasRef}
-                        width={currentCanvas.canvasProps.width}
-                        height={currentCanvas.canvasProps.height}
-                        style={{ width: '300px', height: '450px', display: 'block'}}
-                      ></canvas>
-                    </div>
+                  <div className='absolute bottom-1 left-0 w-full h-full flex gap-10 justify-center items-center z-10'>
+                    <canvas
+                      ref={canvasRef}
+                      width={currentCanvas.canvasProps.width}
+                      height={currentCanvas.canvasProps.height}
+                      style={{ maxWidth: '300px', maxHeight: '450px', display: 'block'}}
+                    ></canvas>
                   </div>
                 </div>
                 <button className='h-9 flex justify-center items-center' onClick={handlePrint}><img src={printer} alt="" /></button>

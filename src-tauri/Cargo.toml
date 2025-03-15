@@ -33,6 +33,15 @@ pem = "3.0"
 base64 = "0.21"
 rand = "0.8"
 mid = "1.1.0"
+once_cell = "1.20.3"
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
+
+
+
+[profile.release]
+opt-level = "z"  # Максимальная оптимизация размера
+lto = true       # Включает Link Time Optimization
+codegen-units = 1 # Улучшает производительность
+strip = "debuginfo" # Убирает ненужные символы отладки

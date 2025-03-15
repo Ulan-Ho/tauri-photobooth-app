@@ -106,12 +106,13 @@ pub struct EdsCapacity {
     bytes_per_sector: i32,
     reset: bool,
 }
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Debug)]
 struct Camera {
     camera_ref: *mut c_void,
     is_live_view_started: bool,
-    photo_created: Arc<Mutex<bool>>,
+    photo_created: Arc<AtomicBool>,
 }
 
 
@@ -179,7 +180,7 @@ impl Camera {
             let camera = Arc::new(Mutex::new(Camera {
                 camera_ref: camera_ref_in,
                 is_live_view_started: false,
-                photo_created: Arc::new(Mutex::new(false)),
+                photo_created: Arc::new(AtomicBool::new(false)),
             }));
 
             // println!("[INFO] Camera initialized successfully.");
@@ -198,14 +199,13 @@ impl Camera {
             if !object.is_null() {
                 unsafe { EdsRelease(object); }
             }
-            let mut photo_created = camera.photo_created.lock().unwrap();
-            *photo_created = true;
+            camera.photo_created.store(true, Ordering::SeqCst);
         }
         0
     }
 
-    extern "C" fn handle_property_event(_event: EdsPropertyEvent, _property_id: EdsPropertyID, _param: EdsUInt32, _context: *mut EdsVoid) -> EdsError {
-        // println!("[LOG] Property event triggered: 0x{:X}", property_id);
+    extern "C" fn handle_property_event(_event: EdsPropertyEvent, property_id: EdsPropertyID, _param: EdsUInt32, _context: *mut EdsVoid) -> EdsError {
+        println!("[LOG] Property event triggered: 0x{:X}", property_id);
         // Обработка события свойства
         0
     }
@@ -232,13 +232,13 @@ impl Camera {
                     EdsOpenSession(camera.camera_ref);
                     // let _ = Self::capture_photo(camera);
                 }
-                // println!("[INFO] Camera connected.");
+                println!("[INFO] Camera connected.");
             }
             _ => {
-                // println!("[LOG] State event triggered: 0x{:X}", event);
+                println!("[LOG] State event triggered: 0x{:X}", event);
             }
         }
-        // println!("[LOG] State event triggered: 0x{:X}", event);
+        println!("[LOG] State event triggered: 0x{:X}", event);
 
         0
     }
@@ -299,7 +299,8 @@ impl Camera {
             let mut attempts = 0;
 
             while attempts < max_retries {
-                let result = EdsSendCommand(self.camera_ref, 0x00000000, 0x00000000);
+                let result = EdsSendCommand(self.camera_ref, 0x00000004, 0x00000003);
+                EdsSendCommand(self.camera_ref, 0x00000004, 0x00000000);
                 if result == 0 {
                     // println!("[INFO] Capture command sent successfully.");
                     break; // Успешное выполнение команды — выходим из цикла
@@ -320,16 +321,12 @@ impl Camera {
             // println!("[LOG] Photo capture commands sent successfully.");
 
             // Ожидаем завершения создания фотографии
-            let mut photo_created = self.photo_created.lock().unwrap();
-            while !*photo_created {
-                drop(photo_created); // Освобождаем блокировку, чтобы обработчики могли обновлять состояние
-                EdsGetEvent();       // Обрабатываем события
+            while !self.photo_created.load(Ordering::SeqCst) {
+                EdsGetEvent(); // Обрабатываем события
                 thread::sleep(Duration::from_millis(100));
-                photo_created = self.photo_created.lock().unwrap();
                 println!("[LOG] photo created...");
-
             }
-            *photo_created = false;
+            self.photo_created.store(false, Ordering::SeqCst);
 
             println!("[LOG] Photo captured successfully.");
             Ok(())
@@ -873,11 +870,10 @@ async fn main() {
         .expect("error while running tauri application");
 }
 #[tauri::command]
-fn print_image(image_data: String, width: u32, height: u32, state: State<PrinterState>) -> Result<(), String> {
+fn print_image(image_data: String, _width: u32, height: u32, state: State<PrinterState>) -> Result<(), String> {
     println!("Printing image...");
     let decoded_data = BASE64_STANDARD.decode(image_data).map_err(|e| e.to_string())?;
 
-    let is_landscape = width > height;
 
     let base_path = tauri::api::path::picture_dir().ok_or("Failed to resolve picture_dir")?;
     let project_path = PROJECT_PATH.lock().unwrap().clone().ok_or("Project path is not set.")?;
@@ -903,47 +899,62 @@ fn print_image(image_data: String, width: u32, height: u32, state: State<Printer
 
     thread::sleep(Duration::from_millis(100));
 
-    let print_function = r#"
-function Print-Image {
+    let print_function = r#"function Print-Image {
     param(
         [string]$PrinterName,
         [string]$FilePath,
         [int]$Scale,
-        [string]$PaperSize,
         [string]$PrintJobName,
         [string]$PrintQuality
-        [bool]$Landscape
     )
     Add-Type -AssemblyName System.Drawing
     $printDocument = New-Object System.Drawing.Printing.PrintDocument
     $printDocument.PrinterSettings.PrinterName = $PrinterName
-    $printDocument.DefaultPageSettings.Landscape = $Landscape
-    $printDocument.DefaultPageSettings.PaperSize = New-Object System.Drawing.Printing.PaperSize('Custom', 600, 400)
+    $image = [System.Drawing.Image]::FromFile($FilePath)
+
+    # Определяем ориентацию бумаги
+    if ($image.Width -gt $image.Height) {
+        $printDocument.DefaultPageSettings.Landscape = $true
+    } else {
+        $printDocument.DefaultPageSettings.Landscape = $false
+    }
+
+    # Обработчик печати
     $printDocument.add_PrintPage({
         param($sender, $e)
-        $image = [System.Drawing.Image]::FromFile($FilePath)
-        $e.Graphics.TranslateTransform(0, 0)
-        $e.Graphics.RotateTransform(0)
-        $scaledWidth = $image.Width * ($Scale / 300)
-        $scaledHeight = $image.Height * ($Scale / 300)
-        $e.Graphics.DrawImage($image, 0, 0, $scaledWidth, $scaledHeight)
-        $image.Dispose()
+        $img = [System.Drawing.Image]::FromFile($FilePath)  # Загружаем изображение в обработчике
+
+        # Определяем размеры бумаги
+        $pageWidth = $e.PageBounds.Width
+        $pageHeight = $e.PageBounds.Height
+        
+        # Определяем масштаб с учетом ориентации
+        $scaleFactor = [Math]::Min(($pageWidth / $img.Width), ($pageHeight / $img.Height)) * ($Scale / 100)
+
+        $scaledWidth = $img.Width * $scaleFactor
+        $scaledHeight = $img.Height * $scaleFactor
+        
+        # Центрируем изображение
+        $x = ($pageWidth - $scaledWidth) / 2
+        $y = ($pageHeight - $scaledHeight) / 2
+
+        $e.Graphics.DrawImage($img, $x, $y, $scaledWidth, $scaledHeight)
+        $img.Dispose()  # Освобождаем ресурс после использования
     })
     $printDocument.PrinterSettings.DefaultPageSettings.PrinterResolution.Kind = [System.Drawing.Printing.PrinterResolutionKind]::High
     $printDocument.PrintController = New-Object System.Drawing.Printing.StandardPrintController
-    $printDocument.Print()
+        $printDocument.Print()
 }
     "#;
 
     let command = format!(
         r#"
 {}
-Print-Image -PrinterName "{}" -FilePath {} -Scale 100 -PaperSize "6x4-Split (6x2 2 prints)" -PrintJobName "ImagePrintJob" -PrintQuality "High" -Landscape {}
+Print-Image -PrinterName "{}" -FilePath {} -Scale 100 -PaperSize "6x4-Split (6x2 2 prints)" -PrintJobName "ImagePrintJob" -PrintQuality "High"
         "#,
         print_function,
         printer_name,
-        escaped_file_path,
-        is_landscape
+        escaped_file_path
     );
 
     let output = Command::new("powershell")
@@ -1250,7 +1261,7 @@ function Print-Image {
     $printDocument.add_PrintPage({
         param($sender, $e)
         $img = [System.Drawing.Image]::FromFile($FilePath)  # Загружаем изображение в обработчике
-        
+
         # Определяем размеры бумаги
         $pageWidth = $e.PageBounds.Width
         $pageHeight = $e.PageBounds.Height
@@ -1272,7 +1283,7 @@ function Print-Image {
     # Качество печати
     $printDocument.PrinterSettings.DefaultPageSettings.PrinterResolution.Kind = [System.Drawing.Printing.PrinterResolutionKind]::High
     $printDocument.PrintController = New-Object System.Drawing.Printing.StandardPrintController
-    $printDocument.Print()
+        $printDocument.Print()
 }
     "#;
 

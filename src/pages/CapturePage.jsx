@@ -340,7 +340,7 @@ export default function CaptureScreen({ onCapture }) {
                 <div className='back-img'></div>
                 <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
                     <div className='flex w-screen justify-center items-center'>
-                        <canvas ref={canvasRefLayout} width={1280} height={1024} style={{ width: '270px', height: '400px' }} className='absolute top-64 left-7'/>
+                        <canvas ref={canvasRefLayout} width={1280} height={1024} style={{ maxWidth: '270px', maxHeight: '400px' }} className='absolute top-64 left-7'/>
                         <div className='flex flex-col gap-6 items-center px-20 w-full absolute'>
                             <div className='text-5xl items-center text-center -top-5'>
                                 ЧТОБЫ СОЗДАТЬ ФОТО, <br /> НАЖМИТЕ НА КНОПКУ ПОД РАМКОЙ
