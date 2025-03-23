@@ -20,6 +20,10 @@ use chromokey_fn::{save_settings, read_settings};
 use work_hours_fn::{get_work_hours, set_work_hours};
 use license::{verify_license, check_license};
 
+use std::process::{Command, Stdio};
+use std::os::windows::process::CommandExt;
+use windows_sys::Win32::System::Threading::CREATE_NO_WINDOW;
+
 use std::ffi::CString;
 use device_query::{DeviceQuery, DeviceState, Keycode};
 use std::result::Result;
@@ -30,7 +34,6 @@ use std::{fs, thread};
 use base64::prelude::*;
 use std::fs::File;
 use std::io::Write;
-use std::process::Command;
 // use std::path::PathBuf;
 use std::env;
 use serde_json::Value;
@@ -1047,11 +1050,9 @@ async fn main() {
         .expect("error while running tauri application");
 }
 #[tauri::command]
-fn print_image(image_data: String, width: u32, height: u32, state: State<PrinterState>) -> Result<(), String> {
+fn print_image(image_data: String, state: State<PrinterState>) -> Result<(), String> {
     println!("Printing image...");
     let decoded_data = BASE64_STANDARD.decode(image_data).map_err(|e| e.to_string())?;
-
-    let is_landscape = width > height;
 
     let base_path = tauri::api::path::picture_dir().ok_or("Failed to resolve picture_dir")?;
     let project_path = PROJECT_PATH.lock().unwrap().clone().ok_or("Project path is not set.")?;
@@ -1083,26 +1084,45 @@ function Print-Image {
         [string]$PrinterName,
         [string]$FilePath,
         [int]$Scale,
-        [string]$PaperSize,
         [string]$PrintJobName,
         [string]$PrintQuality
-        [bool]$Landscape
     )
     Add-Type -AssemblyName System.Drawing
     $printDocument = New-Object System.Drawing.Printing.PrintDocument
     $printDocument.PrinterSettings.PrinterName = $PrinterName
-    $printDocument.DefaultPageSettings.Landscape = $Landscape
-    $printDocument.DefaultPageSettings.PaperSize = New-Object System.Drawing.Printing.PaperSize('Custom', 600, 400)
+    $image = [System.Drawing.Image]::FromFile($FilePath)
+
+    # Определяем ориентацию бумаги
+    if ($image.Width -gt $image.Height) {
+        $printDocument.DefaultPageSettings.Landscape = $true
+    } else {
+        $printDocument.DefaultPageSettings.Landscape = $false
+    }
+
+    # Обработчик печати
     $printDocument.add_PrintPage({
         param($sender, $e)
-        $image = [System.Drawing.Image]::FromFile($FilePath)
-        $e.Graphics.TranslateTransform(0, 0)
-        $e.Graphics.RotateTransform(0)
-        $scaledWidth = $image.Width * ($Scale / 300)
-        $scaledHeight = $image.Height * ($Scale / 300)
-        $e.Graphics.DrawImage($image, 0, 0, $scaledWidth, $scaledHeight)
-        $image.Dispose()
+        $img = [System.Drawing.Image]::FromFile($FilePath)  # Загружаем изображение в обработчике
+        
+        # Определяем размеры бумаги
+        $pageWidth = $e.PageBounds.Width
+        $pageHeight = $e.PageBounds.Height
+        
+        # Определяем масштаб с учетом ориентации
+        $scaleFactor = [Math]::Min(($pageWidth / $img.Width), ($pageHeight / $img.Height)) * ($Scale / 100)
+
+        $scaledWidth = $img.Width * $scaleFactor
+        $scaledHeight = $img.Height * $scaleFactor
+        
+        # Центрируем изображение
+        $x = ($pageWidth - $scaledWidth) / 2
+        $y = ($pageHeight - $scaledHeight) / 2
+
+        $e.Graphics.DrawImage($img, $x, $y, $scaledWidth, $scaledHeight)
+        $img.Dispose()  # Освобождаем ресурс после использования
     })
+
+    # Качество печати
     $printDocument.PrinterSettings.DefaultPageSettings.PrinterResolution.Kind = [System.Drawing.Printing.PrinterResolutionKind]::High
     $printDocument.PrintController = New-Object System.Drawing.Printing.StandardPrintController
     $printDocument.Print()
@@ -1112,16 +1132,18 @@ function Print-Image {
     let command = format!(
         r#"
 {}
-Print-Image -PrinterName "{}" -FilePath {} -Scale 100 -PaperSize "6x4-Split (6x2 2 prints)" -PrintJobName "ImagePrintJob" -PrintQuality "High" -Landscape {}
+Print-Image -PrinterName "{}" -FilePath {} -Scale 100 -PaperSize "6x4-Split (6x2 2 prints)" -PrintJobName "ImagePrintJob" -PrintQuality "High"
         "#,
         print_function,
         printer_name,
-        escaped_file_path,
-        is_landscape
+        escaped_file_path
     );
 
     let output = Command::new("powershell")
         .args(&["-Command", &command])
+        .creation_flags(CREATE_NO_WINDOW) // <-- Отключает всплывающее окно PowerShell
+        .stdout(Stdio::null()) // Отключает вывод в консоль
+        .stderr(Stdio::null()) // Отключает ошибки в консоль
         .output()
         .map_err(|e| e.to_string())?;
 
@@ -1463,6 +1485,9 @@ Print-Image -PrinterName "{}" -FilePath {} -Scale 100 -PaperSize "6x4-Split (6x2
     // Передача функции в PowerShell
     let output = Command::new("powershell")
         .args(&["-Command", &command])
+        .creation_flags(CREATE_NO_WINDOW) // <-- Отключает всплывающее окно PowerShell
+        .stdout(Stdio::null()) // Отключает вывод в консоль
+        .stderr(Stdio::null()) // Отключает ошибки в консоль
         .output()
         .map_err(|e| e.to_string())?;
 

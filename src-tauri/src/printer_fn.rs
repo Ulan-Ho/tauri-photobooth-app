@@ -1,9 +1,11 @@
-use std::process::Command;
 use serde_json::Value;
 use tauri::State;
 use printers;
 use printers::common::base::printer::Printer;
 
+use std::process::{Command, Stdio};
+use std::os::windows::process::CommandExt;
+use windows_sys::Win32::System::Threading::CREATE_NO_WINDOW;
 
 use crate::globals::{PrinterInfo, PrinterState};
 use crate::fs_utils::{reading_from_json_file, writing_to_json_file};
@@ -52,7 +54,10 @@ pub fn update_selected_printer(state: State<PrinterState>) -> Result<PrinterInfo
 #[tauri::command]
 pub fn printer_status() -> Result<(), String> {
     let output = Command::new("cmd")
-        .args(&["/C", "start ms-settings:printers"]).output()
+        .args(&["/C", "start ms-settings:printers"])
+        .creation_flags(CREATE_NO_WINDOW) // <-- Отключает всплывающее окно PowerShell
+        .stderr(Stdio::null()) // Отключает ошибки в консоль
+        .output()
         .map_err(|e| format!("Ошибка запуска команды : {}", e))?;
 
     if output.status.success() {
@@ -79,6 +84,9 @@ pub fn printer_settings(state: State<PrinterState>) -> Result<(), String> {
         .arg("/e")
         .arg("/n")
         .arg(printer_name)
+        .creation_flags(CREATE_NO_WINDOW) // <-- Отключает всплывающее окно PowerShell
+        .stdout(Stdio::null()) // Отключает вывод в консоль
+        .stderr(Stdio::null()) // Отключает ошибки в консоль
         .spawn();
 
     Ok(())
@@ -94,6 +102,9 @@ pub fn printer_information(state: State<PrinterState>) -> Result<Value, String> 
     
     let output = Command::new("powershell")
         .args(&["-Command", &command])
+        .creation_flags(CREATE_NO_WINDOW) // <-- Отключает всплывающее окно PowerShell
+        .stdout(Stdio::null()) // Отключает вывод в консоль
+        .stderr(Stdio::null()) // Отключает ошибки в консоль
         .output()
         .map_err(|e| e.to_string())?;
 

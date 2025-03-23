@@ -1,8 +1,10 @@
 use chrono::{Local, NaiveTime};
 use std::time::Duration;
 use std::thread;
-use std::process::Command;
 
+use std::process::{Command, Stdio};
+use std::os::windows::process::CommandExt;
+use windows_sys::Win32::System::Threading::CREATE_NO_WINDOW;
 
 use crate::globals::WorkHours;
 use crate::fs_utils::{reading_from_json_file, writing_to_json_file};
@@ -63,7 +65,10 @@ pub fn set_work_hours(start: String, end: String, is_always_active: bool) -> Res
                 // Если текущее время равно времени выключения, переводим компьютер в спящий режим
                 if current_time >= sleep_time && current_time < sleep_time + chrono::Duration::minutes(1) {
                     Command::new("shutdown")
-                        .args(&["/h", "/f"])  // Перевод в спящий режим с принудительным закрытием приложений
+                        .args(&["/h", "/f"])
+                        .creation_flags(CREATE_NO_WINDOW) // <-- Отключает всплывающее окно PowerShell
+                        .stdout(Stdio::null()) // Отключает вывод в консоль
+                        .stderr(Stdio::null()) // Отключает ошибки в консоль  // Перевод в спящий режим с принудительным закрытием приложений
                         .spawn()
                         .expect("Не удалось перевести компьютер в спящий режим");
                 }
@@ -150,12 +155,18 @@ Remove-Item $taskXmlPath -Force
     if is_always_active{
         let _output = Command::new("powershell")
         .args(&["-Command", &remote_script])
+        .creation_flags(CREATE_NO_WINDOW) // <-- Отключает всплывающее окно PowerShell
+        .stdout(Stdio::null()) // Отключает вывод в консоль
+        .stderr(Stdio::null()) // Отключает ошибки в консоль
         .output()
         .map_err(|e| format!("Failed to execute PowerShell script: {}", e))?;
     }
     else{
         let _output = Command::new("powershell")
         .args(&["-Command", &ps_script])
+        .creation_flags(CREATE_NO_WINDOW) // <-- Отключает всплывающее окно PowerShell
+        .stdout(Stdio::null()) // Отключает вывод в консоль
+        .stderr(Stdio::null()) // Отключает ошибки в консоль
         .output()
         .map_err(|e| format!("Failed to execute PowerShell script: {}", e))?;    
     }
