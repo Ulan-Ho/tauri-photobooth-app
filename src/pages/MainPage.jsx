@@ -15,6 +15,7 @@ import { drawMyCanvas } from "../components/CanvasDrawer";
 import { Settings } from "lucide-react"
 import { set } from "lodash";
 import printer from "../assets/printer.png";
+import backgroundUrl from "../assets/defaultImage.jpeg";
 
 export default function MainPage({ active, loading, setLoading, setActive, design }) {
     const { license, project, setProject, chromokey, setChromokey, reference, setReferences, setCamera, setCanvasData, currentCanvasId, canvases, switchCanvas, chromokeyBackgroundImage, setChromokeyColor, setCounterCapturePhoto, backgroundImage, chromokeyStatus, setBackgroundImage, currentProject, setCurrentProject, setCanvasProps } = useStore();
@@ -89,32 +90,29 @@ export default function MainPage({ active, loading, setLoading, setActive, desig
     }
 
 
-    const fetchChromokey = async() => {
+    const updateSettings = async () => {
         try {
             const settings = await invoke('read_settings');
-            if (settings) {
-                setChromokey({ color: settings.color });
-                setCamera({ counterCapturePhoto: settings.counter });
-            }
-        } catch(err) {
-            setChromokey({ color: '#00FF00' });
-            setCamera({ counterCapturePhoto: Number(3) });
-            const errorText = "Ошибка при загрузки настроек";
-            console.error(errorText, err);
-            toast.error(errorText)
-        }
-    }
 
-    // const loadingAppSettings = async () => {
-    //     try {
-    //         if (loading === false) {
-    //             await invoke('update_selected_printer');
-    //             setLoading(true);
-    //         }
-    //     } catch (err) {
-    //         console.log(err);
-    //     }
-    // }
+            if (settings) {
+                setChromokey({ color: settings.color, isEnabled: settings.is_enabled });
+                setCamera({ counterCapturePhoto: settings.counter_capture_photo });
+            }
+            
+            const background = await invoke('get_image_path', { path: `settings/chromokey_image`});
+            if (background !== "Image file not found.") {
+                const imageObject = new Image();
+                imageObject.src = convertFileSrc(background);
+                setChromokey({ backgroundImage: { imgObject: imageObject, src: imageObject.src } });
+            } else {
+                const imageObject = new Image();
+                imageObject.src = backgroundUrl;
+                setChromokey({ backgroundImage: { imgObject: imageObject, src: backgroundUrl } });
+            }
+        } catch (err) {
+            console.error('Ошибка загрузки фона:', err);
+        }
+    };
 
     const [projects, setProjects] = useState([]);
     const [newProjectName, setNewProjectName] = useState('');
@@ -138,9 +136,10 @@ export default function MainPage({ active, loading, setLoading, setActive, desig
     const handleSave = async () => {
         if (selectedProject) {
             try {
-                fetchChromokey()
                 await invoke('select_project', { projectName: selectedProject.name });
                 setProject({ isCurrent: false });
+                updateSettings();
+                
                 toast.success("Сохранено успешно!");
                 setActive(true);
                 fetchTemplate();

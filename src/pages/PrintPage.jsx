@@ -139,7 +139,7 @@ export default function PrintPage({ images, design, setDesign }) {
                         ref={canvasRef}
                         width={currentCanvas.canvasProps.width}
                         height={currentCanvas.canvasProps.height}
-                        style={{ width: '300px', height: '450px', display: 'block'}}
+                        style={{ maxWidth: '300px', maxHeight: '450px', display: 'block'}}
                       ></canvas>
                     </div>
                   </div>

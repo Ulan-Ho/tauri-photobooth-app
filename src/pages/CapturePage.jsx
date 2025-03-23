@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { convertFileSrc, invoke } from '@tauri-apps/api/tauri';
 // import { listen } from '@tauri-apps/api/event';
 import '../App.css';
+import { Loader2 } from "lucide-react";
 import templateTriangle from '../assets/templateTriangle.png';
 import cameraCapture from '../assets/cameraCapture.png';
 import { usePageNavigation } from '../hooks/usePageNavigation.js';
@@ -228,17 +229,20 @@ export default function CaptureScreen({ onCapture }) {
             name: `photo-${new Date().getTime()}`,
             url: capturedImage
         };
-        setCamera({ isLiveView: true });
         setImages(prevImages => [...prevImages, newImage]);
-        setCapturedImage(null);
 
         if (images.length + 1 < imagesLenght) {
+            
+            await invoke('start_live_view');
+            setCamera({ isLiveView: true });
+            setCapturedImage(null);
+
             startCountdown();
         } else {
             onCapture([...images, newImage]);
 
-            await invoke('end_camera');
-            setCamera({ isCameraOn: false });
+            // await invoke('end_camera');
+            // setCamera({ isCameraOn: false });
 
             navigate('/print');
             await invoke('stop_live_view');
@@ -247,10 +251,16 @@ export default function CaptureScreen({ onCapture }) {
     }, [capturedImage, images, navigate, onCapture, startCountdown, imagesLenght]);
 
     // Пересъемка фото
-    const reshootPhoto = useCallback(() => {
-        setCamera({ isLiveView: true });
-        setCapturedImage(null);
-        startCountdown();
+    const reshootPhoto = useCallback( async () => {
+        invoke('start_live_view')
+        .then(() => {
+            setCamera({ isLiveView: true });
+            setCapturedImage(null);
+            startCountdown();
+        })
+        .catch((err) => {
+            console.error('Ошибка перезапуска прямого эфира:', err);
+        });
     }, [startCountdown]);
 
     const updateImageCapture = useCallback(() => {
@@ -340,7 +350,7 @@ export default function CaptureScreen({ onCapture }) {
                 <div className='back-img'></div>
                 <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
                     <div className='flex w-screen justify-center items-center'>
-                        <canvas ref={canvasRefLayout} width={1280} height={1024} style={{ width: '270px', height: '400px' }} className='absolute top-64 left-7'/>
+                        <canvas ref={canvasRefLayout} width={1280} height={1024} style={{ maxWidth: '270px', maxHeight: '400px' }} className='absolute top-64 left-7'/>
                         <div className='flex flex-col gap-6 items-center px-20 w-full absolute'>
                             <div className='text-5xl items-center text-center -top-5'>
                                 ЧТОБЫ СОЗДАТЬ ФОТО, <br /> НАЖМИТЕ НА КНОПКУ ПОД РАМКОЙ
@@ -372,7 +382,7 @@ export default function CaptureScreen({ onCapture }) {
                                                     textShadow: '2px 2px 10px rgba(0, 0, 0, 0.7)',
                                                     zIndex: 3
                                                 }}>
-                                                    {countdown}
+                                                    {countdown === 0 ? <Loader2 className="animate-spin text-white w-20 h-20" /> : countdown}
                                                 </div>
                                             )}
                                         </div>

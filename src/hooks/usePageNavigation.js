@@ -5,7 +5,7 @@ import { useStore } from '../admin/store';
 
 export function usePageNavigation() {
     const navigate = useNavigate();
-    const { canvases, currentCanvasId, updateObjectProps, isLiveView, cameraStatus, updateCameraStatus, updateLiveViewStatus, chromokeyBackgroundImage, chromokeyStatus } = useStore();
+    const { camera, setCamera, project } = useStore();
   
     useEffect(() => {
       const unlisten = listen('navigate-to-page', (event) => {
@@ -19,8 +19,14 @@ export function usePageNavigation() {
       });
   
       const cameraStatusCheck = async () => {
-        if (cameraStatus) {
-          await invoke('end_camera');
+        if (camera.isLiveView) {
+          // await invoke('stop_live_view');
+          // setCamera({ ...camera, isLiveView: false });
+          // navigate('/');
+        }
+
+        if (project.isCurrent) {
+          navigate('/');
         }
       }
   
@@ -29,5 +35,5 @@ export function usePageNavigation() {
       return () => {
         unlisten.then((off) => off());
       };
-    }, [navigate, cameraStatus]);
+    }, [navigate, camera, project]);
   }
