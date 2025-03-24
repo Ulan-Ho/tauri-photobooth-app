@@ -58,6 +58,7 @@ export default function PrintPage({ images, design, setDesign }) {
     if (canvas) {
       const ctx = canvas.getContext('2d');
       drawMyCanvas(ctx, canvas, currentCanvas, false, chromokey.isEnabled === true ? chromokey.backgroundImage : reference, !design);
+      drawMyCanvas(ctx, canvas, currentCanvas, false, chromokey.isEnabled === true ? chromokey.backgroundImage : reference, !design);
 
       // Второй вызов отрисовки через небольшой промежchromokey.isEnabled === true ? chromokey.backgroundImage : reference
       const timeoutId = setTimeout(() => {
@@ -100,7 +101,7 @@ export default function PrintPage({ images, design, setDesign }) {
       const imageBase64 = imageData.replace(/^data:image\/(png|jpg);base64,/, '');
       setIsImage(imageBase64);
       toast.done('Printing...', { type: 'info' });
-      await invoke('print_image', { imageData: imageBase64});
+      await invoke('print_image', { imageData: imageBase64, width: Number(canvasWidth), height: Number(canvasHeight) });
       setDesign(true);
       switchCanvas(1);
       navigate('/')

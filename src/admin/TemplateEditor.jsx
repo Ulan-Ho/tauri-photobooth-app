@@ -446,13 +446,14 @@ export default function TemplateEditor() {
                 else toast.error('Нельзя удалить первый холст');
                 return;
             }
+            removeCanvas(currentCanvas.id);
             await invoke('delete_canvas_image_and_data', {
                 canvasId: String(currentCanvas.id),
                 available: currentCanvas.canvasProps.available
             });
-            removeCanvas(currentCanvas.id);
-            if ( canvases.length === 1 ) switchCanvas(1);
-            switchCanvas(currentCanvas.id - 1);
+            // if ( canvases.length === 1 ) switchCanvas(1);
+            switchCanvas(1);
+            // switchCanvas(currentCanvas.id - 1);
             setSelectedObjectId(null);
             toast.success('Холст удален');
         } catch (error) {

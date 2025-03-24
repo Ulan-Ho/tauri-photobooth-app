@@ -324,10 +324,43 @@ impl Camera {
                     println!("[INFO] Capture command sent successfully.{}", result);
                     break; // Успешное выполнение команды — выходим из цикла
                 } else {
+
                     eprintln!("[ERROR] Failed to send capture command (attempt {}). Error code: 0x{:X}", attempts + 1, result);
+
+                    if result == 0x8D07 {
+                        let mut save_target: u32 = 2;
+                        // let mut save_target: u32 = 0;
+                        // let mut err = EdsGetPropertyData(self.camera_ref, 0x0000000b, 0, 4, &save_target as *const _ as *mut c_void);
+                        // if save_target != 2 {
+                        //     save_target |= 2;
+                        //     err = EdsSetPropertyData(self.camera_ref, 0x0000000b, 0, 4, &save_target as *const _ as *mut c_void);
+                        // }
+
+                        let result = EdsSetPropertyData(
+                            self.camera_ref,
+                            0x0000000b,
+                            0,
+                            4,
+                            &mut save_target as *mut _ as *mut c_void,
+                        );
+                        if result != 0 {
+                            eprintln!("[ERROR] Failed to set save target. Error code: 0x{:X}", result);
+                        }
+                        
+                        let result = EdsSendCommand(self.camera_ref, 0x00000004, 0x00000000);
+                        if result == 0 {
+                            break;
+                            // println!("Nice ");
+                        }
+                    } else if result == 0x00000081 {
+                        eprintln!("[ERROR] Device is busy. Retrying...");
+                    } else {
+                        eprintln!("[ERROR] Failed to send capture command (attempt {}). Error code: 0x{:X}", attempts + 1, result);
+                    }
                     let result = EdsSendCommand(self.camera_ref, 0x00000004, 0x00000000);
                     if result == 0 {
-                        println!("Nice ");
+                        break;
+                        // println!("Nice ");
                     }
                     attempts += 1;
 
@@ -348,13 +381,13 @@ impl Camera {
                 {
                     let mut photo_created = self.photo_created.lock().unwrap();
                     if *photo_created {
-                    *photo_created = false;
+                        *photo_created = false;
                         break; // Выходим из цикла, если фото создано
                     }
                 }
             
                 EdsGetEvent();  // Запрашиваем события камеры
-                thread::sleep(Duration::from_millis(200)); // Даем камере время на обработку
+                thread::sleep(Duration::from_millis(100)); // Даем камере время на обработку
             
                 println!("[LOG] Waiting for photo creation...");
             }
@@ -462,36 +495,35 @@ impl Camera {
     }
 
     fn start_live_view(&mut self) -> Result<(), u32> {
-        if !self.is_live_view_started {
-            unsafe {
-                let mut device: u32 = 0;
-                let err = EdsGetPropertyData(self.camera_ref, 0x00000500, 0, size_of::<u32>() as u32, &mut device as *mut _ as *mut c_void);
-                if device == 2 {
-                    return Ok(());
-                }
-                if err != 0 {
-                    return Err(err);
-                }
-                if device & 2 == 0 {
-                    device |= 2; // Включить вывод живого просмотра
-                    let err = EdsSetPropertyData(self.camera_ref, 0x00000500, 0, size_of::<u32>() as u32, &device as *const _ as *mut c_void);
-                    if err != 0 {
-                        return Err(err);
-                    }
-                }
-                println!("{}", device);
+        unsafe {
+            let mut device: u32 = 0;
+            let err = EdsGetPropertyData(self.camera_ref, 0x00000500, 0, size_of::<u32>() as u32, &mut device as *mut _ as *mut c_void);
+            
+            if err != 0 {
+                return Err(err);
             }
-            self.is_live_view_started = true;
-
-            println!("Live view started");
-            Ok(())
-        } else {
-            Ok(())
+    
+            if device & 2 != 0 {  // Проверяем бит 2, а не всё число
+                return Ok(());
+            }
+    
+            device |= 2; // Включить вывод живого просмотра
+    
+            let err = EdsSetPropertyData(self.camera_ref, 0x00000500, 0, size_of::<u32>() as u32, &mut device as *mut _ as *mut c_void);
+            if err != 0 {
+                return Err(err);
+            }
+    
+            println!("Device value after enabling live view: {}", device);
         }
+        
+        self.is_live_view_started = true;
+        println!("Live view started");
+        Ok(())
     }
+    
 
     fn stop_live_view(&mut self) -> Result<(), u32> {
-        if self.is_live_view_started {
             unsafe {
                 let mut device: u32 = 0;
                 let err = EdsGetPropertyData(
@@ -528,17 +560,14 @@ impl Camera {
                     }
                 }
     
-                self.is_live_view_started = false;
-                println!("Live View отключен.");
+                // self.is_live_view_started = false;
+                // println!("Live View отключен.");
             }
             // Обновляем флаг состояния живого просмотра
+           
             self.is_live_view_started = false;
             println!("Live view stopped.");
             Ok(())
-        } else {
-            println!("Live view is not active.");
-            Ok(())
-        }
     }
 
     // fn stop_live_view(&mut self) -> Result<(), u32> {
