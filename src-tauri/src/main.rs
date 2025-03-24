@@ -1132,7 +1132,7 @@ function Print-Image {
     let command = format!(
         r#"
 {}
-Print-Image -PrinterName "{}" -FilePath {} -Scale 100 -PaperSize "6x4-Split (6x2 2 prints)" -PrintJobName "ImagePrintJob" -PrintQuality "High"
+Print-Image -PrinterName "{}" -FilePath {} -Scale 97 -PaperSize "6x4-Split (6x2 2 prints)" -PrintJobName "ImagePrintJob" -PrintQuality "High"
         "#,
         print_function,
         printer_name,
@@ -1475,7 +1475,7 @@ function Print-Image {
     let command = format!(
         r#"
 {}
-Print-Image -PrinterName "{}" -FilePath {} -Scale 100 -PaperSize "6x4-Split (6x2 2 prints)" -PrintJobName "ImagePrintJob" -PrintQuality "High"
+Print-Image -PrinterName "{}" -FilePath {} -Scale 97 -PaperSize "6x4-Split (6x2 2 prints)" -PrintJobName "ImagePrintJob" -PrintQuality "High"
         "#,
         print_function,
         printer_name,

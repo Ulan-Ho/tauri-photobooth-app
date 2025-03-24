@@ -103,7 +103,6 @@ pub fn printer_information(state: State<PrinterState>) -> Result<Value, String> 
     let output = Command::new("powershell")
         .args(&["-Command", &command])
         .creation_flags(CREATE_NO_WINDOW) // <-- Отключает всплывающее окно PowerShell
-        .stdout(Stdio::null()) // Отключает вывод в консоль
         .stderr(Stdio::null()) // Отключает ошибки в консоль
         .output()
         .map_err(|e| e.to_string())?;
