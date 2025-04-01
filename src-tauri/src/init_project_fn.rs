@@ -3,7 +3,6 @@ use std::path::PathBuf;
 
 use crate::globals::ProjectInfo;
 use crate::globals::PROJECT_PATH;
-use crate::work_hours_fn::set_work_hours;
 
 
 #[tauri::command]
@@ -54,7 +53,8 @@ pub fn select_project(app_handle: tauri::AppHandle, project_name: String) -> Res
     }
     *PROJECT_PATH.lock().unwrap() = Some(project_path);
     println!("PROJECT_PATH: {:?}", PROJECT_PATH.lock().unwrap());
-    setting_dir()?;
+    // setting_dir()?;
+    tauri::async_runtime::spawn(setting_dir());
     Ok(())
 }
 
@@ -65,16 +65,22 @@ pub fn delete_project(app_handle: tauri::AppHandle, project_name: String) -> Res
         .app_data_dir()
         .ok_or_else(|| "Не удалось определить папку данных приложения.".to_string())?;
 
-    let project_path = base_path.join(project_name.to_string());
+    let project_path = base_path.join(&project_name);
     if project_path.exists() {
         remove_dir_all(&project_path)
             .map_err(|err| format!("Не удалось удалить папку проекта: {}", err))?;
     }
 
+    // Если удаляемый проект совпадает с текущим, обнуляем PROJECT_PATH
+    let mut locked_path = PROJECT_PATH.lock().map_err(|_| "Ошибка доступа к PROJECT_PATH".to_string())?;
+    if locked_path.as_ref() == Some(&project_path) {
+        *locked_path = None;
+    }
+
     Ok(())
 }
 
-fn setting_dir() -> Result<(), String> {
+async fn setting_dir() -> Result<(), String> {
     let base_path = PROJECT_PATH.lock().unwrap().clone()
         .ok_or_else(|| "Project path is not set. Call update_project_path first.".to_string())?;
     // Найти проект с is_used: true
@@ -89,10 +95,10 @@ fn setting_dir() -> Result<(), String> {
         create_directories_if_not_exist(directories, &base_path);
     });
 
-    let start_time = "09:00".to_string();
-    let end_time = "21:00".to_string();
+    // let start_time = "09:00".to_string();
+    // let end_time = "21:00".to_string();
 
-    set_work_hours(start_time, end_time, false).unwrap();
+    // set_work_hours(start_time, end_time, false).unwrap();
 
     // save_settings("#00ff00".to_string(), 3, false).unwrap();
 

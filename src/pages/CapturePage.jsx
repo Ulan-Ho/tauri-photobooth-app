@@ -35,6 +35,7 @@ export default function CaptureScreen({ onCapture }) {
     const canvasRefMain = useRef(null);
     const backgroundImageRef = useRef(null);
     const intervalRef = useRef(null); // Хранение ссылки на интервал
+    const [isButtonDisabled, setIsButtonDisabled] = useState(false);
 
     const [isCameraReady, setIsCameraReady] = useState(true);
 
@@ -224,6 +225,9 @@ export default function CaptureScreen({ onCapture }) {
     // Сохранение фото
     const savePhoto = useCallback( async () => {
         // startLiveView();
+        setIsButtonDisabled(true);
+        setTimeout(() => setIsButtonDisabled(false), (camera.counterCapturePhoto || 3) + 1000);
+
         const newImage = {
             id: new Date().getTime(),
             name: `photo-${new Date().getTime()}`,
@@ -233,20 +237,22 @@ export default function CaptureScreen({ onCapture }) {
 
         if (images.length + 1 < imagesLenght) {
             
-            await invoke('start_live_view');
-            setCamera({ isLiveView: true });
-            setCapturedImage(null);
-
-            startCountdown();
+            invoke('start_live_view').then(() => {
+                setCamera({ isLiveView: true });
+                setCapturedImage(null);
+    
+                startCountdown();
+            });
         } else {
             onCapture([...images, newImage]);
 
             // await invoke('end_camera');
             // setCamera({ isCameraOn: false });
 
-            navigate('/print');
-            await invoke('stop_live_view');
-            setCamera({ isLiveView: false });
+            invoke('stop_live_view').then(() => {
+                navigate('/print');
+                setCamera({ isLiveView: false });
+            });
         }
     }, [capturedImage, images, navigate, onCapture, startCountdown, imagesLenght]);
 
@@ -387,7 +393,7 @@ export default function CaptureScreen({ onCapture }) {
                                             )}
                                         </div>
                                         <div className='h-40 flex justify-between items-center w-full'>
-                                            <button className='w-36 h-20 flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700'  onClick={handleBack}>
+                                            <button className='w-36 h-20 flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700'  onClick={handleBack} disabled={isButtonDisabled}>
                                                 <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
                                             </button>
                                             <div className='flex justify-center items-center'>
@@ -412,10 +418,10 @@ export default function CaptureScreen({ onCapture }) {
                                                 <img className='w-5 transform -scale-x-100' src={templateTriangle} alt="Back" /> НАЗАД
                                             </button>
                                             <div className='flex justify-around items-center gap-20'>
-                                                <button className='text-red-700 border-2 rounded-3xl px-12 py-8 bg-white font-bold' onClick={reshootPhoto}>
+                                                <button className='text-red-700 border-2 rounded-3xl px-12 py-8 bg-white font-bold' onClick={reshootPhoto} disabled={isButtonDisabled}>
                                                     <span className='text-5xl '>НЕТ</span><br />ПЕРЕСНЯТЬ ФОТО
                                                 </button>
-                                                <button className='text-lime-500 border-2 rounded-3xl px-12 py-8 bg-white font-bold' onClick={savePhoto}>
+                                                <button className='text-lime-500 border-2 rounded-3xl px-12 py-8 bg-white font-bold' onClick={savePhoto} disabled={isButtonDisabled}>
                                                     <span className='text-5xl '>ДА</span><br />НРАВИТСЯ ФОТО
                                                 </button>
                                             </div>

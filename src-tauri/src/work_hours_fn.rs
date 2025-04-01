@@ -1,10 +1,13 @@
-use chrono::{Local, NaiveTime};
 use std::time::Duration;
-use std::thread;
+use chrono::{Local, NaiveTime, Duration as ChronoDuration};
+use tokio::time::sleep_until;
+use tokio::task;
+use tokio::time::Instant;
 
 use std::process::{Command, Stdio};
 use std::os::windows::process::CommandExt;
 use windows_sys::Win32::System::Threading::CREATE_NO_WINDOW;
+
 
 use crate::globals::WorkHours;
 use crate::fs_utils::{reading_from_json_file, writing_to_json_file};
@@ -16,9 +19,8 @@ pub fn get_work_hours() -> Result<WorkHours, String> {
     Ok(data)
 }
 
-
 #[tauri::command]
-pub fn set_work_hours(start: String, end: String, is_always_active: bool) -> Result<(), String> {
+pub async fn set_work_hours(start: String, end: String, is_always_active: bool) -> Result<(), String> {
 
     let sleep_time  = NaiveTime::parse_from_str(&end, "%H:%M").map_err(|e| e.to_string())?;
     let wake_time  = NaiveTime::parse_from_str(&start, "%H:%M").map_err(|e| e.to_string())?;
@@ -27,54 +29,26 @@ pub fn set_work_hours(start: String, end: String, is_always_active: bool) -> Res
     if let Err(_e) = writing_to_json_file("time/time.json", &work_hours) {
         // eprintln!("Failed to write to JSON file: {}", e);
     }
-
     let now = Local::now().time();
-    // Вычисляем задержки для сна и пробуждения
-    let _sleep_duration = if sleep_time > now {
+
+    let sleep_duration = if sleep_time > now {
         (sleep_time - now).num_seconds()
     } else {
-        (sleep_time + chrono::Duration::hours(24) - now).num_seconds()
+        (sleep_time + ChronoDuration::hours(24) - now).num_seconds()
     };
 
-    let _wake_duration = if wake_time > now {
-        (wake_time - now).num_seconds()
-    } else {
-        (wake_time + chrono::Duration::hours(24) - now).num_seconds()
-    };
-    // Логируем оставшееся время
-    // if !is_always_active {
-    //     println!(
-    //         "Оставшееся время до сна: {} секунд ({} часов, {} минут)",
-    //         sleep_duration,
-    //         sleep_duration / 3600,
-    //         (sleep_duration % 3600) / 60
-    //     );
-    //     println!(
-    //         "Оставшееся время до пробуждения: {} секунд ({} часов, {} минут)",
-    //         wake_duration,
-    //         wake_duration / 3600,
-    //         (wake_duration % 3600) / 60
-    //     );
-    // }
-    
-    // Настраиваем таймер на вход в спящий режим
     if !(sleep_time == wake_time) && !is_always_active {
-        thread::spawn(move || {
-            loop {
-                let current_time = Local::now().time();
-                // Если текущее время равно времени выключения, переводим компьютер в спящий режим
-                if current_time >= sleep_time && current_time < sleep_time + chrono::Duration::minutes(1) {
-                    Command::new("shutdown")
-                        .args(&["/h", "/f"])
-                        .creation_flags(CREATE_NO_WINDOW) // <-- Отключает всплывающее окно PowerShell
-                        .stdout(Stdio::null()) // Отключает вывод в консоль
-                        .stderr(Stdio::null()) // Отключает ошибки в консоль  // Перевод в спящий режим с принудительным закрытием приложений
-                        .spawn()
-                        .expect("Не удалось перевести компьютер в спящий режим");
-                }
-                // Проверяем каждые 30 секунд
-                thread::sleep(Duration::from_secs(30));
-            }
+        let sleep_time_instant = Instant::now() + Duration::from_secs(sleep_duration as u64);
+
+        task::spawn(async move {
+            sleep_until(sleep_time_instant).await;
+            let _ = Command::new("shutdown")
+                .args(&["/h", "/f"])
+                .creation_flags(CREATE_NO_WINDOW) // <-- Отключает всплывающее окно PowerShell
+                .stdout(Stdio::null()) // Отключает вывод в консоль
+                .stderr(Stdio::null()) // Отключает ошибки в консоль
+                .output()
+                .map_err(|e| format!("Failed to execute PowerShell script: {}", e)).ok();
         });
     }
     let wake_time_formatted = wake_time.format("%H:%M:%S").to_string();
