@@ -1,17 +1,18 @@
+use chrono::{Local, NaiveTime};
 use std::time::Duration;
-use chrono::{Local, NaiveTime, Duration as ChronoDuration};
-use tokio::time::sleep_until;
-use tokio::task;
-use tokio::time::Instant;
+use std::thread;
+use std::sync::Arc;
 
 use std::process::{Command, Stdio};
 use std::os::windows::process::CommandExt;
 use windows_sys::Win32::System::Threading::CREATE_NO_WINDOW;
 
-
-use crate::globals::WorkHours;
+use crate::globals::{WorkHours, PROJECT_PATH};
 use crate::fs_utils::{reading_from_json_file, writing_to_json_file};
+use std::path::PathBuf;
 
+use tauri::api::path::desktop_dir;
+use std::{fs, path::Path, io::Write};
 
 #[tauri::command]
 pub fn get_work_hours() -> Result<WorkHours, String> {
@@ -19,8 +20,9 @@ pub fn get_work_hours() -> Result<WorkHours, String> {
     Ok(data)
 }
 
+
 #[tauri::command]
-pub async fn set_work_hours(start: String, end: String, is_always_active: bool) -> Result<(), String> {
+pub fn set_work_hours(start: String, end: String, is_always_active: bool) -> Result<(), String> {
 
     let sleep_time  = NaiveTime::parse_from_str(&end, "%H:%M").map_err(|e| e.to_string())?;
     let wake_time  = NaiveTime::parse_from_str(&start, "%H:%M").map_err(|e| e.to_string())?;
@@ -29,58 +31,74 @@ pub async fn set_work_hours(start: String, end: String, is_always_active: bool) 
     if let Err(_e) = writing_to_json_file("time/time.json", &work_hours) {
         // eprintln!("Failed to write to JSON file: {}", e);
     }
-    let now = Local::now().time();
+    let base_path = PROJECT_PATH.lock().unwrap()
+        .clone()
+        .ok_or("Project path is not set. Call update_project_path first.")?;
 
-    let sleep_duration = if sleep_time > now {
-        (sleep_time - now).num_seconds()
-    } else {
-        (sleep_time + ChronoDuration::hours(24) - now).num_seconds()
-    };
+        let mut script_dir = base_path.join("settings");
+    let _ = create_powershell_script(script_dir.clone());
+    script_dir = script_dir.join("wake_script.ps1");
+    let str_script_dir = script_dir.to_string_lossy();
+    // let now = Local::now().time();
+    // // Вычисляем задержки для сна и пробуждения
+    // let _sleep_duration = if sleep_time > now {
+    //     (sleep_time - now).num_seconds()
+    // } else {
+    //     (sleep_time + chrono::Duration::hours(24) - now).num_seconds()
+    // };
 
+    // let _wake_duration = if wake_time > now {
+    //     (wake_time - now).num_seconds()
+    // } else {
+    //     (wake_time + chrono::Duration::hours(24) - now).num_seconds()
+    // };
+    // Логируем оставшееся время
+    // if !is_always_active {
+    //     println!(
+    //         "Оставшееся время до сна: {} секунд ({} часов, {} минут)",
+    //         sleep_duration,
+    //         sleep_duration / 3600,
+    //         (sleep_duration % 3600) / 60
+    //     );
+    //     println!(
+    //         "Оставшееся время до пробуждения: {} секунд ({} часов, {} минут)",
+    //         wake_duration,
+    //         wake_duration / 3600,
+    //         (wake_duration % 3600) / 60
+    //     );
+    // }
+    
+    // Настраиваем таймер на вход в спящий режим
     if !(sleep_time == wake_time) && !is_always_active {
-        let sleep_time_instant = Instant::now() + Duration::from_secs(sleep_duration as u64);
 
-        task::spawn(async move {
-            sleep_until(sleep_time_instant).await;
-            let _ = Command::new("shutdown")
-                .args(&["/h", "/f"])
-                .creation_flags(CREATE_NO_WINDOW) // <-- Отключает всплывающее окно PowerShell
-                .stdout(Stdio::null()) // Отключает вывод в консоль
-                .stderr(Stdio::null()) // Отключает ошибки в консоль
-                .output()
-                .map_err(|e| format!("Failed to execute PowerShell script: {}", e)).ok();
-        });
-    }
-    let wake_time_formatted = wake_time.format("%H:%M:%S").to_string();
-
-    let ps_script;
-    let remote_script = r#"
-if (Get-ScheduledTask -TaskName "DailyWakeUpTask" -ErrorAction SilentlyContinue) {
-    Unregister-ScheduledTask -TaskName "DailyWakeUpTask" -Confirm:$false
+        let sleep_time_formatted = sleep_time.format("%H:%M:%S").to_string();
+        let remote_sleep_script = r#"
+if (Get-ScheduledTask -TaskName "DailySleepUpTask" -ErrorAction SilentlyContinue) {
+    Unregister-ScheduledTask -TaskName "DailySleepUpTask" -Confirm:$false
     Write-Output "Task removed successfully."
 } else {
     Write-Output "Task does not exist."
 }
 "#;
-    ps_script = format!(
+        let ps_sleep_script = format!(
 r#"
 # Check if task already exists, if so, delete it
-if (Get-ScheduledTask -TaskName "DailyWakeUpTask" -ErrorAction SilentlyContinue) {{
-    Unregister-ScheduledTask -TaskName "DailyWakeUpTask" -Confirm:$false
+if (Get-ScheduledTask -TaskName "DailySleepTask" -ErrorAction SilentlyContinue) {{
+    Unregister-ScheduledTask -TaskName "DailySleepTask" -Confirm:$false
 }}
 
 # Task start time
-$taskTime = "{wake_time}"
+$taskTime = "{sleep_time}"
 
 # XML file for task
-$taskXmlPath = "$env:temp\DailyWakeUpTask.xml"
+$taskXmlPath = "$env:temp\DailySleepTask.xml"
 
 # Generate XML file
 @"
 <?xml version="1.0" encoding="UTF-16"?>
 <Task xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
     <RegistrationInfo>
-    <Description>Daily task to wake up the computer and execute the task</Description>
+    <Description>Daily task to sleep the computer and execute the task</Description>
     </RegistrationInfo>
     <Triggers>
     <CalendarTrigger>
@@ -106,12 +124,122 @@ $taskXmlPath = "$env:temp\DailyWakeUpTask.xml"
     </Settings>
     <Actions Context="Author">
     <Exec>
-        <Command>cmd.exe</Command>
-        <Arguments>/c echo Wake-up task executed</Arguments>
+        <Command>powershell.exe</Command>
+        <Arguments>-Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Application]::SetSuspendState('Suspend', $false, $false)"</Arguments>
     </Exec>
+    </Actions>
+</Task>
+"@ | Out-File -Encoding UTF8 -FilePath $taskXmlPath
+
+# Register task with XML
+Register-ScheduledTask -Xml (Get-Content $taskXmlPath -Raw) -TaskName "DailySleepTask"
+
+# Remove the temporary XML file
+Remove-Item $taskXmlPath -Force
+"#,
+                sleep_time = sleep_time_formatted
+            );
+    
+        if is_always_active{
+            let _output = Command::new("powershell")
+            .args(&["-Command", &remote_sleep_script])
+            .creation_flags(CREATE_NO_WINDOW) // <-- Отключает всплывающее окно PowerShell
+            .stdout(Stdio::null()) // Отключает вывод в консоль
+            .stderr(Stdio::null()) // Отключает ошибки в консоль
+            .output()
+            .map_err(|e| format!("Failed to execute PowerShell script: {}", e))?;
+        }
+        else{
+            let _output = Command::new("powershell")
+            .args(&["-Command", &ps_sleep_script])
+            .creation_flags(CREATE_NO_WINDOW) // <-- Отключает всплывающее окно PowerShell
+            .stdout(Stdio::null()) // Отключает вывод в консоль
+            .stderr(Stdio::null()) // Отключает ошибки в консоль
+            .output()
+            .map_err(|e| format!("Failed to execute PowerShell script: {}", e))?;    
+        }
+
+        // thread::spawn(move || {
+        //     loop {
+        //         let current_time = Local::now().time();
+        //         // Если текущее время равно времени выключения, переводим компьютер в спящий режим
+        //         if current_time >= sleep_time && current_time < sleep_time + chrono::Duration::minutes(1) {
+        //             Command::new("shutdown")
+        //                 .args(&["/h", "/f"])
+        //                 .creation_flags(CREATE_NO_WINDOW) // <-- Отключает всплывающее окно PowerShell
+        //                 .stdout(Stdio::null()) // Отключает вывод в консоль
+        //                 .stderr(Stdio::null()) // Отключает ошибки в консоль  // Перевод в спящий режим с принудительным закрытием приложений
+        //                 .spawn()
+        //                 .expect("Не удалось перевести компьютер в спящий режим");
+        //         }
+        //         // Проверяем каждые 30 секунд
+        //         thread::sleep(Duration::from_secs(30));
+        //     }
+        // });
+    }
+    let wake_time_formatted = wake_time.format("%H:%M:%S").to_string();
+
+    let remote_wake_script = r#"
+if (Get-ScheduledTask -TaskName "DailyWakeUpTask" -ErrorAction SilentlyContinue) {
+    Unregister-ScheduledTask -TaskName "DailyWakeUpTask" -Confirm:$false
+    Write-Output "Task removed successfully."
+} else {
+    Write-Output "Task does not exist."
+}
+"#;
+    let ps_wake_script = format!(
+r#"
+# Check if task already exists, if so, delete it
+if (Get-ScheduledTask -TaskName "DailyWakeUpTask" -ErrorAction SilentlyContinue) {{
+    Unregister-ScheduledTask -TaskName "DailyWakeUpTask" -Confirm:$false
+}}
+
+# Task start time
+$taskTime = "{wake_time}"
+
+# XML file for task
+$taskXmlPath = "$env:temp\DailyWakeUpTask.xml"
+
+# Generate XML file
+@"
+<?xml version="1.0" encoding="UTF-16"?>
+<Task xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+    <RegistrationInfo>
+    <Description>Daily wake up the computer and execute the task</Description>
+    </RegistrationInfo>
+    <Triggers>
+    <CalendarTrigger>
+        <StartBoundary>$((Get-Date -Format "yyyy-MM-ddT") + $taskTime)</StartBoundary>
+        <Enabled>true</Enabled>
+        <ScheduleByDay>
+        <DaysInterval>1</DaysInterval>
+        </ScheduleByDay>
+    </CalendarTrigger>
+    </Triggers>
+    <Settings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <WakeToRun>true</WakeToRun>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <RestartOnFailure>
+        <Interval>PT1M</Interval>
+        <Count>3</Count>
+    </RestartOnFailure>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    </Settings>
+    <Principals>
+        <Principal id="Author">
+            <UserId>$env:USERNAME</UserId>
+            <LogonType>InteractiveToken</LogonType>
+            <RunLevel>HighestAvailable</RunLevel>
+        </Principal>
+    </Principals>
+    <Actions Context="Author">
     <Exec>
-        <Command>cmd.exe</Command>
-        <Arguments>/c echo Wake-up task executed</Arguments>
+        <Command>powershell.exe</Command>
+        <Arguments>-ExecutionPolicy Bypass -File "{wake_script_dir}"</Arguments>
     </Exec>
     </Actions>
 </Task>
@@ -123,26 +251,73 @@ Register-ScheduledTask -Xml (Get-Content $taskXmlPath -Raw) -TaskName "DailyWake
 # Remove the temporary XML file
 Remove-Item $taskXmlPath -Force
 "#,
-            wake_time = wake_time_formatted
+            wake_time = wake_time_formatted,
+            wake_script_dir = str_script_dir
         );
 
     if is_always_active{
         let _output = Command::new("powershell")
-        .args(&["-Command", &remote_script])
+        .args(&["-Command", &remote_wake_script])
         .creation_flags(CREATE_NO_WINDOW) // <-- Отключает всплывающее окно PowerShell
-        .stdout(Stdio::null()) // Отключает вывод в консоль
-        .stderr(Stdio::null()) // Отключает ошибки в консоль
         .output()
         .map_err(|e| format!("Failed to execute PowerShell script: {}", e))?;
     }
     else{
         let _output = Command::new("powershell")
-        .args(&["-Command", &ps_script])
+        .args(&["-Command", &ps_wake_script])
         .creation_flags(CREATE_NO_WINDOW) // <-- Отключает всплывающее окно PowerShell
-        .stdout(Stdio::null()) // Отключает вывод в консоль
-        .stderr(Stdio::null()) // Отключает ошибки в консоль
         .output()
         .map_err(|e| format!("Failed to execute PowerShell script: {}", e))?;    
     }
     Ok(())
+}
+
+#[tauri::command]
+fn create_powershell_script(folder_path: PathBuf) -> Result<String, String> {
+    // Проверяем, существует ли папка
+    let path = Path::new(&folder_path);
+    if !path.exists() {
+        return Err("Указанная папка не существует".to_string());
+    }
+    
+    // Создаём путь к файлу
+    let script_path = path.join("wake_script.ps1");
+    if !script_path.exists() {
+        return Ok(Default::default())
+    }
+    
+    // PowerShell-код
+    let script_content = r#"
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class Keyboard {
+    [DllImport("user32.dll")]
+    public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+    public static void PressKey(byte key) {
+        keybd_event(key, 0, 0, UIntPtr.Zero); // Нажатие
+        keybd_event(key, 0, 2, UIntPtr.Zero); // Отпускание
+    }
+}
+"@ -Language CSharp
+
+Start-Sleep -Seconds 3  # Ждём 3 секунды после пробуждения
+[Keyboard]::PressKey(0x0D)  # 0x0D — это клавиша "Enter"
+Start-Sleep -Seconds 5  # Ждём 5 секунд после пробуждения
+[Keyboard]::PressKey(0x0D)  # 0x0D — это клавиша "Enter"
+Start-Sleep -Seconds 3  # Ждём 3 секунд после пробуждения
+[Keyboard]::PressKey(0x0D)  # 0x0D — это клавиша "Enter"
+"#;
+    
+    // Записываем в файл
+    match fs::File::create(&script_path) {
+        Ok(mut file) => {
+            if let Err(e) = file.write_all(script_content.as_bytes()) {
+                return Err(format!("Ошибка при записи в файл: {}", e));
+            }
+        }
+        Err(e) => return Err(format!("Ошибка при создании файла: {}", e)),
+    }
+    
+    Ok(script_path.to_string_lossy().into_owned())
 }
