@@ -35,7 +35,7 @@ pub fn set_work_hours(start: String, end: String, is_always_active: bool) -> Res
         .clone()
         .ok_or("Project path is not set. Call update_project_path first.")?;
 
-        let mut script_dir = base_path.join("settings");
+    let mut script_dir = base_path.join("settings");
     let _ = create_powershell_script(script_dir.clone());
     script_dir = script_dir.join("wake_script.ps1");
     let str_script_dir = script_dir.to_string_lossy();
@@ -73,8 +73,8 @@ pub fn set_work_hours(start: String, end: String, is_always_active: bool) -> Res
 
         let sleep_time_formatted = sleep_time.format("%H:%M:%S").to_string();
         let remote_sleep_script = r#"
-if (Get-ScheduledTask -TaskName "DailySleepUpTask" -ErrorAction SilentlyContinue) {
-    Unregister-ScheduledTask -TaskName "DailySleepUpTask" -Confirm:$false
+if (Get-ScheduledTask -TaskName "DailySleepTask" -ErrorAction SilentlyContinue) {
+    Unregister-ScheduledTask -TaskName "DailySleepTask" -Confirm:$false
     Write-Output "Task removed successfully."
 } else {
     Write-Output "Task does not exist."
@@ -124,8 +124,8 @@ $taskXmlPath = "$env:temp\DailySleepTask.xml"
     </Settings>
     <Actions Context="Author">
     <Exec>
-        <Command>powershell.exe</Command>
-        <Arguments>-Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Application]::SetSuspendState('Suspend', $false, $false)"</Arguments>
+        <Command>shutdown</Command>
+        <Arguments>/h</Arguments>
     </Exec>
     </Actions>
 </Task>
@@ -221,7 +221,7 @@ $taskXmlPath = "$env:temp\DailyWakeUpTask.xml"
     <Enabled>true</Enabled>
     <StartWhenAvailable>true</StartWhenAvailable>
     <WakeToRun>true</WakeToRun>
-    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <AllowHardTerminate>false</AllowHardTerminate>
     <RestartOnFailure>
         <Interval>PT1M</Interval>
         <Count>3</Count>
@@ -231,7 +231,7 @@ $taskXmlPath = "$env:temp\DailyWakeUpTask.xml"
     </Settings>
     <Principals>
         <Principal id="Author">
-            <UserId>$env:USERNAME</UserId>
+            <UserId>$env:USERDOMAIN\$env:USERNAME</UserId>
             <LogonType>InteractiveToken</LogonType>
             <RunLevel>HighestAvailable</RunLevel>
         </Principal>
@@ -263,6 +263,7 @@ Remove-Item $taskXmlPath -Force
         .map_err(|e| format!("Failed to execute PowerShell script: {}", e))?;
     }
     else{
+        println!("{}", ps_wake_script);
         let _output = Command::new("powershell")
         .args(&["-Command", &ps_wake_script])
         .creation_flags(CREATE_NO_WINDOW) // <-- Отключает всплывающее окно PowerShell
@@ -302,6 +303,8 @@ public class Keyboard {
 "@ -Language CSharp
 
 Start-Sleep -Seconds 3  # Ждём 3 секунды после пробуждения
+[Keyboard]::PressKey(0x0D)  # 0x0D — это клавиша "Enter"
+Start-Sleep -Seconds 30  # Ждём 30 секунды после пробуждения
 [Keyboard]::PressKey(0x0D)  # 0x0D — это клавиша "Enter"
 Start-Sleep -Seconds 5  # Ждём 5 секунд после пробуждения
 [Keyboard]::PressKey(0x0D)  # 0x0D — это клавиша "Enter"
