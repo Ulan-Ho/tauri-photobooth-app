@@ -22,8 +22,8 @@ import { Settings } from "lucide-react"
 // import test_image_3 from '../image_beta/IMG_7111.JPG';
 
 export default function PrintPage({ images, design, setDesign }) {
-  const [bgImage, setBgImage] = useState(localStorage.getItem("back_4") || `url(${back_img})`);
-  const { canvases, currentCanvasId, switchCanvas, updateObjectProps, setCamera, chromokey, reference } = useStore();
+  // const [bgImage, setBgImage] = useState(localStorage.getItem("back_4") || `url(${back_img})`);
+  const { canvases, currentCanvasId, switchCanvas, updateObjectProps, setCamera, chromokey, reference, background_image_4 } = useStore();
   const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
   usePageNavigation();
   const canvasRef = useRef(null);
@@ -31,39 +31,39 @@ export default function PrintPage({ images, design, setDesign }) {
   const [ isImage, setIsImage ] = useState(null);
   // const imgES = [test_image_1, test_image_2, test_image_3];
 
-  useEffect(() => {
-      const fetchImage = async () => {
-          try {
-              const image = await invoke('get_image_path', { path: `background/4_background` })
-              const url_image = `url(${convertFileSrc(image)})`;
-              setBgImage(url_image);
-              if (image && image.trim() !== "") {
-                  setBgImage(url_image);
-                  localStorage.setItem("back_4", url_image);
-              } else {
-                  throw new Error("Изображение не найдено");
-              }
-          } catch (err) {
-              localStorage.removeItem("back_4");
-              setBgImage(`url(${back_img})`);
-              console.log(err);
-          }
-      };
+  // useEffect(() => {
+  //     const fetchImage = async () => {
+  //         try {
+  //             const image = await invoke('get_image_path', { path: `background/4_background` })
+  //             const url_image = `url(${convertFileSrc(image)})`;
+  //             setBgImage(url_image);
+  //             if (image && image.trim() !== "") {
+  //                 setBgImage(url_image);
+  //                 localStorage.setItem("back_4", url_image);
+  //             } else {
+  //                 throw new Error("Изображение не найдено");
+  //             }
+  //         } catch (err) {
+  //             localStorage.removeItem("back_4");
+  //             setBgImage(`url(${back_img})`);
+  //             console.log(err);
+  //         }
+  //     };
 
-      fetchImage();
-  },[]);
+  //     fetchImage();
+  // },[]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext('2d');
-      drawMyCanvas(ctx, canvas, currentCanvas, false, chromokey.isEnabled === true ? chromokey.backgroundImage : reference, !design);
-      drawMyCanvas(ctx, canvas, currentCanvas, false, chromokey.isEnabled === true ? chromokey.backgroundImage : reference, !design);
+      drawMyCanvas(ctx, canvas, currentCanvas, false, chromokey.isEnabled ? chromokey.backgroundImage : reference, chromokey.isEnabled, !design);
+      drawMyCanvas(ctx, canvas, currentCanvas, false, chromokey.isEnabled ? chromokey.backgroundImage : reference, chromokey.isEnabled, !design);
 
-      // Второй вызов отрисовки через небольшой промежchromokey.isEnabled === true ? chromokey.backgroundImage : reference
+      // Второй вызов отрисовки через небольшой промежchromokey.isEnabled ? chromokey.backgroundImage : reference
       const timeoutId = setTimeout(() => {
-        drawMyCanvas(ctx, canvas, currentCanvas, false, chromokey.isEnabled === true ? chromokey.backgroundImage : reference, !design);
-      }, 50); // Задержка в 50 миллисекунд (можно варьировать)
+        drawMyCanvas(ctx, canvas, currentCanvas, false, chromokey.isEnabled ? chromokey.backgroundImage : reference, chromokey.isEnabled, !design);
+      }, 500); // Задержка в 50 миллисекунд (можно варьировать)
       // Очистка таймера, если компонент размонтируется
       const imageData = canvas.toDataURL('image/png');
       setIsImage(imageData);
@@ -119,7 +119,7 @@ export default function PrintPage({ images, design, setDesign }) {
 
   return (
     <div className="flex justify-center items-center">
-      <div className="select-none relative bg-cover bg-center bg-no-repeat" style={{width: '1280px', height: '1024px', backgroundImage: bgImage}}>
+      <div className="select-none relative bg-cover bg-center bg-no-repeat" style={{width: '1280px', height: '1024px', backgroundImage: background_image_4}}>
         <div className='back-img'></div>
         <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
           <div className="w-full flex flex-col gap-9 justify-center items-center px-20">

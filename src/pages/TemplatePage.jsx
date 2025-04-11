@@ -6,46 +6,55 @@ import { usePageNavigation } from '../hooks/usePageNavigation.js';
 import back_img from '../assets/defaultImage.jpeg';
 import { invoke, convertFileSrc } from "@tauri-apps/api/tauri"
 import { useStore } from '../admin/store.js';
+import { toast, ToastContainer } from 'react-toastify';
 
 export default function TemplatePage({ design, setDesign }) {
-    const [bgImage, setBgImage] = useState(localStorage.getItem("back_2") || `url(${back_img})`);
-    const { canvases, switchCanvas, currentCanvasId, camera, setCamera } = useStore();
+    // const [bgImage, setBgImage] = useState(localStorage.getItem("back_2") || `url(${back_img})`);
+    const { canvases, switchCanvas, currentCanvasId, camera, setCamera, background_image_2 } = useStore();
     const availableCanvases = canvases.filter((canvas) => canvas.canvasProps.available === true);
     const navigate = useNavigate();
     usePageNavigation();
 
     const [currentIndex, setCurrentIndex] = useState(0);
 
-    useEffect(() => {
-        const fetchImage = async () => {
-            try {
-                const image = await invoke('get_image_path', { path: `background/2_background` })
-                const url_image = `url(${convertFileSrc(image)})`;
-                setBgImage(url_image);
-                if (image && image.trim() !== "") {
-                    setBgImage(url_image);
-                    localStorage.setItem("back_2", url_image);
-                } else {
-                    throw new Error("Изображение не найдено");
-                }
-            } catch (err) {
-                localStorage.removeItem("back_2");
-                setBgImage(`url(${back_img})`);
-                console.log(err);
-            }
-        };
+    // useEffect(() => {
+    //     const fetchImage = async () => {
+    //         try {
+    //             const image = await invoke('get_image_path', { path: `background/2_background` })
+    //             const url_image = `url(${convertFileSrc(image)})`;
+    //             setBgImage(url_image);
+    //             if (image && image.trim() !== "") {
+    //                 setBgImage(url_image);
+    //                 localStorage.setItem("back_2", url_image);
+    //             } else {
+    //                 throw new Error("Изображение не найдено");
+    //             }
+    //         } catch (err) {
+    //             localStorage.removeItem("back_2");
+    //             setBgImage(`url(${back_img})`);
+    //             console.log(err);
+    //         }
+    //     };
 
-        fetchImage();
-    },[]);
+    //     fetchImage();
+    // },[]);
 
     const handleNext = async () => {
-        navigate('/capture');
-        if (!camera.isCameraOn) {
-            await invoke('initialize_camera');
-            setCamera({ isCameraOn: true });
+        try {
+            console.log("init camera")
+            
+            if (!camera.isCameraOn) {
+                await invoke('initialize_camera');
+                setCamera({ isCameraOn: true });
+            }
+            navigate('/capture');
+            setCamera({ isLiveView: true });
+            await invoke('start_live_view');
+        } catch(error) {
+            toast.error("Камера не подключена");
+            console.log("Error: ", error);
+            return
         }
-        setCamera({ isLiveView: true });
-        await invoke('start_live_view');
     };
 
     const prevSlide = () => {
@@ -63,7 +72,7 @@ export default function TemplatePage({ design, setDesign }) {
 
     return (
         <div className="flex justify-center items-center">
-            <div className="select-none relative bg-cover bg-center bg-no-repeat" style={{width: '1280px', height: '1024px', backgroundImage: bgImage}}>
+            <div className="select-none relative bg-cover bg-center bg-no-repeat" style={{width: '1280px', height: '1024px', backgroundImage: background_image_2}}>
                 <div className='back-img'></div>
                 <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
                     <div className='w-full flex flex-col gap-9 justify-center items-center'>
@@ -142,6 +151,7 @@ export default function TemplatePage({ design, setDesign }) {
                     </div>
                 </div>
             </div>
+            <ToastContainer />
         </div>
     );
 };

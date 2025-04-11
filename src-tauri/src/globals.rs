@@ -63,6 +63,11 @@ pub struct ChromokeyInfo {
 }
 
 
+#[derive(Serialize)]
+pub struct TemplatePaths {
+    pub json: String,
+    pub image: String,
+}
 //-------------------------------------------------License-------------------------------------------------------------------------------------
 pub struct LicenseState {
     pub license: Mutex<Option<String>>,

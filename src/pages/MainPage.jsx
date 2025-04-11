@@ -16,41 +16,47 @@ import { Settings } from "lucide-react"
 import { set } from "lodash";
 import printer from "../assets/printer.png";
 import backgroundUrl from "../assets/defaultImage.jpeg";
+import { appDir, configDir } from '@tauri-apps/api/path';
 
 export default function MainPage({ active, loading, setLoading, setActive, design }) {
-    const { license, project, setProject, chromokey, setChromokey, reference, setReferences, setCamera, setCanvasData, currentCanvasId, canvases, switchCanvas, chromokeyBackgroundImage, setChromokeyColor, setCounterCapturePhoto, backgroundImage, chromokeyStatus, setBackgroundImage, currentProject, setCurrentProject, setCanvasProps } = useStore();
+    const { license, project, setProject, chromokey, setChromokey, reference, setReferences, setCamera, setCanvasData, currentCanvasId, canvases, switchCanvas, background_image_1, setBackgroundImage } = useStore();
     const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
-    const [bgImage, setBgImage] = useState(localStorage.getItem("back_1") || `url(${back_img})`);
+    // const [bgImage, setBgImage] = useState(localStorage.getItem("back_1") || `url(${back_img})`);
     const canvasRefForSelect = useRef(null);
     const navigate = useNavigate();
     // const [image, setImage] = useState('');
     usePageNavigation();
 
+    // async function getAppDataPath() {
+    //     const path = await configDir();
+    //     console.log('AppData\\Roaming path:', path);
+    // }
+
+    // getAppDataPath();
     useEffect(() => {
         if (!license) navigate('/license');
-    })
+    });
 
-    useEffect(() => {
-        const fetchImage = async () => {
-            try {
-                const image = await invoke('get_image_path', { path: `background/1_background` })
-                const url_image = `url(${convertFileSrc(image)})`;
-                setBgImage(url_image);
-                if (image && image.trim() !== "") {
-                    setBgImage(url_image);
-                    localStorage.setItem("back_1", url_image);
-                } else {
-                    throw new Error("Изображение не найдено");
-                }
-            } catch (err) {
-                localStorage.removeItem("back_1");
-                setBgImage(`url(${back_img})`);
-                console.error(err);
-            }
-        };
-
-        fetchImage();
-    },[]);
+    // const fetchImage = async () => {
+    //     try {
+    //         const image = await invoke('get_image_path', { path: `background/1_background` })
+    //         const url_image = `url(${convertFileSrc(image)})`;
+    //         setBgImage(url_image);
+    //         console.log('Image URL:', url_image);
+    //         // if (image && image.trim() !== "") {
+    //             // setBgImage(url_image);
+    //             toast.success(image);
+    //             localStorage.setItem("back_1", url_image);
+    //             toast.success(url_image);
+    //         // } else {
+    //             // throw new Error("Изображение не найдено");
+    //         // }
+    //     } catch (err) {
+    //         localStorage.removeItem("back_1");
+    //         setBgImage(`url(${back_img})`);
+    //         console.error(err);
+    //     }
+    // };
 
     const fetchTemplate = async () => {
         if (!project.updateStatus) {
@@ -137,15 +143,26 @@ export default function MainPage({ active, loading, setLoading, setActive, desig
         if (selectedProject) {
             try {
                 await invoke('select_project', { projectName: selectedProject.name });
-                setProject({ isCurrent: false });
+                setProject({ isCurrent: false, name: selectedProject.name });
+                console.log(selectedProject.name);
                 updateSettings();
                 
                 toast.success("Сохранено успешно!");
                 setActive(true);
                 fetchTemplate();
                 getSavedPrinter();
+                [1, 2, 3, 4].forEach(async (index) => {
+                    try {
+                        const image = await invoke('get_image_path', { path: `background/${index}_background` });
+                        const url_image = `url(${convertFileSrc(image)})`;
+                        setBackgroundImage(`${selectedProject.name}_background_image_${index}`, `background_image_${index}`, url_image);
+                    } catch (err) {
+                        console.error(err);
+                    }
+                });
                 // await invoke('save_projects_and_create_dir', {projects});
                 // await invoke('init_project_path');
+                // fetchImage();
             } catch (err) {
                 console.error(err);
                 alert("Не удалось сохранить проекты.");
@@ -170,7 +187,9 @@ export default function MainPage({ active, loading, setLoading, setActive, desig
         );
     
         const selected = projects.find((project) => project.id === id);
+        console.log("Selected project:", selected);
         setSelectedProject(selected ? { ...selected, is_used: true } : null);
+
     };
 
     const addProject = () => {
@@ -193,7 +212,7 @@ export default function MainPage({ active, loading, setLoading, setActive, desig
     
     return (
         <div className={`${active == true ? "pointer-events-none": "pointer-events-auto"} flex justify-center items-center`}>
-            <div className="select-none relative  bg-cover bg-center bg-no-repeat" style={{width: '1280px', height: '1024px', backgroundImage: bgImage}}>
+            <div className="select-none relative  bg-cover bg-center bg-no-repeat" style={{width: '1280px', height: '1024px', backgroundImage: background_image_1}}>
                 <div className='back-img'></div>
                 {project.isCurrent ? (
                 <div className="absolute top-0 left-0 w-full h-full flex flex-col justify-center items-center text-2xl z-10">

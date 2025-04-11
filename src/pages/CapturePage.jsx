@@ -26,8 +26,8 @@ import { toast } from 'react-toastify';
 // import "@tensorflow/tfjs";
 
 export default function CaptureScreen({ onCapture }) {
-    const [bgImage, setBgImage] = useState(localStorage.getItem("back_3") || `url(${back_img})`);
-    const { camera, setCamera, chromokey, setChromokey, canvases, currentCanvasId, updateObjectProps, switchCanvas } = useStore();
+    // const [bgImage, setBgImage] = useState(localStorage.getItem("back_3") || `url(${back_img})`);
+    const { camera, setCamera, chromokey, setChromokey, canvases, currentCanvasId, updateObjectProps, switchCanvas, background_image_3 } = useStore();
     const currentCanvas = canvases.find(canvas => canvas.id === currentCanvasId);
     const imagesLenght = currentCanvas.objects.filter(object => object.type === 'image' && object.src === '').reduce((max, obj) => Math.max(max, obj.numberImage), 0);
     usePageNavigation();
@@ -48,27 +48,27 @@ export default function CaptureScreen({ onCapture }) {
     const [errCount, setErrCount] = useState(0);
     const canvasRefLayout = useRef(null);
     const [forCapture, setForCapture] = useState(true);
-    useEffect(() => {
-        const fetchImage = async () => {
-            try {
-                const image = await invoke('get_image_path', { path: `background/3_background` })
-                const url_image = `url(${convertFileSrc(image)})`;
-                setBgImage(url_image);
-                if (image && image.trim() !== "") {
-                    setBgImage(url_image);
-                    localStorage.setItem("back_3", url_image);
-                } else {
-                    throw new Error("Изображение не найдено");
-                }
-            } catch (err) {
-                localStorage.removeItem("back_3");
-                setBgImage(`url(${back_img})`);
-                console.log(err);
-            }
-        };
+    // useEffect(() => {
+    //     const fetchImage = async () => {
+    //         try {
+    //             const image = await invoke('get_image_path', { path: `background/3_background` })
+    //             const url_image = `url(${convertFileSrc(image)})`;
+    //             setBgImage(url_image);
+    //             if (image && image.trim() !== "") {
+    //                 setBgImage(url_image);
+    //                 localStorage.setItem("back_3", url_image);
+    //             } else {
+    //                 throw new Error("Изображение не найдено");
+    //             }
+    //         } catch (err) {
+    //             localStorage.removeItem("back_3");
+    //             setBgImage(`url(${back_img})`);
+    //             console.log(err);
+    //         }
+    //     };
 
-        fetchImage();
-    },[]);
+    //     fetchImage();
+    // },[]);
 
     const drawBackImage = useCallback(() => {
         if (!chromokey.backgroundImage.src) return;
@@ -326,9 +326,9 @@ export default function CaptureScreen({ onCapture }) {
         const canvas = canvasRefLayout.current;
         if (canvas) {
             const ctx = canvas.getContext('2d');
-            drawMyCanvas(ctx, canvas, currentCanvas, true, chromokey.backgroundImage, false);
+            drawMyCanvas(ctx, canvas, currentCanvas, true, chromokey.backgroundImage, chromokey.isEnabled, false);
             const timeoutId = setTimeout(() => {
-                drawMyCanvas(ctx, canvas, currentCanvas, true, chromokey.backgroundImage, false);
+                drawMyCanvas(ctx, canvas, currentCanvas, true, chromokey.backgroundImage, chromokey.isEnabled, false);
               }, 50); // Задержка в 50 миллисекунд (можно варьировать)
               // Очистка таймера, если компонент размонтируется
             const imageData = canvas.toDataURL('image/png');
@@ -352,7 +352,7 @@ export default function CaptureScreen({ onCapture }) {
 
     return (
         <div className="flex justify-center items-center">
-            <div className="select-none relative bg-cover bg-center bg-no-repeat" style={{ width: '1280px', height: '1024px', backgroundImage: bgImage }}>
+            <div className="select-none relative bg-cover bg-center bg-no-repeat" style={{ width: '1280px', height: '1024px', backgroundImage: background_image_3 }}>
                 <div className='back-img'></div>
                 <div className='absolute top-0 left-0 w-full h-full flex justify-center items-center text-white text-2xl z-10'>
                     <div className='flex w-screen justify-center items-center'>
@@ -372,7 +372,7 @@ export default function CaptureScreen({ onCapture }) {
                                         <div className='border-solid border-2 capture-container rounded-md' style={{ width: 633, height: 633, position: 'relative' }}>
                                             {isCameraReady && (
                                                 <div style={{ width: 630, height: 630, position: 'relative' }}>
-                                                    <canvas className='rounded-md' ref={backgroundImageRef} width="630" height="630" style={{ position: 'absolute', zIndex: 1, display: chromokey.isEnabled === true ? 'block' : 'none' }} />
+                                                    <canvas className='rounded-md' ref={backgroundImageRef} width="630" height="630" style={{ position: 'absolute', zIndex: 1, display: chromokey.isEnabled ? 'block' : 'none' }} />
                                                     <canvas className='rounded-md' ref={canvasRefMain} width="630" height="630" style={{ position: 'absolute', zIndex: 2 }} />
                                                 </div>
                                             )}
@@ -411,7 +411,7 @@ export default function CaptureScreen({ onCapture }) {
                                 ) : (
                                     <div className='flex flex-col items-center w-full gap-10'>
                                         {/* <img src={capturedImage} className='object-cover' style={{ width: 530, height: 530, position: 'relative' }} /> */}
-                                        <canvas ref={backgroundImageRef} width="630" height="630" style={{ position: 'absolute', zIndex: 1, display: chromokey.isEnabled === true ? 'block' : 'none' }} />
+                                        <canvas ref={backgroundImageRef} width="630" height="630" style={{ position: 'absolute', zIndex: 1, display: chromokey.isEnabled ? 'block' : 'none' }} />
                                         <img src={capturedImage} alt='Captured' style={{ width: 633, height: 633, position: 'relative', zIndex: 2 }} className='border-solid border-2 capture-container rounded-md object-cover' />
                                         <div className='h-40 flex justify-between items-center w-full'>
                                             <button className='w-36 h-20 flex items-center justify-center gap-2 px-4 py-2 border-2 rounded-lg border-white bg-red-700' onClick={handleBack}>

@@ -4,7 +4,7 @@ import { useStore } from "./store";
 import { SaveIcon, ArrowBigUpDash } from "lucide-react";
 import backgroundUrl from "../assets/defaultImage.jpeg";
 import { convertFileSrc, invoke } from '@tauri-apps/api/tauri';
-import { ToastContainer } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import { usePageNavigation } from '../hooks/usePageNavigation.js';
 import { drawCromakeyBackgroundImage } from '../components/CanvasDrawer.jsx'
 
@@ -121,9 +121,14 @@ export default function Chromakey() {
     }, [camera.isLiveView, processVideoFrames]);
 
     const toggleLiveView = useCallback(async () => {
-        if (!camera.isCameraOn) {
-            await invoke('initialize_camera');
-            setCamera({ isCameraOn: true });
+        try {
+            if (!camera.isCameraOn) {
+                await invoke('initialize_camera');
+                setCamera({ isCameraOn: true });
+            }
+        } catch (error) {
+            toast.error(error)
+            return;
         }
         if (camera.isLiveView) {
             await invoke('stop_live_view');
@@ -196,13 +201,13 @@ export default function Chromakey() {
         <AdminShell props={props}>
             <div className="flex ">
                 <div className="relative w-3/5 h-full">
-                    <canvas ref={backgroundImageRef} width="530" height="530" style={{ position: 'absolute', zIndex: 1, display: chromokey.isEnabled === true ? 'block' : 'none' }} />
+                    <canvas ref={backgroundImageRef} width="530" height="530" style={{ position: 'absolute', zIndex: 1, display: chromokey.isEnabled ? 'block' : 'none' }} />
                     <canvas ref={canvasRef} width="530" height="530" style={{ position: 'absolute', zIndex: 2 }} />
                 </div>
                 <div className="flex flex-col justify-between w-2/5 gap-4">
                     <div className="grid grid-cols-2 gap-x-2 gap-y-4">
                         <button className={`p-2 rounded-lg border ${camera.isLiveView === true ? 'bg-blue-500' : 'bg-red-500'} text-white`} onClick={toggleLiveView}>Включить камеру</button>
-                        <button className={`p-2 rounded-lg border ${chromokey.isEnabled === true ? 'bg-blue-500' : 'bg-red-500'} text-white`} onClick={() => setChromokey({ isEnabled: !chromokey.isEnabled })}>Chromakey {chromokey.isEnabled === true ? 'включен' : 'выключен'}</button>
+                        <button className={`p-2 rounded-lg border ${chromokey.isEnabled ? 'bg-blue-500' : 'bg-red-500'} text-white`} onClick={() => setChromokey({ isEnabled: !chromokey.isEnabled })}>Chromakey {chromokey.isEnabled ? 'включен' : 'выключен'}</button>
                         <div
                             className="rounded-lg border flex justify-center items-center cursor-pointer col-span-2 w-fit h-fit"
                             style={{ overflow: 'hidden', background: '#f3f3f3' }}

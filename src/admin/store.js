@@ -13,6 +13,30 @@ const updateCanvasProperty = (canvasId, propertyUpdates) => set((state) => ({
 
 export const useStore = create(devtools((set) => ({
 
+  background_image_1: `url(${back_img})`,
+  background_image_2: `url(${back_img})`,
+  background_image_3: `url(${back_img})`,
+  background_image_4: `url(${back_img})`,
+
+  setBackgroundImage: (key, image_state, path) => {
+      localStorage.setItem(key, path != null ? path : back_img);
+      set({ [image_state]: path != null ? path : back_img });
+  },
+
+  resetBackgrounds: () => {
+    const defaultPath = back_img; // или путь к дефолтной картинке
+    ['background_image_1', 'background_image_2', 'background_image_3', 'background_image_4'].forEach((key) => {
+      localStorage.removeItem(key);
+    });
+    set({
+      background_image_1: defaultPath,
+      background_image_2: defaultPath,
+      background_image_3: defaultPath,
+      background_image_4: defaultPath,
+    });
+  },  
+  
+
   license: localStorage.getItem("license") === "true",
 
   setLicense: (value) => {
@@ -53,6 +77,7 @@ export const useStore = create(devtools((set) => ({
   project: {
     isCurrent: true,
     updateStatus: false,
+    name: ''
   },
 
   setProject: (updates) => set((state) => ({ project: { ...state.project, ...updates } })),
@@ -478,46 +503,6 @@ export const useStore = create(devtools((set) => ({
     },
   ],
 
-  // updateStatus: false,
-  
-  // currentProject: true,
-
-  // chromokeyStatus: false,
-
-  // chromokeyBackgroundImage: {
-  //   // id: 9999999,
-  //   // type: 'image',
-  //   // numberImage: 1,
-  //   // left: 44,
-  //   // top: 79,
-  //   // width: 513,
-  //   // height: 411,
-  //   imgObject: '',
-  //   src: back_img,
-  // },
-
-  // chromokeyColor: '#00ff00',
-
-
-  // counterCapturePhoto: 3,
-
-  // setChromokeyStatus: (status) => set({ chromokeyStatus: status }),
-
-  // setChromokeyBackgroundImage: (imageObject, imageSrc) => set({
-  //   chromokeyBackgroundImage: {
-  //     imgObject: imageObject,
-  //     src: imageSrc,
-  //   },
-  // }),
-
-  // setChromokeyColor: (color) => set({ chromokeyColor: color }),
-
-  // setCounterCapturePhoto: (value) => set({ counterCapturePhoto: value }),
-
-  // setUpdateStatus: (value) => set({ updateStatus: value }),
-
-  // setCurrentProject: (value) => set({ currentProject: value }),
-
   error: null,  // Новое состояние для ошибок
 
   setError: (message) => set({ error: message }),  // Функция для обновления ошибки
@@ -688,6 +673,10 @@ export const useStore = create(devtools((set) => ({
         ],
       },
     ],
+  })),
+
+  addCanvasFromTemplate: (canvas) => set((state) => ({
+    canvases: [...state.canvases, canvas]
   })),
 
   // Remove canvas

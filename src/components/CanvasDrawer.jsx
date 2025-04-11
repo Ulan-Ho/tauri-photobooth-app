@@ -182,37 +182,52 @@ export const drawCromakeyBackgroundImage = (ctx, obj, chromokeyBackgroundImage, 
 
 
 // Функция для рисования изображения в режиме выбора
-export const drawImages = (ctx, obj, bool, chromokeyBackgroundImage, backImage) => {
+export const drawImages = (ctx, obj, bool, chromokeyBackgroundImage, chromokeyEnabled, backImage, design) => {
     if (!obj.imgObject) {
-        // Создаем и сохраняем объект изображения, если он еще не создан
         obj.imgObject = new Image();
         obj.imgObject.crossOrigin = "anonymous";
+        obj.imgObject.src = obj.src;
+    } else if (obj.imgObject.src !== obj.src) {
+        // Обновляем src, если оно изменилось (или не задано)
         obj.imgObject.src = obj.src;
     }
 
     // Отрисовка изображения после загрузки
-    if (bool === true) {
-        obj.imgObject.onload = () => {
-            setShadow(ctx, obj);
-            ctx.drawImage(obj.imgObject, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
-            offShadow(ctx);
-            if (obj.strokeWidth) setStroke(ctx, obj);
-        };
-
-        if (obj.imgObject.complete) {
+    if (bool == true) {
+        if (obj.numberImage === 1 || obj.numberImage === 2 || obj.numberImage === 3) {
             setShadow(ctx, obj);
             if (obj.numberImage === 1) drawSquare(ctx, obj, 'red', 1);
             if (obj.numberImage === 2) drawSquare(ctx, obj, 'blue', 2);
             if (obj.numberImage === 3) drawSquare(ctx, obj, 'green', 3);
-            ctx.drawImage(obj.imgObject, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
+            // ctx.drawImage(obj.imgObject, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
             offShadow(ctx);
             if (obj.strokeWidth) setStroke(ctx, obj);
-        }
-    }
-    if (bool === false) {
-        if (obj.numberImage === 1 || obj.numberImage === 2 || obj.numberImage === 3) {
+        } else {
             obj.imgObject.onload = () => {
-                drawCromakeyBackgroundImage(ctx, obj, chromokeyBackgroundImage, backImage);
+                setShadow(ctx, obj);
+                ctx.drawImage(obj.imgObject, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
+                offShadow(ctx);
+                if (obj.strokeWidth) setStroke(ctx, obj);
+            };
+
+            if (obj.imgObject.complete) {
+                obj.imgObject.onload();
+            } else {
+                obj.imgObject.crossOrigin = "anonymous";
+                obj.imgObject.onload = () => {
+                    setShadow(ctx, obj);
+                    ctx.drawImage(obj.imgObject, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
+                    offShadow(ctx);
+                    if (obj.strokeWidth) setStroke(ctx, obj);
+                };
+            }
+        }
+    } else {
+        if (obj.numberImage === 1 || obj.numberImage === 2 || obj.numberImage === 3) {
+            if (design) ctx.filter = 'grayscale(1)'
+            else ctx.filter = 'grayscale(0)'
+            obj.imgObject.onload = () => {
+                if (chromokeyEnabled) drawCromakeyBackgroundImage(ctx, obj, chromokeyBackgroundImage, backImage);
                 // Пропорции изображения и объекта
                 const imgAspectRatio = obj.imgObject.width / obj.imgObject.height;
                 const objectAspectRatio = obj.width / obj.height;
@@ -311,7 +326,7 @@ function drawDashedCenterLines(ctx, canvasWidth, canvasHeight, object) {
     const objectCenterY = object.y + object.height / 2;
 
     // Настройки для линий
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)'; // Полупрозрачный черный цвет
+    ctx.strokeStyle = 'rgba(255, 255, 255)'; // Полупрозрачный черный цвет
     ctx.lineWidth = 5; // Толщина линии
     ctx.setLineDash([50, 10]); // Пунктир: 5px линия, 5px пробел
 
@@ -331,7 +346,7 @@ function drawDashedCenterLines(ctx, canvasWidth, canvasHeight, object) {
     ctx.setLineDash([]);
 }
 
-export const drawMyCanvas = (ctx, canvas, currentCanvas, bool, chromokeyBackgroundImage, design) => {
+export const drawMyCanvas = (ctx, canvas, currentCanvas, bool, chromokeyBackgroundImage, chromokeyEnabled, design) => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // Устанавливаем размеры холста
@@ -341,14 +356,11 @@ export const drawMyCanvas = (ctx, canvas, currentCanvas, bool, chromokeyBackgrou
     const canvasWidth = canvas.width;
     const canvasHeight = canvas.height;
 
-    const object = { x: 0, y: 0, width: 1200, height: 1800 };
+    const object = { x: 0, y: 0, width: canvasWidth, height: canvasHeight };
 
     // Задаем цвет фона
     ctx.fillStyle = currentCanvas.canvasProps.backgroundColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    if (design) ctx.filter = 'grayscale(1)'
-    else ctx.filter = 'grayscale(0)'
     
     const sortedObjects = [...currentCanvas.objects].sort((a, b) => a.zIndex - b.zIndex);
 
@@ -381,7 +393,7 @@ export const drawMyCanvas = (ctx, canvas, currentCanvas, bool, chromokeyBackgrou
                 break;
             case 'image':
                 // drawCromakeyBackgroundImage(ctx, obj, chromokeyBackgroundImage);
-                drawImages(ctx, obj, bool, chromokeyBackgroundImage, false);
+                drawImages(ctx, obj, bool, chromokeyBackgroundImage, chromokeyEnabled, false, design);
                 break;
             default:
                 break;

@@ -45,12 +45,14 @@ const props = {
 }
 
 import defaultImage from "../assets/defaultImage.jpeg";
+import { useStore } from "./store.js";
 
 export default function Editor({ isDarkMode }) {
 
     usePageNavigation();
     const [whyBg, setWhyBg] = useState(1);
     // const [bgImage, setBgImage] = useState(localStorage.getItem(`back_${whyBg}`));
+    const { setBackgroundImage, project } = useStore();
     
     const [property, setProperty] = useState(filterElements[0]);
     const [details, setDetails] = useState(null);
@@ -93,6 +95,7 @@ export default function Editor({ isDarkMode }) {
             try {
                 const image = await invoke('get_image_path', { path: `background/${whyBg}_background`});
                 const url_image = convertFileSrc(image);
+                // localStorage.setItem(`back_${whyBg}`, url_image);
                 const newState = {
                     ...state,
                     image: url_image || defaultImage,
@@ -230,7 +233,7 @@ export default function Editor({ isDarkMode }) {
     };
 
     const cropImage = () => {
-        if (!crop || !details) return;
+        if (!crop?.width || !crop?.height || !details) return;
         const canvas = document.createElement("canvas");
         const scaleX = details.naturalWidth / details.width;
         const scaleY = details.naturalHeight / details.height;
@@ -280,15 +283,26 @@ export default function Editor({ isDarkMode }) {
             );
 
             const dataURL = canvas.toDataURL('image/webp', 0.8);
-            const fileName = `${whyBg}_bg.jpeg`;
-            localStorage.removeItem(`back_${whyBg}`);
+            // const fileName = `${whyBg}_bg.jpeg`;
+            // setBackgroundImage(`background_image_${whyBg}`, `url(${convertFileSrc(dataURL)})`);
             try {
                 await invoke('save_image', {
                     image: dataURL,
                     relativePath: `background/${whyBg}_background`,
                 })
+                toast.success("Изображение успешно сохранено!", {
+                    autoClose: 2000,
+                });
             } catch (err) {
                 console.error("Ошибка сохранения изображения: ", err);
+            }
+
+            try {
+                const image = await invoke('get_image_path', { path: `background/${whyBg}_background` });
+                const url_image = `url(${convertFileSrc(image)})`;
+                setBackgroundImage(`${project.name}_background_image_${whyBg}`, `background_image_${whyBg}`, url_image);
+            } catch (err) {
+                console.error("Ошибка получения изображения: ", err);
             }
         }
     };

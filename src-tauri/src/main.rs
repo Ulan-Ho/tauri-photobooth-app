@@ -12,14 +12,16 @@ mod work_hours_fn;
 mod init_project_fn;
 mod license;
 
-use globals::{LicenseState, PrinterState, PROJECT_PATH};
+use globals::{LicenseState, PrinterState, PROJECT_PATH, TemplatePaths};
 use init_project_fn::{get_projects, select_project, delete_project};
 use printer_fn::{saving_printer_data, get_printers_info, update_selected_printer, printer_information, printer_settings, printer_status};
 use image_fn::{delete_image, get_image_path, save_image, get_image_paths};
 use chromokey_fn::{save_settings, read_settings};
+use tauri::api::path::app_local_data_dir;
 use work_hours_fn::{get_work_hours, set_work_hours};
 use license::{verify_license, check_license};
 
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::os::windows::process::CommandExt;
 use windows_sys::Win32::System::Threading::CREATE_NO_WINDOW;
@@ -28,11 +30,13 @@ use std::ffi::CString;
 use device_query::{DeviceQuery, DeviceState, Keycode};
 use std::result::Result;
 use std::sync::{Arc, Mutex};
-use tauri::{CustomMenuItem, Menu, Manager};
+use tauri::{AppHandle, CustomMenuItem, Manager, Menu};
 use std::time::{Duration, Instant};
 use std::{fs, thread};
 use base64::prelude::*;
 use std::fs::File;
+use std::collections::HashMap;
+use mime_guess::MimeGuess;
 use std::io::Write;
 // use std::path::PathBuf;
 use std::env;
@@ -1070,7 +1074,11 @@ async fn main() {
             read_settings,
             get_image_paths,
             verify_license,
-            check_license
+            check_license, 
+            save_canvas_template,
+            get_saved_canvas_template_paths,
+            load_canvas_template, 
+            save_part_templates
             ])
         .manage(Arc::new(Mutex::new(None::<Arc<Mutex<Camera>>>)))
         .manage(PrinterState::default())
@@ -1525,4 +1533,157 @@ Print-Image -PrinterName "{}" -FilePath {} -Scale 97 -PaperSize "6x4-Split (6x2 
     }
 
     Ok(())
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+use uuid::Uuid;
+
+
+#[tauri::command]
+fn save_canvas_template(app: AppHandle, data: String, base64_image: String) -> Result<(), String> {
+    let base_path = app
+        .path_resolver()
+        .app_local_data_dir()
+        .ok_or("Не удалось получить путь к папке данных приложения")?
+        .join("TemplateOptions");
+
+    fs::create_dir_all(&base_path).map_err(|e| format!("Не удалось создать папку: {}", e))?;
+
+    let id = Uuid::new_v4();
+
+    let image_path = base_path.join(format!("canvas_{}.png", id));
+    let file_path = base_path.join(format!("canvas_{}.json", id));
+
+    let image_data = BASE64_STANDARD
+        .decode(&base64_image)
+        .map_err(|e| format!("Ошибка декодирования изображения: {}", e))?;
+
+    fs::write(&image_path, image_data).map_err(|e| e.to_string())?;
+    fs::write(&file_path, data).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+
+
+#[tauri::command]
+fn get_saved_canvas_template_paths(app: AppHandle) -> Result<Vec<TemplatePaths>, String> {
+    let base_path = app
+        .path_resolver()
+        .app_local_data_dir()
+        .ok_or("Не удалось получить путь к папке данных приложения")?
+        .join("TemplateOptions");
+
+    let entries = fs::read_dir(&base_path).map_err(|e| e.to_string())?;
+
+    let mut json_files: HashMap<String, PathBuf> = HashMap::new();
+    let mut other_files: HashMap<String, PathBuf> = HashMap::new();
+
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("").to_string();
+
+        match ext {
+            "json" => {
+                json_files.insert(stem.clone(), path);
+            }
+            _ => {
+                other_files.insert(stem.clone(), path);
+            }
+        }
+    }
+    // println!("json_files: {:?}", json_files.keys());
+    // println!("other_files: {:?}", other_files);
+
+    let mut result = Vec::new();
+    for name in json_files.keys() {
+        if let (Some(json), Some(image)) = (json_files.get_key_value(name), other_files.get(name)) {
+            result.push(TemplatePaths {
+                json: json.0.to_string().to_string(),
+                image: image.to_string_lossy().to_string(),
+            });
+        }
+    }
+
+    Ok(result)
+}
+
+
+#[tauri::command]
+fn load_canvas_template(app: AppHandle, path: String) -> Result<String, String> {
+    let base_path = app
+        .path_resolver()
+        .app_local_data_dir()
+        .ok_or("Не удалось получить путь к папке данных приложения")?
+        .join("TemplateOptions")
+        .join(path);
+
+    fs::read_to_string(base_path).map_err(|e| e.to_string())
+}
+
+
+
+#[tauri::command]
+fn save_part_templates(app: AppHandle, data: String, canvas_id: String, object_id: String) -> Result<String, String> {
+    let base_path = app
+        .path_resolver()
+        .app_local_data_dir()
+        .ok_or("Не удалось получить путь к папке данных приложения")?
+        .join(format!("PartTemplates/canvas_{}", canvas_id));
+
+    fs::create_dir_all(&base_path).map_err(|e| format!("Не удалось создать папку: {}", e))?;
+
+    // Убираем префикс, например, data:image/png;base64,
+    let (mime_type, base64_data_cleaned) = if let Some(pos) = data.find("base64,") {
+        let mime_type = &data[..pos];  // MIME тип, например "data:image/png;"
+        let data_cleaned = &data[pos + 7..];   // сами данные
+        (mime_type, data_cleaned)
+    } else {
+        return Err("Некорректные данные base64".into());
+    };
+
+    // Определяем расширение файла на основе MIME типа
+    let mime_str = mime_type.trim_start_matches("data:").trim_end_matches(';');
+    let mime_guess = MimeGuess::from_ext(mime_str);
+    let ext = mime_guess
+        .first_raw()
+        .unwrap_or("png"); // fallback
+    println!("MIME type: {}, Extension: {}", mime_str, ext);
+
+    // Генерация пути с правильным расширением
+    let file_path = base_path.join(format!("image_{}.{}", object_id, ext));
+
+    println!("File path: {:?}", file_path);
+    // Декодируем base64 данные
+    let decoded_data = BASE64_STANDARD.decode(base64_data_cleaned)
+        .map_err(|e| format!("Ошибка декодирования base64: {}", e))?;
+
+    fs::write(&file_path, decoded_data)
+        .map_err(|e| format!("Не удалось записать файл: {}", e))?;
+
+    Ok(file_path.to_str().unwrap_or_default().to_string())
 }

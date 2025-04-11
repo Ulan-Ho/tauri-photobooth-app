@@ -3,12 +3,12 @@ import AdminShell from '../components/AdminShell';
 import { useStore } from './store';
 import { Plus, Save, Square, Circle, Triangle, Minus, Trash2, Star, Octagon, FileImage, SaveIcon, ArrowBigUpDash, X, RefreshCcwDot } from "lucide-react";
 import ObjectProperties from '../components/ObjectProperties';
-import { useFetcher } from 'react-router-dom';
+import { useFetcher, useNavigate } from 'react-router-dom';
 import { usePageNavigation } from '../hooks/usePageNavigation.js';
 import { toast, ToastContainer } from 'react-toastify';
-import { invoke } from '@tauri-apps/api';
+import { invoke, convertFileSrc } from '@tauri-apps/api/tauri';
 import { drawMyCanvas } from '../components/CanvasDrawer';
-import { saveCanvasData, saveCanvasImage } from '../utils/canvasUtils';
+import { saveCanvasData, saveCanvasImage, saveCanvasTemplate } from '../utils/canvasUtils';
 
 const props = {
     page: 'Редактор Шаблонов',
@@ -16,10 +16,10 @@ const props = {
 };
 
 export default function TemplateEditor() {
-
+    const navigate = useNavigate();
     usePageNavigation();
 
-    const { reference, setReferences, chromokey, setChromokey, setProject, addObject, setCanvasProps, canvases, currentCanvasId, updateObjectProps, removeObject, addCanvas, removeCanvas, switchCanvas, setCanvasData } = useStore();
+    const { reference, setReferences, chromokey, setChromokey, setProject, addObject, setCanvasProps, canvases, currentCanvasId, updateObjectProps, removeObject, addCanvas, removeCanvas, switchCanvas, setCanvasData, addCanvasFromTemplate } = useStore();
     const [activeTab, setActiveTab] = useState('shapes');
     const canvasRef = useRef(null);
     const canvasRefForSelect = useRef(null);
@@ -27,9 +27,29 @@ export default function TemplateEditor() {
     const fileInputRef = useRef(null);
     const fileInputRefForSelect = useRef(null);
     const [selectedObjectId, setSelectedObjectId] = useState(null);
+    const [showTemplateModel, setShowTemplateModel] = useState(false);
+    const [selectedTemplate, setSelectedTemplate] = useState(null);
+    const [canvasTemplateName, setCanvasTemplateName] = useState('');
+    const canvasTemplate = JSON.parse(localStorage.getItem('canvasTemplates'));
+    // const canvasTemplate = canvasTemplates ? canvasTemplates : [];
+
+    useEffect(() => {
+        if (showTemplateModel) {
+            document.body.style.overflow = 'hidden'; // блокирует прокрутку
+        } else {
+            document.body.style.overflow = 'auto';   // возвращает обратно
+        }
+      
+        // Очистка при размонтировании компонента или изменении showTemplateModel
+        return () => {
+            document.body.style.overflow = 'auto';
+        };
+    }, [showTemplateModel]);
 
     useEffect(() => {
         loadAllCanvasData();
+        // loadAllCanvasData();
+        // loadAllCanvasData();
     }, []);
 
     const handleObjectClick = (e) => {
@@ -112,10 +132,10 @@ export default function TemplateEditor() {
         addObject(currentCanvasId, newShape);
     };
 
-    const addNewImage = (imageSrc, imgWidth, imgHeight, imgObject) => {
+    const addNewImage = async (imageSrc, imgWidth, imgHeight, imgObject) => {
         // const existingImage = currentCanvas.objects.find(obj => obj.src === imageSrc);
         // if (existingImage) return; // Пропускаем, если изображение уже существует
-        const newImage = {
+        let newImage = {
             id: Date.now(),
             nameObject: 'Изображение ' + Date.now(),
             type: 'image',
@@ -130,6 +150,8 @@ export default function TemplateEditor() {
             rotate: 0,
             opacity: 1
         };
+        const srcPath = await invoke('save_part_templates', { data: imageSrc, canvasId: String(currentCanvasId), objectId: String(newImage.id) });
+        newImage.src = convertFileSrc(srcPath);
         addObject(currentCanvasId, newImage);
     };
 
@@ -158,7 +180,7 @@ export default function TemplateEditor() {
         addObject(currentCanvasId, photoPlaceholder);
     };
 
-    const handleImageUpload = (e) => {
+    const handleImageUpload = async (e) => {
         const file = e.target.files[0];  // Получаем первый файл из input
         if (file) {
             const reader = new FileReader();
@@ -180,7 +202,7 @@ export default function TemplateEditor() {
             reader.onload = (event) => {
                 const img = new Image();
                 img.src = event.target.result;
-                img.onload = () => {
+                img.onload = async () => {
                         // addNewImage(event.target.result, img.width, img.height, img);  // Передаем base64 и реальные размеры изображения
                         // imageSrc, imgWidth, imgHeight, imgObject
                     const newImage = {
@@ -198,6 +220,8 @@ export default function TemplateEditor() {
                         rotate: 0,
                         opacity: 1
                     };
+                    const srcPath = await invoke('save_part_templates', { data: event.target.result, canvasId: String(currentCanvasId), objectId: String(newImage.id) });
+                    newImage.src = convertFileSrc(srcPath);
                     addObject(currentCanvasId, newImage);
                 };
             };
@@ -281,7 +305,7 @@ export default function TemplateEditor() {
     
         if (currentCanvas) {
             // Рисуем основной холст
-            drawMyCanvas(ctx, canvas, currentCanvas, true, chromokey.isEnabled === true ? chromokey.backgroundImage : reference, false);
+            drawMyCanvas(ctx, canvas, currentCanvas, true, chromokey.isEnabled ? chromokey.backgroundImage : reference, chromokey.isEnabled, false);
     
             // Рисуем выделение только на основном холсте
             if (selectedObjectId) {
@@ -292,13 +316,19 @@ export default function TemplateEditor() {
             }
     
             // Рисуем вспомогательный холст, но без выделения
-            drawMyCanvas(ctxSel, canvasSel, currentCanvas, false, chromokey.isEnabled === true ? chromokey.backgroundImage : reference, false);
+            drawMyCanvas(ctxSel, canvasSel, currentCanvas, false, chromokey.isEnabled ? chromokey.backgroundImage : reference, true, false);
+            drawMyCanvas(ctxSel, canvasSel, currentCanvas, false, chromokey.isEnabled ? chromokey.backgroundImage : reference, true, false);
         }
     }, [currentCanvas, selectedObjectId]);
 
     const [isDragging, setIsDragging] = useState(false); // To check if we're dragging
     const [draggedObjectId, setDraggedObjectId] = useState(null); // To store which object is being dragged
     const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 }); // To track the offset of the drag start
+
+    // async function getAppDataPath() {
+    //     const path = await configDir();
+    //     return path;
+    // }
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -403,17 +433,20 @@ export default function TemplateEditor() {
     }, [selectedObjectId, currentCanvas, updateObject, removeObject]);
 
     async function loadAllCanvasData() {
+        // const names = await invoke('get_saved_canvas_template_paths');
+        // console.log(names)
         try {
             const canvasArray = await invoke('load_all_canvas_data');
              // Switch to the first canvas
             if (canvasArray.length === 0 || !canvasArray) {
-                canvases.forEach(canvas => {
+                // const path = await getAppDataPath();
+                canvases.forEach(async canvas => {
                     canvas.objects.map((obj) => {
                         if (obj.type === 'image') obj.imgObject = '';
                     });
-                    canvas.canvasProps.webpData = canvasRefForSelect.current.toDataURL('image/webp');
+                    await saveCanvasImage(canvas.id, canvas, canvasRefForSelect);
+                    console.log(canvas.id, canvas.canvasProps.webpData);
                     saveCanvasData(canvas.id, canvas);
-                    saveCanvasImage(canvas.id, canvas, canvasRefForSelect);
                 });
 
                 return;
@@ -426,7 +459,7 @@ export default function TemplateEditor() {
             } else {
                 switchCanvas(1);
             }
-            console.log(currentCanvas)
+            // console.log(currentCanvas)
             setCanvasData(canvasArray); // Use the new function to update the canvases
             
             setProject({ updateStatus: true });
@@ -437,7 +470,9 @@ export default function TemplateEditor() {
         }
     }
     
-    
+    async function addCanvasTemplate() {
+        await saveCanvasTemplate(currentCanvas, canvasRef);
+    }
 
     async function handleRemoveCanvas() {
         try {
@@ -462,14 +497,16 @@ export default function TemplateEditor() {
         }
     }
 
-    const saveAllData = () => {
+    const saveAllData = async (currentCanvas, canvasId, canvasRefForSelect) => {
         try {
             currentCanvas.objects.map((obj) => {
                 if (obj.type === 'image') obj.imgObject = '';
             });
-            currentCanvas.canvasProps.webpData = canvasRefForSelect.current.toDataURL('image/webp');
-            saveCanvasData(currentCanvas.id, currentCanvas);
-            saveCanvasImage(currentCanvas.id, currentCanvas, canvasRefForSelect);
+            // const image = await invoke('get_image_path', { path: `template/${currentCanvas.canvasProps.available ? `available` : `not_available`}/canvas_${currentCanvas.id}` });
+            // currentCanvas.canvasProps.webpData = `url(${convertFileSrc(image)})`;
+            await saveCanvasImage(canvasId, currentCanvas, canvasRefForSelect);
+            console.log(canvasId, currentCanvas.canvasProps.webpData);
+            saveCanvasData(canvasId, currentCanvas);
             toast.success('Данные сохранены');
         } catch (error) {
             console.log(error);
@@ -528,10 +565,94 @@ export default function TemplateEditor() {
         setCanvasProps(currentCanvas.id, { width: height, height: width });
     }
 
+
+    async function changeTemplate() {
+        if (!selectedTemplate) return
+        const template = canvasTemplate.find(template => template.image === selectedTemplate);
+        toast.info('Загрузка шаблона...');
+        const data = await invoke('load_canvas_template', { path: `${template.json}.json` });
+        let canvasData = JSON.parse(data);
+        canvasData.id = Date.now();
+        canvasData.canvasProps.webpData = null;
+        canvasData.canvasProps.name = canvasTemplateName == '' ? 'Без названия' : canvasTemplateName;
+        addCanvasFromTemplate(canvasData);
+        setCanvasTemplateName('');
+        switchCanvas(canvasData.id);
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        // drawMyCanvas(canvasRef.current.getContext('2d'), canvasRef.current, canvasData, true, chromokey.isEnabled ? chromokey.backgroundImage : reference, chromokey.isEnabled, false);
+        drawMyCanvas(ctx, canvas, canvasData, true, chromokey.isEnabled ? chromokey.backgroundImage : reference, chromokey.isEnabled, false);
+        drawMyCanvas(ctx, canvas, canvasData, true, chromokey.isEnabled ? chromokey.backgroundImage : reference, chromokey.isEnabled, false);
+        // drawMyCanvas(ctx, canvas, canvasData, true, chromokey.isEnabled ? chromokey.backgroundImage : reference, chromokey.isEnabled, false);
+        // await saveCanvasImage(canvasData.id, canvasData, canvasRefForSelect);
+        // console.log(canvasData.id, canvasData.canvasProps.webpData);
+        // saveCanvasData(canvasData.id, canvasData);
+        // console.log(canvasData);
+        // loadAllCanvasData();
+        
+        setShowTemplateModel(false);
+        saveAllData(canvasData, canvasData.id, canvasRefForSelect);
+
+        
+        // Чтобы отменить:
+        // clearTimeout(timeoutId);
+        
+        // navigate('/settings/template-editor');
+    }
+
     return (
         <AdminShell props={props}>
             <div className="flex flex-col">
                 <div className='flex gap-8 w-full'>
+                    {showTemplateModel && (
+                        <div className='fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50'>
+                            <div className="bg-white rounded-xl shadow-xl p-6 w-[500px] space-y-4">
+                                <h2 className="text-xl font-semibold">Новый шаблон</h2>
+                    
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium">Название</label>
+                                    <input
+                                        type="text"
+                                        className="w-full border border-gray-300 rounded px-3 py-2"
+                                        value={canvasTemplateName ?? ''}
+                                        onChange={(e) => setCanvasTemplateName(e.target.value)}
+                                    />
+                                </div>
+                        
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium">Выберите шаблон</label>
+                                    <div className="grid grid-cols-2 gap-3 overflow-auto max-h-80">
+                                        {canvasTemplate.map((template, index) => (
+                                        <div
+                                            key={index}
+                                            className={`border-2 rounded cursor-pointer transition-all p-2 ${
+                                            selectedTemplate === template.image
+                                                ? "border-blue-500"
+                                                : "border-transparent"
+                                            }`}
+                                            onClick={() => setSelectedTemplate(template.image)}
+                                        >
+                                            <img
+                                                src={template.image}
+                                                alt={`template-${index}`}
+                                                className="w-full h-24 object-contain rounded"
+                                            />
+                                        </div>
+                                        ))}
+                                    </div>
+                                </div>
+                        
+                                <div className="flex justify-between">
+                                    <button className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600" onClick={() => setShowTemplateModel(false)}>
+                                        <X />
+                                    </button>
+                                    <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" onClick={changeTemplate}>
+                                        Выбрать холст
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     <div className="w-3/5">
                         <div className="flex justify-between items-center mb-4">
                             {/* Canvas or shapes will be rendered here */}
@@ -540,6 +661,9 @@ export default function TemplateEditor() {
                             />
                             <canvas ref={canvasRefForSelect} style={{ width: '400px', height: '600px', display: 'none'}} />
                             {/* Render canvas from `canvases` */}
+                            {/* <button onClick={addCanvasTemplate}>
+                                Add template canvas
+                            </button> */}
                         </div>
                     </div>
                     <div className="w-1/3">
@@ -660,12 +784,27 @@ export default function TemplateEditor() {
                                         </div>
                                         <div className="border-t border-gray-300 my-2"></div>
                                         <div className='flex mt-1 justify-between'>
-                                            <button className='flex bg-blue-500 text-white p-2 rounded-lg' onClick={() => addCanvas()}><Plus /> Добавить новый холст</button>
+                                            <button className='flex bg-blue-500 text-white p-2 rounded-lg' onClick={() => {
+                                                    setShowTemplateModel(true)
+                                                    console.log(canvasTemplate)
+                                                }}><Plus /> Добавить новый холст</button>
                                             <button className='bg-red-500 rounded-lg p-2 text-white' onClick={handleRemoveCanvas}><Trash2 /></button>
                                         </div>
                                         <div className='flex mt-1 justify-between'>
-                                            <button className='flex bg-green-500 text-white p-2 rounded-lg' onClick={saveAllData}><SaveIcon />Сохранить холсты</button>
+                                            <button className='flex bg-green-500 text-white p-2 rounded-lg' onClick={() => saveAllData(currentCanvas, currentCanvasId, canvasRefForSelect)}><SaveIcon />Сохранить холст</button>
                                             {/* <button className='flex bg-yellow-500 text-white p-2 rounded-lg' onClick={loadAllCanvasData}><ArrowBigUpDash /> Update</button> */}
+                                            <div className="relative group inline-block">
+                                                <button
+                                                    className="flex bg-yellow-500 text-white p-2 rounded-lg"
+                                                    onClick={addCanvasTemplate}
+                                                >
+                                                    <Plus />
+                                                </button>
+
+                                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-yellow-500 text-white text-sm px-2 py-1 rounded-lg shadow-md z-10">
+                                                    Добавить шаблон
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                     <div className='px-2 gap-x-2 gap-y-4'>
